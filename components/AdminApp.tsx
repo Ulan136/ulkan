@@ -426,13 +426,7 @@ function Reception({ orders, onAction, onOpen, settings }: {
     </div>
   )
 
-  function Btn({ children, onClick, primary, danger, small }: { children: React.ReactNode; onClick?: () => void; primary?: boolean; danger?: boolean; small?: boolean }) {
-    return (
-      <button onClick={onClick} style={{ border: `1px solid ${primary ? 'transparent' : danger ? '#e6dcd6' : '#d8d3cc'}`, background: primary ? '#d4613a' : '#fff', color: primary ? '#fff' : danger ? '#c0392b' : '#3a352f', padding: small ? '6px 10px' : '7px 13px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: small ? 11 : 12 }}>
-        {children}
-      </button>
-    )
-  }
+
 }
 
 function Incoming({ orders, tab, setTab, onAction, onOpen }: {
