@@ -13,11 +13,11 @@ import {
 
 function Tag({ status }: { status: string }) {
   const t = statusTag(status)
-  return <span style={t.style as React.CSSProperties}>{t.label}</span>
+  return <span style={parseStyle(t.style)}>{t.label}</span>
 }
 
 function SrcTag({ source }: { source: string }) {
-  return <span style={srcStyle(source) as React.CSSProperties}>{srcLabel(source)}</span>
+  return <span style={parseStyle(srcStyle(source))}>{srcLabel(source)}</span>
 }
 
 function Progress({ pct, h = 5 }: { pct: number; h?: number }) {
@@ -30,7 +30,7 @@ function Progress({ pct, h = 5 }: { pct: number; h?: number }) {
 
 function Chip({ on, label }: { on: boolean; label: string }) {
   const s = on
-    ? 'color:oklch(0.5 0.12 155);background:oklch(0.95 0.05 155)'
+    ? 'color:#2e8a5e;background:#e8f5ee'
     : 'color:#a39c92;background:#f1ede7'
   return <span style={{ fontSize: 10.5, padding: '2px 9px', borderRadius: 20, fontWeight: 600, ...(parseStyle(s)) }}>{(on ? '✓ ' : '') + label}</span>
 }
@@ -76,7 +76,7 @@ function Card({
   const sum = cardSum(order)
   const overdue = isOverdue(order)
   const st = statusTag(order.status)
-  const borderColor = overdue ? 'oklch(0.85 0.08 25)' : '#e6e2dc'
+  const borderColor = overdue ? '#e8a0a0' : '#e6e2dc'
   const allDone = order.positions.length > 0 && order.positions.every(p => p.status === 'Доставлено')
 
   return (
@@ -102,14 +102,14 @@ function Card({
           </div>
         </div>
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <span style={st.style as React.CSSProperties}>{st.label}</span>
+          <span style={parseStyle(st.style)}>{st.label}</span>
           <SrcTag source={order.source} />
         </div>
       </div>
 
       {/* Changed banner */}
       {order.isChanged && (
-        <div style={{ background: 'oklch(0.97 0.04 70)', border: '1px solid oklch(0.88 0.07 70)', borderRadius: 7, padding: '8px 11px', marginBottom: 8, fontSize: 12 }}>
+        <div style={{ background: '#fdf8e1', border: '1px solid #e8d87a', borderRadius: 7, padding: '8px 11px', marginBottom: 8, fontSize: 12 }}>
           <div style={{ fontWeight: 600, color: 'oklch(0.5 0.12 70)', marginBottom: 2 }}>⚠ Клиент изменил заказ</div>
           <div style={{ color: '#5a554d' }}>{order.changeText}</div>
           {order.changePhone && <div style={{ color: '#8a847c', marginTop: 2 }}>{order.changePhone}</div>}
@@ -133,8 +133,8 @@ function Card({
                 <span style={{ flex: 1, color: '#26231f', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {p.name1c || p.oral || '—'}
                 </span>
-                <span style={ps.style as React.CSSProperties}>{ps.label}</span>
-                {p.late && <span style={{ fontSize: 10, color: 'oklch(0.52 0.18 25)', fontWeight: 600 }}>⚠</span>}
+                <span style={parseStyle(ps.style)}>{ps.label}</span>
+                {p.late && <span style={{ fontSize: 10, color: '#c0392b', fontWeight: 600 }}>⚠</span>}
               </div>
             )
           })}
@@ -150,7 +150,7 @@ function Card({
       {/* Meta */}
       <div style={{ display: 'flex', gap: 12, fontSize: 11.5, color: '#a39c92', marginBottom: 10, flexWrap: 'wrap' }}>
         <span>{fmtDateTime(order.createdAt)}</span>
-        {order.deadline && <span style={{ color: overdue ? 'oklch(0.52 0.18 25)' : '#a39c92' }}>срок: {fmtDate(order.deadline)}</span>}
+        {order.deadline && <span style={{ color: overdue ? '#c0392b' : '#a39c92' }}>срок: {fmtDate(order.deadline)}</span>}
         {sum > 0 && <span style={{ fontWeight: 600, color: '#6b655b' }}>{fmtMoney(sum)}</span>}
         {order.positions.length > 0 && <span>{primaryResp(order)}</span>}
         {order.postponed && <span style={{ color: 'oklch(0.5 0.1 250)' }}>⏸ Отложено</span>}
@@ -217,7 +217,7 @@ function Btn({ children, onClick, primary, color, small }: {
   small?: boolean
 }) {
   const h = color || (primary ? '30' : '260')
-  const bg = primary ? `oklch(0.62 0.17 30)` : `oklch(0.96 0.02 ${h})`
+  const bg = primary ? `#d4613a` : `oklch-soft3(${h})`
   const fg = primary ? '#fff' : `oklch(0.45 0.1 ${h})`
   const border = primary ? 'transparent' : `oklch(0.85 0.05 ${h})`
   return (
@@ -272,7 +272,7 @@ function DetailModal({ order, onClose, onAction }: {
             <div style={{ fontSize: 13, color: '#8a847c', marginTop: 3 }}>{order.from} → {order.to || '—'}</div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={st.style as React.CSSProperties}>{st.label}</span>
+            <span style={parseStyle(st.style)}>{st.label}</span>
             <button onClick={onClose} style={{ width: 32, height: 32, border: '1px solid #e6e2dc', borderRadius: 8, background: '#fff', cursor: 'pointer', fontSize: 16, color: '#8a847c', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
           </div>
         </div>
@@ -322,7 +322,7 @@ function DetailModal({ order, onClose, onAction }: {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                     <div style={{ fontWeight: 600, fontSize: 13 }}>{i + 1}. {p.name1c || p.oral || '—'}</div>
                     {p.late && p.status !== 'Доставлено' && (
-                      <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 20, fontWeight: 600, color: 'oklch(0.5 0.16 25)', background: 'oklch(0.95 0.05 25)' }}>⚠ Просрочено</span>
+                      <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 20, fontWeight: 600, color: '#b03020', background: '#faeaea' }}>⚠ Просрочено</span>
                     )}
                   </div>
                   <div style={{ fontSize: 12, color: '#8a847c', marginBottom: 7 }}>
@@ -350,13 +350,13 @@ function DetailModal({ order, onClose, onAction }: {
           <span style={{ flex: 1, color: '#6b655b', fontFamily: 'JetBrains Mono, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{url}</span>
           <button
             onClick={copyLink}
-            style={{ padding: '5px 12px', background: 'oklch(0.62 0.17 30)', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 11.5, fontWeight: 600, fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+            style={{ padding: '5px 12px', background: '#d4613a', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 11.5, fontWeight: 600, fontFamily: 'inherit', whiteSpace: 'nowrap' }}
           >Копировать</button>
         </div>
 
         {/* Changed */}
         {order.isChanged && (
-          <div style={{ background: 'oklch(0.97 0.04 70)', border: '1px solid oklch(0.88 0.07 70)', borderRadius: 9, padding: '12px 14px', marginBottom: 14 }}>
+          <div style={{ background: '#fdf8e1', border: '1px solid #e8d87a', borderRadius: 9, padding: '12px 14px', marginBottom: 14 }}>
             <div style={{ fontWeight: 700, color: 'oklch(0.5 0.12 70)', marginBottom: 4 }}>Клиент изменил заказ</div>
             <div style={{ fontSize: 13 }}>{order.changeText}</div>
             {order.changePhone && <div style={{ fontSize: 12, color: '#8a847c', marginTop: 4 }}>{order.changePhone}</div>}
@@ -405,7 +405,7 @@ function Dashboard({ data }: { data: Record<string, unknown> | null }) {
   }
 
   const pill = (value: number, label: string, hue: string) => (
-    <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 68, padding: '7px 14px', borderRadius: 10, background: `oklch(0.96 0.03 ${hue})`, color: `oklch(0.45 0.1 ${hue})` }}>
+    <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 68, padding: '7px 14px', borderRadius: 10, background: `oklch-soft2(${hue})`, color: `oklch(0.45 0.1 ${hue})` }}>
       <span style={{ fontWeight: 700, fontSize: 16, fontFamily: 'JetBrains Mono, monospace' }}>{value}</span>
       <span style={{ fontSize: 10.5, opacity: .85 }}>{label}</span>
     </div>
@@ -426,9 +426,9 @@ function Dashboard({ data }: { data: Record<string, unknown> | null }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 14 }}>
         {[
           { label: 'Активных карточек', value: kpi.active, color: '#26231f' },
-          { label: 'Сегодня доставлено', value: kpi.deliveredToday, color: 'oklch(0.5 0.12 155)' },
-          { label: 'Просрочено', value: kpi.overdue, color: kpi.overdue ? 'oklch(0.52 0.18 25)' : '#26231f' },
-          { label: 'В работе', value: kpi.inwork, color: 'oklch(0.55 0.17 30)' },
+          { label: 'Сегодня доставлено', value: kpi.deliveredToday, color: '#2e8a5e' },
+          { label: 'Просрочено', value: kpi.overdue, color: kpi.overdue ? '#c0392b' : '#26231f' },
+          { label: 'В работе', value: kpi.inwork, color: '#c0532a' },
           { label: 'Оборот сегодня', value: kpi.turnoverToday, color: '#26231f' },
         ].map(k => (
           <div key={k.label} style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, padding: '15px 16px' }}>
@@ -451,7 +451,7 @@ function Dashboard({ data }: { data: Record<string, unknown> | null }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {attention.map((a, i) => (
                 <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#faf8f6', border: '1px solid #ece8e2', borderRadius: 8, padding: '9px 11px' }}>
-                  <span style={{ width: 9, height: 9, borderRadius: '50%', background: `oklch(0.6 0.15 ${a.hue})`, flex: 'none' }} />
+                  <span style={{ width: 9, height: 9, borderRadius: '50%', background: `rgb-hue(${a.hue})`, flex: 'none' }} />
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600 }}>{a.label}</span>
                     <span style={{ display: 'block', fontSize: 11, color: '#8a847c' }}>{a.sub}</span>
@@ -469,7 +469,7 @@ function Dashboard({ data }: { data: Record<string, unknown> | null }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {activity.map((ev, i) => (
               <div key={i} style={{ display: 'flex', gap: 11, padding: '7px 0', borderBottom: '1px solid #f1ede7' }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'oklch(0.62 0.17 30)', marginTop: 5, flex: 'none' }} />
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#d4613a', marginTop: 5, flex: 'none' }} />
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: 'block', fontSize: 12.5, fontWeight: 500 }}>{ev.text}</span>
                   <span style={{ display: 'block', fontSize: 11, color: '#a39c92' }}>{ev.sub}</span>
@@ -483,15 +483,15 @@ function Dashboard({ data }: { data: Record<string, unknown> | null }) {
         {/* Progress ring */}
         <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ fontWeight: 700, fontSize: 13.5, alignSelf: 'flex-start', marginBottom: 8 }}>Прогресс системы</div>
-          <div style={{ position: 'relative', width: 130, height: 130, borderRadius: '50%', background: `conic-gradient(oklch(0.62 0.17 30) ${(progress.overallPct || 0) * 3.6}deg, #ece8e2 0)`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '6px 0 14px' }}>
+          <div style={{ position: 'relative', width: 130, height: 130, borderRadius: '50%', background: `conic-gradient(#d4613a ${(progress.overallPct || 0) * 3.6}deg, #ece8e2 0)`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '6px 0 14px' }}>
             <div style={{ width: 98, height: 98, borderRadius: '50%', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ fontSize: 28, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>{progress.overallPct || 0}%</span>
               <span style={{ fontSize: 11, color: '#8a847c' }}>средний %</span>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#6b655b' }}>
-            <span><b style={{ color: 'oklch(0.62 0.17 30)' }}>{progress.inwork}</b> в работе</span>
-            <span><b style={{ color: 'oklch(0.6 0.13 155)' }}>{progress.delivered}</b> доставлено</span>
+            <span><b style={{ color: '#d4613a' }}>{progress.inwork}</b> в работе</span>
+            <span><b style={{ color: '#3a9d6e' }}>{progress.delivered}</b> доставлено</span>
             <span><b style={{ color: 'oklch(0.55 0.18 25)' }}>{progress.overdue}</b> просроч.</span>
           </div>
         </div>
@@ -526,7 +526,7 @@ function Dashboard({ data }: { data: Record<string, unknown> | null }) {
                   <span style={{ color: '#8a847c', fontFamily: 'JetBrains Mono, monospace' }}>{c.count}</span>
                 </div>
                 <div style={{ height: 5, background: '#ece8e2', borderRadius: 3 }}>
-                  <div style={{ width: `${c.pct}%`, height: '100%', borderRadius: 3, background: 'oklch(0.62 0.17 30)' }} />
+                  <div style={{ width: `${c.pct}%`, height: '100%', borderRadius: 3, background: '#d4613a' }} />
                 </div>
               </div>
             ))}
@@ -555,7 +555,7 @@ function Reception({ orders, onAction, onOpen }: { orders: Order[]; onAction: (i
       <div>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, display: 'flex', gap: 8, alignItems: 'center' }}>
           Ожидание
-          <span style={{ fontSize: 11.5, fontWeight: 600, padding: '1px 9px', borderRadius: 20, background: 'oklch(0.95 0.04 30)', color: 'oklch(0.55 0.17 30)', fontFamily: 'JetBrains Mono, monospace' }}>{waiting.length}</span>
+          <span style={{ fontSize: 11.5, fontWeight: 600, padding: '1px 9px', borderRadius: 20, background: '#fdf0ea', color: '#c0532a', fontFamily: 'JetBrains Mono, monospace' }}>{waiting.length}</span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {waiting.length === 0 ? <EmptyState text="Заказы ожидают поступления" /> :
@@ -567,7 +567,7 @@ function Reception({ orders, onAction, onOpen }: { orders: Order[]; onAction: (i
       <div>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, display: 'flex', gap: 8, alignItems: 'center' }}>
           Стол приёмки
-          <span style={{ fontSize: 11.5, fontWeight: 600, padding: '1px 9px', borderRadius: 20, background: 'oklch(0.95 0.04 30)', color: 'oklch(0.55 0.17 30)', fontFamily: 'JetBrains Mono, monospace' }}>{processing.length}</span>
+          <span style={{ fontSize: 11.5, fontWeight: 600, padding: '1px 9px', borderRadius: 20, background: '#fdf0ea', color: '#c0532a', fontFamily: 'JetBrains Mono, monospace' }}>{processing.length}</span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {processing.length === 0 ? <EmptyState text="Стол свободен" /> :
@@ -611,13 +611,13 @@ function Incoming({ orders, tab, setTab, onAction, onOpen }: {
               padding: '9px 14px', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
               fontSize: 13, fontWeight: tab === id ? 700 : 500,
               color: tab === id ? '#26231f' : '#8a847c',
-              background: 'none', borderBottom: `2px solid ${tab === id ? 'oklch(0.62 0.17 30)' : 'transparent'}`,
+              background: 'none', borderBottom: `2px solid ${tab === id ? '#d4613a' : 'transparent'}`,
               marginBottom: -2,
             }}
           >
             {label}
             {list.length > 0 && (
-              <span style={{ marginLeft: 6, fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', padding: '0 6px', borderRadius: 20, background: tab === id ? 'oklch(0.94 0.05 30)' : '#f1ede7', color: tab === id ? 'oklch(0.55 0.17 30)' : '#8a847c' }}>
+              <span style={{ marginLeft: 6, fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', padding: '0 6px', borderRadius: 20, background: tab === id ? 'oklch(0.94 0.05 30)' : '#f1ede7', color: tab === id ? '#c0532a' : '#8a847c' }}>
                 {list.length}
               </span>
             )}
@@ -652,7 +652,7 @@ function Outgoing({ orders, onAction, onOpen }: { orders: Order[]; onAction: (id
       <div style={{ marginBottom: 16, fontSize: 13, color: '#8a847c' }}>
         Активных заказов: <b style={{ color: '#26231f' }}>{cards.length}</b>
         {cards.filter(o => isOverdue(o)).length > 0 && (
-          <span style={{ marginLeft: 12, color: 'oklch(0.52 0.18 25)', fontWeight: 600 }}>
+          <span style={{ marginLeft: 12, color: '#c0392b', fontWeight: 600 }}>
             ⚠ Просрочено: {cards.filter(o => isOverdue(o)).length}
           </span>
         )}
@@ -682,7 +682,7 @@ function Accounting({ orders, onAction, onOpen, onPostAll }: {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <span style={{ fontSize: 13, color: '#8a847c' }}>На проверке: <b style={{ color: '#26231f' }}>{cards.length}</b></span>
         {cards.length > 1 && (
-          <button onClick={onPostAll} style={{ padding: '7px 16px', background: 'oklch(0.62 0.17 30)', color: '#fff', border: 'none', borderRadius: 9, cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}>
+          <button onClick={onPostAll} style={{ padding: '7px 16px', background: '#d4613a', color: '#fff', border: 'none', borderRadius: 9, cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}>
             Провести все в бухгалтерию ({cards.filter(o => !o.postponed).length})
           </button>
         )}
@@ -772,7 +772,7 @@ function Settings({ data }: { data: Record<string, unknown> | null }) {
       <div style={{ display: 'flex', borderBottom: '2px solid #ece8e2', marginBottom: 20 }}>
         {tabs.map(([id, label, count]) => (
           <button key={id} onClick={() => setTab(id)}
-            style={{ padding: '9px 14px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: tab === id ? 700 : 500, color: tab === id ? '#26231f' : '#8a847c', background: 'none', borderBottom: `2px solid ${tab === id ? 'oklch(0.62 0.17 30)' : 'transparent'}`, marginBottom: -2 }}>
+            style={{ padding: '9px 14px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: tab === id ? 700 : 500, color: tab === id ? '#26231f' : '#8a847c', background: 'none', borderBottom: `2px solid ${tab === id ? '#d4613a' : 'transparent'}`, marginBottom: -2 }}>
             {label} <span style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', color: '#a39c92' }}>{count}</span>
           </button>
         ))}
@@ -793,7 +793,7 @@ function Settings({ data }: { data: Record<string, unknown> | null }) {
                 <td style={{ padding: '10px 12px', fontWeight: 500 }}>{c.name}</td>
                 <td style={{ padding: '10px 12px', fontFamily: 'JetBrains Mono, monospace', color: '#6b655b' }}>{c.slug}</td>
                 <td style={{ padding: '10px 12px', fontFamily: 'JetBrains Mono, monospace', color: '#6b655b', fontSize: 11.5 }}>/client/{c.slug}</td>
-                <td style={{ padding: '10px 12px' }}><span style={{ color: c.active ? 'oklch(0.5 0.12 155)' : '#b8b1a6', fontWeight: 500 }}>{c.active ? 'Активен' : 'Неактивен'}</span></td>
+                <td style={{ padding: '10px 12px' }}><span style={{ color: c.active ? '#2e8a5e' : '#b8b1a6', fontWeight: 500 }}>{c.active ? 'Активен' : 'Неактивен'}</span></td>
               </tr>
             ))}
           </tbody>
@@ -816,7 +816,7 @@ function Settings({ data }: { data: Record<string, unknown> | null }) {
                 <td style={{ padding: '10px 12px', fontFamily: 'JetBrains Mono, monospace', color: '#6b655b', fontSize: 12 }}>{u.email}</td>
                 <td style={{ padding: '10px 12px', color: '#6b655b' }}>{u.role}</td>
                 <td style={{ padding: '10px 12px', fontFamily: 'JetBrains Mono, monospace', color: '#6b655b' }}>{u.slug || '—'}</td>
-                <td style={{ padding: '10px 12px' }}><span style={{ color: u.active ? 'oklch(0.5 0.12 155)' : '#b8b1a6', fontWeight: 500 }}>{u.active ? 'Активен' : 'Неактивен'}</span></td>
+                <td style={{ padding: '10px 12px' }}><span style={{ color: u.active ? '#2e8a5e' : '#b8b1a6', fontWeight: 500 }}>{u.active ? 'Активен' : 'Неактивен'}</span></td>
               </tr>
             ))}
           </tbody>
@@ -837,7 +837,7 @@ function Settings({ data }: { data: Record<string, unknown> | null }) {
               <tr key={s.id} style={{ borderBottom: '1px solid #f1ede7', opacity: s.active ? 1 : .5 }}>
                 <td style={{ padding: '10px 12px', fontWeight: 500 }}>{s.name}</td>
                 <td style={{ padding: '10px 12px', color: '#6b655b' }}>{s.type}</td>
-                <td style={{ padding: '10px 12px' }}><span style={{ color: s.active ? 'oklch(0.5 0.12 155)' : '#b8b1a6', fontWeight: 500 }}>{s.active ? 'Активен' : 'Неактивен'}</span></td>
+                <td style={{ padding: '10px 12px' }}><span style={{ color: s.active ? '#2e8a5e' : '#b8b1a6', fontWeight: 500 }}>{s.active ? 'Активен' : 'Неактивен'}</span></td>
               </tr>
             ))}
           </tbody>
@@ -1013,7 +1013,7 @@ export default function AdminApp({ user }: { user: SessionUser }) {
       {/* SIDEBAR */}
       <aside style={{ width: 230, flex: 'none', background: '#211f1c', color: '#cfc9c0', display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div style={{ padding: '20px 22px 18px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid #322f2b' }}>
-          <div style={{ width: 30, height: 30, borderRadius: 7, background: 'oklch(0.62 0.17 30)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff', fontSize: 15 }}>U</div>
+          <div style={{ width: 30, height: 30, borderRadius: 7, background: '#d4613a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff', fontSize: 15 }}>U</div>
           <div>
             <div style={{ fontWeight: 700, fontSize: 15, color: '#fff', letterSpacing: '-.2px' }}>U-Kan</div>
             <div style={{ fontSize: 10.5, color: '#8c857a', letterSpacing: '.3px' }}>ЛОГИСТИКА · АДМИН</div>
@@ -1032,7 +1032,7 @@ export default function AdminApp({ user }: { user: SessionUser }) {
                   display: 'flex', alignItems: 'center', gap: 10, width: '100%',
                   padding: '9px 12px', border: 'none', borderRadius: 8, cursor: disabled ? 'not-allowed' : 'pointer',
                   fontFamily: 'inherit', fontSize: 13, fontWeight: active ? 600 : 500, textAlign: 'left',
-                  background: active ? 'oklch(0.62 0.17 30)' : 'transparent',
+                  background: active ? '#d4613a' : 'transparent',
                   color: active ? '#fff' : disabled ? '#6b655b' : '#cfc9c0',
                   opacity: disabled ? .5 : 1,
                 }}
@@ -1077,7 +1077,7 @@ export default function AdminApp({ user }: { user: SessionUser }) {
               { label: 'Просрочено', value: orders.filter(o => isOverdue(o)).length, hue: '25' },
               { label: 'К учёту', value: (incoming.filter(o => o.toacc).length) + accounting.length, hue: '155' },
             ].map(p => (
-              <div key={p.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 62, padding: '5px 12px', borderRadius: 9, background: `oklch(0.96 0.03 ${p.hue})`, color: `oklch(0.45 0.1 ${p.hue})` }}>
+              <div key={p.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 62, padding: '5px 12px', borderRadius: 9, background: `oklch-soft2(${p.hue})`, color: `oklch(0.45 0.1 ${p.hue})` }}>
                 <span style={{ fontWeight: 700, fontSize: 15, fontFamily: 'JetBrains Mono, monospace' }}>{p.value}</span>
                 <span style={{ fontSize: 10.5, opacity: .85 }}>{p.label}</span>
               </div>
