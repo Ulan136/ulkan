@@ -34,6 +34,10 @@ export async function POST(req: NextRequest) {
     return res
   } catch (e) {
     console.error('Phone login error:', e)
+    const msg = e instanceof Error ? e.message : ''
+    if (msg.includes('phone') || msg.includes('column') || msg.includes('does not exist')) {
+      return NextResponse.json({ error: 'База данных не обновлена. Выполните: npm run db:push' }, { status: 500 })
+    }
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }

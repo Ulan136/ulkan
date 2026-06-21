@@ -67,8 +67,13 @@ export default function LoginPage() {
         <p style={{ fontSize: 12, color: '#a39c92', marginTop: 20, textAlign: 'center' }}>
           Демо: admin@u-kan.kz / admin123
         </p>
+        <p style={{ fontSize: 12, color: '#8a847c', marginTop: 12, textAlign: 'center' }}>
+          Кабинет заказчика: <a href="/client" style={{ color: '#d4613a' }}>вход по телефону</a>
+          {' · '}
+          <a href="/register" style={{ color: '#d4613a' }}>регистрация</a>
+        </p>
         <p style={{ fontSize: 12, color: '#8a847c', marginTop: 8, textAlign: 'center' }}>
-          <a href="/" style={{ color: '#d4613a' }}>← На главную</a>
+          <a href="/" style={{ color: '#6b655b' }}>← На главную</a>
         </p>
       </div>
     </div>

@@ -1,7 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { createToken, normalizePhone } from '@/lib/auth'
 import { generateSlug } from '@/lib/ids'
+
+function registerErrorMessage(e: unknown): string {
+  if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e.code === 'P2002') return 'Телефон или email уже зарегистрирован'
+    if (e.code === 'P2021') return 'База данных не обновлена. Выполните: npm run db:push && npm run db:seed'
+  }
+  const msg = e instanceof Error ? e.message : ''
+  if (msg.includes('phone') || msg.includes('slug') || msg.includes('column') || msg.includes('does not exist')) {
+    return 'База данных не обновлена под v1.0. Выполните: npm run db:push && npm run db:seed (с DATABASE_URL от Neon)'
+  }
+  return 'Ошибка сервера'
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -54,6 +67,6 @@ export async function POST(req: NextRequest) {
     return res
   } catch (e) {
     console.error('Register error:', e)
-    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+    return NextResponse.json({ error: registerErrorMessage(e) }, { status: 500 })
   }
 }

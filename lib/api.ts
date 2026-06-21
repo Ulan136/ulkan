@@ -218,3 +218,29 @@ export async function updateUser(id: string, data: Record<string, unknown>) {
   if (!res.ok) throw new Error('Failed')
   return res.json()
 }
+
+export async function createNomenclature(data: { name: string; unit?: string; cat?: string }) {
+  const res = await fetch(`${BASE}/nomenclature`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.error || 'Ошибка')
+  }
+  return res.json()
+}
+
+export async function createPaymentStatus(data: { name: string }) {
+  const res = await fetch(`${BASE}/payment-statuses`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.error || 'Ошибка')
+  }
+  return res.json()
+}

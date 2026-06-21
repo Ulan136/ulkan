@@ -3,6 +3,18 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '').replace(/^8/, '7').slice(0, 11)
+  if (!digits) return ''
+  let result = '+7'
+  const rest = digits.startsWith('7') ? digits.slice(1) : digits
+  if (rest.length > 0) result += ' ' + rest.slice(0, 3)
+  if (rest.length > 3) result += ' ' + rest.slice(3, 6)
+  if (rest.length > 6) result += ' ' + rest.slice(6, 8)
+  if (rest.length > 8) result += ' ' + rest.slice(8, 10)
+  return result
+}
+
 export default function RegisterPage() {
   const router = useRouter()
   const [name, setName] = useState('')
@@ -63,7 +75,7 @@ export default function RegisterPage() {
             style={{ width: '100%', padding: '10px 12px', border: '1px solid #e0dcd5', borderRadius: 8, fontSize: 14, marginBottom: 16, fontFamily: 'inherit', boxSizing: 'border-box' }} />
 
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b655b', marginBottom: 6 }}>Телефон * (он же пароль для входа)</label>
-          <input value={phone} onChange={e => setPhone(e.target.value)} required placeholder="+7 ___ ___ __ __"
+          <input value={phone} onChange={e => setPhone(formatPhone(e.target.value))} required placeholder="+7 ___ ___ __ __"
             style={{ width: '100%', padding: '10px 12px', border: '1px solid #e0dcd5', borderRadius: 8, fontSize: 14, marginBottom: 16, fontFamily: 'inherit', boxSizing: 'border-box' }} />
 
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b655b', marginBottom: 6 }}>Email</label>
@@ -75,6 +87,13 @@ export default function RegisterPage() {
             {loading ? 'Создание…' : 'ЗАРЕГИСТРИРОВАТЬСЯ →'}
           </button>
         </form>
+
+        <p style={{ fontSize: 12, color: '#8a847c', marginTop: 20, textAlign: 'center' }}>
+          Уже есть аккаунт? <a href="/client" style={{ color: '#d4613a' }}>Войти по телефону</a>
+        </p>
+        <p style={{ fontSize: 12, color: '#8a847c', marginTop: 8, textAlign: 'center' }}>
+          <a href="/" style={{ color: '#6b655b' }}>← На главную</a>
+        </p>
       </div>
     </div>
   )

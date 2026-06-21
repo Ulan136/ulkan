@@ -51,6 +51,8 @@ import {
   updateUser,
   createProject,
   createSpecProject,
+  createNomenclature,
+  createPaymentStatus,
 } from '@/lib/api'
 import {
   cardProgress,
@@ -1655,8 +1657,12 @@ function SettingsScreen({ data, orders, onRefresh, onToast }: {
   const [userModal, setUserModal] = useState<UserFormData | null | 'new'>(null)
   const [showProjectModal, setShowProjectModal] = useState(false)
   const [showSpecModal, setShowSpecModal] = useState(false)
+  const [showNomModal, setShowNomModal] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [projForm, setProjForm] = useState({ name: '', clientId: '', description: '' })
   const [specForm, setSpecForm] = useState({ name: '', clientId: '', description: '', items: [{ name: '', qty: 1, unit: 'шт', nomenclatureId: '' }] })
+  const [nomForm, setNomForm] = useState({ name: '', unit: 'шт', cat: '' })
+  const [paymentForm, setPaymentForm] = useState({ name: '' })
 
   const clients = data.users.filter(u => isClientRole(u.role))
   const tabs: [SettingsTab, string, number][] = [
@@ -1704,6 +1710,24 @@ function SettingsScreen({ data, orders, onRefresh, onToast }: {
     setSpecForm({ name: '', clientId: '', description: '', items: [{ name: '', qty: 1, unit: 'шт', nomenclatureId: '' }] })
     onRefresh()
     onToast('✓ СпецПроект создан')
+  }
+
+  async function saveNomenclature() {
+    if (!nomForm.name.trim()) return
+    await createNomenclature(nomForm)
+    setShowNomModal(false)
+    setNomForm({ name: '', unit: 'шт', cat: '' })
+    onRefresh()
+    onToast('✓ Номенклатура добавлена')
+  }
+
+  async function savePaymentStatus() {
+    if (!paymentForm.name.trim()) return
+    await createPaymentStatus(paymentForm)
+    setShowPaymentModal(false)
+    setPaymentForm({ name: '' })
+    onRefresh()
+    onToast('✓ Статус оплаты добавлен')
   }
 
   function openEditUser(u: User) {
@@ -1843,48 +1867,61 @@ function SettingsScreen({ data, orders, onRefresh, onToast }: {
       )}
 
       {tab === 'nomenclature' && (
-        <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 11, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-            <thead>
-              <tr style={{ background: '#faf8f6', borderBottom: '1px solid #eee8e1' }}>
-                {['Наименование 1С', 'Ед.', 'Категория'].map(h => (
-                  <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 10.5, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.nomenclature.map(n => (
-                <tr key={n.id} style={{ borderBottom: '1px solid #f4f1ec' }}>
-                  <td style={{ padding: '12px 14px', fontWeight: 500 }}>{n.name}</td>
-                  <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace', color: '#6b655b' }}>{n.unit}</td>
-                  <td style={{ padding: '12px 14px', color: '#8a847c' }}>{n.cat}</td>
+        <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Btn variant="primary" onClick={() => setShowNomModal(true)}>+ Добавить номенклатуру</Btn>
+          </div>
+          <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 11, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+              <thead>
+                <tr style={{ background: '#faf8f6', borderBottom: '1px solid #eee8e1' }}>
+                  {['Наименование 1С', 'Ед.', 'Категория'].map(h => (
+                    <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 10.5, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase' }}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {data.nomenclature.length === 0 && (
+                  <tr><td colSpan={3} style={{ padding: 24, textAlign: 'center', color: '#a39c92' }}>Номенклатура пуста — добавьте первую позицию</td></tr>
+                )}
+                {data.nomenclature.map(n => (
+                  <tr key={n.id} style={{ borderBottom: '1px solid #f4f1ec' }}>
+                    <td style={{ padding: '12px 14px', fontWeight: 500 }}>{n.name}</td>
+                    <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace', color: '#6b655b' }}>{n.unit}</td>
+                    <td style={{ padding: '12px 14px', color: '#8a847c' }}>{n.cat}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {tab === 'payment' && (
-        <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 11, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-            <thead>
-              <tr style={{ background: '#faf8f6', borderBottom: '1px solid #eee8e1' }}>
-                {['Статус', 'Активен'].map(h => (
-                  <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 10.5, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.paymentStatuses.map(ps => (
-                <tr key={ps.id} style={{ borderBottom: '1px solid #f4f1ec' }}>
-                  <td style={{ padding: '12px 14px', fontWeight: 500 }}>{ps.name}</td>
-                  <td style={{ padding: '12px 14px', color: ps.active ? '#2e8a5e' : '#b8b1a6' }}>{ps.active ? 'Да' : 'Нет'}</td>
+        <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Btn variant="primary" onClick={() => setShowPaymentModal(true)}>+ Добавить статус</Btn>
+          </div>
+          <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 11, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+              <thead>
+                <tr style={{ background: '#faf8f6', borderBottom: '1px solid #eee8e1' }}>
+                  {['Статус', 'Активен'].map(h => (
+                    <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 10.5, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase' }}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {data.paymentStatuses.map(ps => (
+                  <tr key={ps.id} style={{ borderBottom: '1px solid #f4f1ec' }}>
+                    <td style={{ padding: '12px 14px', fontWeight: 500 }}>{ps.name}</td>
+                    <td style={{ padding: '12px 14px', color: ps.active ? '#2e8a5e' : '#b8b1a6' }}>{ps.active ? 'Да' : 'Нет'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {userModal !== null && (
@@ -1912,6 +1949,36 @@ function SettingsScreen({ data, orders, onRefresh, onToast }: {
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
               <Btn onClick={() => setShowProjectModal(false)}>Отмена</Btn>
               <Btn variant="primary" onClick={saveProject}>Сохранить →</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNomModal && (
+        <div onClick={() => setShowNomModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(33,31,28,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, width: 420, padding: 22, animation: 'ukpop .18s' }}>
+            <div style={{ fontWeight: 700, marginBottom: 14 }}>Добавить номенклатуру</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <input placeholder="Наименование 1С *" value={nomForm.name} onChange={e => setNomForm(f => ({ ...f, name: e.target.value }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit' }} />
+              <input placeholder="Ед. измерения" value={nomForm.unit} onChange={e => setNomForm(f => ({ ...f, unit: e.target.value }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit' }} />
+              <input placeholder="Категория" value={nomForm.cat} onChange={e => setNomForm(f => ({ ...f, cat: e.target.value }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
+              <Btn onClick={() => setShowNomModal(false)}>Отмена</Btn>
+              <Btn variant="primary" onClick={saveNomenclature}>Сохранить →</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPaymentModal && (
+        <div onClick={() => setShowPaymentModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(33,31,28,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, width: 380, padding: 22, animation: 'ukpop .18s' }}>
+            <div style={{ fontWeight: 700, marginBottom: 14 }}>Добавить статус оплаты</div>
+            <input placeholder="Название статуса *" value={paymentForm.name} onChange={e => setPaymentForm({ name: e.target.value })} style={{ width: '100%', padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', boxSizing: 'border-box' }} />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
+              <Btn onClick={() => setShowPaymentModal(false)}>Отмена</Btn>
+              <Btn variant="primary" onClick={savePaymentStatus}>Сохранить →</Btn>
             </div>
           </div>
         </div>
