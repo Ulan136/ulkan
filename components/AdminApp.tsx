@@ -1965,6 +1965,8 @@ export default function AdminApp({ user }: { user: SessionUser }) {
   const [orders, setOrders] = useState<Order[]>([])
   const [dashData, setDashData] = useState<DashboardData | null>(null)
   const [settingsData, setSettingsData] = useState<SettingsData | null>(null)
+  const [settingsLoading, setSettingsLoading] = useState(false)
+  const [settingsError, setSettingsError] = useState<string | null>(null)
   const [reports, setReports] = useState<DailyReport[]>([])
   const [detailId, setDetailId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -1984,8 +1986,18 @@ export default function AdminApp({ user }: { user: SessionUser }) {
   }, [])
 
   const loadSettings = useCallback(async () => {
-    try { setSettingsData(await fetchSettings()) } catch { /* ignore */ }
-  }, [])
+    setSettingsLoading(true)
+    setSettingsError(null)
+    try {
+      setSettingsData(await fetchSettings())
+    } catch {
+      setSettingsError('Не удалось загрузить справочники. Обновите базу: npm run db:push && npm run db:seed')
+      setSettingsData({ users: [], projects: [], specProjects: [], suppliers: [], nomenclature: [], paymentStatuses: [] })
+      showToast('Ошибка загрузки настроек')
+    } finally {
+      setSettingsLoading(false)
+    }
+  }, [showToast])
 
   const loadReports = useCallback(async () => {
     try { setReports(await fetchDailyReports()) } catch { /* ignore */ }
@@ -2191,8 +2203,19 @@ export default function AdminApp({ user }: { user: SessionUser }) {
               specProjects={settingsData.specProjects}
             />
           )}
+          {screen === 'settings' && settingsLoading && !settingsData && (
+            <div style={{ padding: 60, textAlign: 'center', color: '#8a847c' }}>Загрузка настроек…</div>
+          )}
           {screen === 'settings' && settingsData && (
-            <SettingsScreen data={settingsData} orders={orders} onRefresh={loadSettings} onToast={showToast} />
+            <>
+              {settingsError && (
+                <div style={{ background: '#fff8e1', border: '1px solid #e6d9a8', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 13, color: '#6b655b' }}>
+                  ⚠ {settingsError}
+                  <button onClick={loadSettings} style={{ marginLeft: 12, border: '1px solid #d8d3cc', background: '#fff', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>Повторить</button>
+                </div>
+              )}
+              <SettingsScreen data={settingsData} orders={orders} onRefresh={loadSettings} onToast={showToast} />
+            </>
           )}
         </div>
       </div>
