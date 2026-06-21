@@ -60,7 +60,7 @@ export default function HomePage() {
           </div>
           <p style={{ fontSize: 13, color: '#8a847c', marginBottom: 14 }}>Входящие/исходящие позиции, отчёт по смене.</p>
           <div style={{ display: 'flex', gap: 8 }}>
-            <a href="/login" style={{ background: '#211f1c', color: '#fff', padding: '8px 14px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 12 }}>Войти →</a>
+            <a href="/login?role=logist" style={{ background: '#211f1c', color: '#fff', padding: '8px 14px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 12 }}>Войти →</a>
           </div>
         </div>
       </div>

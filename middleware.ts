@@ -8,6 +8,7 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   if (pathname === '/client' || pathname.startsWith('/client/')) return NextResponse.next()
+  if (pathname.startsWith('/rsp/')) return NextResponse.next()
   if (PUBLIC.some(p => pathname.startsWith(p))) return NextResponse.next()
   if (pathname.startsWith('/_next') || pathname.startsWith('/favicon')) return NextResponse.next()
   if (pathname === '/') return NextResponse.next()

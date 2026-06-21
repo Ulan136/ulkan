@@ -10,6 +10,7 @@ function LoginForm() {
   const params = useSearchParams()
   const from = params.get('from') || ''
   const reason = params.get('reason') || ''
+  const roleHint = params.get('role') || ''
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -50,10 +51,14 @@ function LoginForm() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Ошибка входа')
 
-      if (from === '/admin' && ADMIN_ROLES.includes(data.user.role)) {
+      if (from.startsWith('/rsp/') && data.user.role === 'logist' && data.user.slug) {
+        router.push(`/rsp/${data.user.slug}`)
+      } else if (from === '/admin' && ADMIN_ROLES.includes(data.user.role)) {
         router.push('/admin')
       } else if (data.user.role === 'logist' && data.user.slug) {
         router.push(`/rsp/${data.user.slug}`)
+      } else if (data.user.role === 'logist' && !data.user.slug) {
+        throw new Error('У логиста не задан slug. Обратитесь к администратору.')
       } else if (['client', 'supplier_client'].includes(data.user.role) && data.user.slug) {
         router.push(`/client/${data.user.slug}`)
       } else {
@@ -76,10 +81,14 @@ function LoginForm() {
           <span style={{ fontWeight: 700, fontSize: 16 }}>U-Kan</span>
         </div>
         <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px' }}>
-          {from === '/admin' ? 'Вход в админку' : 'Вход в систему'}
+          {from === '/admin' ? 'Вход в админку' : roleHint === 'logist' || from.startsWith('/rsp/') ? 'Вход логиста' : 'Вход в систему'}
         </h1>
         <p style={{ fontSize: 13, color: '#8a847c', marginBottom: 24 }}>
-          {from === '/admin' ? 'Войдите по email и паролю администратора' : 'Введите данные вашего аккаунта'}
+          {from === '/admin'
+            ? 'Войдите по email и паролю администратора'
+            : roleHint === 'logist' || from.startsWith('/rsp/')
+              ? 'Email и пароль логиста'
+              : 'Введите данные вашего аккаунта'}
         </p>
 
         {checkingSession && (
@@ -114,7 +123,9 @@ function LoginForm() {
         </form>
 
         <p style={{ fontSize: 12, color: '#a39c92', marginTop: 20, textAlign: 'center' }}>
-          Демо: admin@u-kan.kz / admin123
+          {roleHint === 'logist' || from.startsWith('/rsp/')
+            ? 'Демо логист: logist1@u-kan.kz / admin123'
+            : 'Демо админ: admin@u-kan.kz / admin123'}
         </p>
         <p style={{ fontSize: 12, color: '#8a847c', marginTop: 12, textAlign: 'center' }}>
           Кабинет заказчика: <a href="/client" style={{ color: '#d4613a' }}>вход по телефону</a>

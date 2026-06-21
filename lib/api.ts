@@ -135,6 +135,18 @@ export async function fetchClientOrders(): Promise<Order[]> {
   return res.json()
 }
 
+export async function fetchLogistOrders(): Promise<Order[]> {
+  const res = await fetch(`${BASE}/logist/orders`, { cache: 'no-store' })
+  if (!res.ok) throw new Error('Failed')
+  return res.json()
+}
+
+export async function fetchDirectory() {
+  const res = await fetch(`${BASE}/client/directory`, { cache: 'no-store' })
+  if (!res.ok) throw new Error('Failed')
+  return res.json()
+}
+
 export async function createClientOrder(data: Record<string, unknown>) {
   const res = await fetch(`${BASE}/client/orders`, {
     method: 'POST',

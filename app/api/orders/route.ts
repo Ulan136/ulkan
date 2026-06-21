@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     const {
-      from, to, comment, phone, deadline, projectId, specProjectId, contactId,
+      from, fromId, to, comment, phone, deadline, projectId, specProjectId, contactId,
       source = 'admin_manual', isDraft = false, positions, directOutgoing = false,
     } = body
 
@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
       data: {
         id: cardId,
         from,
+        fromId: fromId || null,
         to: to || '',
         screen: isDraft ? 'incoming' : directOutgoing ? 'outgoing' : 'incoming',
         status: isDraft ? 'Черновик' : directOutgoing ? 'В работе' : 'В ожидании',

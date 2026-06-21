@@ -30,6 +30,8 @@ import {
   IncTab,
   FilterGroup,
   FilterStatus,
+  AdminFilterSelections,
+  EMPTY_FILTER_SELECTIONS,
   ArchiveTab,
   SettingsTab,
   BookkeepingTab,
@@ -635,9 +637,7 @@ function Reception({ orders, onAction, onOpen, settings, onCreated }: {
 
   const clients = settings?.users.filter(u => isClientRole(u.role)) || []
   const logists = settings?.users.filter(u => u.role === 'logist') || []
-  const suppliers = settings?.suppliers || []
-  const projects = settings?.projects.filter(p => p.status === 'active') || []
-  const specProjects = settings?.specProjects.filter(p => p.status === 'active') || []
+  const suppliers = settings?.users.filter(u => u.role === 'supplier_client' && u.active) || []
   const paymentStatuses = settings?.paymentStatuses || []
 
   const [form, setForm] = useState({
@@ -647,6 +647,8 @@ function Reception({ orders, onAction, onOpen, settings, onCreated }: {
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
+  const projects = settings?.projects.filter(p => p.status === 'active' && (!form.fromId || !p.clientId || p.clientId === form.fromId)) || []
+  const specProjects = settings?.specProjects.filter(p => p.status === 'active' && (!form.fromId || !p.clientId || p.clientId === form.fromId)) || []
   const selectedClient = clients.find(c => c.id === form.fromId)
   const subContacts = settings?.users.filter(u => u.companyId === form.fromId) || []
 
@@ -702,7 +704,7 @@ function Reception({ orders, onAction, onOpen, settings, onCreated }: {
               <label style={{ fontSize: 11.5, color: '#6b655b' }}>От кого
                 <select value={form.fromId} onChange={e => {
                   const c = clients.find(x => x.id === e.target.value)
-                  setForm(f => ({ ...f, fromId: e.target.value, from: c?.name || '', contactId: '' }))
+                  setForm(f => ({ ...f, fromId: e.target.value, from: c?.name || '', contactId: '', projectId: '', specProjectId: '' }))
                 }} style={{ display: 'block', width: '100%', marginTop: 5, padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 13 }}>
                   <option value="">Выберите…</option>
                   {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -1111,10 +1113,81 @@ function KanbanColumn({ colId, title, cards, onOpen, estimate }: {
   )
 }
 
-function FilterKanban({ orders, group, setGroup, statusFilter, setStatusFilter, onOpen, settings }: {
+type FilterColKey = string
+
+function FilterMultiSelect({ label, options, selected, onChange }: {
+  label: string
+  options: { value: string; label: string }[]
+  selected: string[]
+  onChange: (next: string[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const allSelected = options.length > 0 && selected.length === options.length
+  const summary = selected.length === 0
+    ? 'Выберите…'
+    : allSelected
+      ? 'Все'
+      : selected.length === 1
+        ? (options.find(o => o.value === selected[0])?.label || selected[0])
+        : `${selected.length} выбрано`
+
+  function toggleAll() {
+    onChange(allSelected ? [] : options.map(o => o.value))
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        style={{ padding: '7px 12px', borderRadius: 7, border: '1px solid #d8d3cc', background: '#fff', color: '#6b655b', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, minWidth: 150, textAlign: 'left' }}
+      >
+        {label}: {summary}
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 20, marginTop: 4, background: '#fff', border: '1px solid #e6e2dc', borderRadius: 9, padding: 8, minWidth: 220, maxHeight: 260, overflowY: 'auto', boxShadow: '0 8px 24px rgba(33,31,28,.12)' }}>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 8px', fontSize: 12, fontWeight: 600, cursor: 'pointer', borderBottom: '1px solid #f1ede7', marginBottom: 4 }}>
+            <input type="checkbox" checked={allSelected} onChange={toggleAll} />
+            Все
+          </label>
+          {options.map(o => (
+            <label key={o.value} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '5px 8px', fontSize: 12, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={selected.includes(o.value)}
+                onChange={() => onChange(selected.includes(o.value) ? selected.filter(v => v !== o.value) : [...selected, o.value])}
+              />
+              {o.label}
+            </label>
+          ))}
+          {options.length === 0 && <div style={{ padding: 8, fontSize: 12, color: '#a39c92' }}>Нет данных</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function orderMatchesFilterCol(order: Order, colKey: FilterColKey, settings: SettingsData | null): boolean {
+  if (!settings) return false
+  const [type, val] = colKey.split('::')
+  if (type === 'sup') return order.positions.some(p => p.supplier === val)
+  if (type === 'cust') {
+    const u = settings.users.find(x => x.name === val && x.role === 'supplier_client')
+    return order.from === val || (!!u && order.fromId === u.id)
+  }
+  if (type === 'priv') {
+    const u = settings.users.find(x => x.name === val && x.role === 'client')
+    return order.from === val || (!!u && order.fromId === u.id)
+  }
+  if (type === 'proj') return order.projectId === val
+  if (type === 'spec') return order.specProjectId === val
+  return false
+}
+
+function FilterKanban({ orders, selections, setSelections, statusFilter, setStatusFilter, onOpen, settings }: {
   orders: Order[]
-  group: FilterGroup
-  setGroup: (g: FilterGroup) => void
+  selections: AdminFilterSelections
+  setSelections: (s: AdminFilterSelections) => void
   statusFilter: FilterStatus
   setStatusFilter: (s: FilterStatus) => void
   onOpen: (id: string) => void
@@ -1132,46 +1205,79 @@ function FilterKanban({ orders, group, setGroup, statusFilter, setStatusFilter, 
     return boardBase
   }, [boardBase, statusFilter])
 
-  const grouped = useMemo(() => {
-    const map: Record<string, Order[]> = {}
-    if (group === 'clients') {
-      board.forEach(o => { const k = o.from || '—'; (map[k] = map[k] || []).push(o) })
-    } else if (group === 'suppliers') {
-      board.forEach(o => {
-        const sup = o.positions.map(p => p.supplier).find(Boolean) || 'Без поставщика'
-        ;(map[sup] = map[sup] || []).push(o)
-      })
-    } else if (group === 'projects') {
-      board.forEach(o => {
-        const p = settings?.projects.find(pr => pr.id === o.projectId)
-        const k = p?.name || 'Без проекта'
-        ;(map[k] = map[k] || []).push(o)
-      })
-    } else {
-      board.forEach(o => {
-        const sp = settings?.specProjects.find(s => s.id === o.specProjectId)
-        const k = sp?.name || 'Без СпецПроекта'
-        ;(map[k] = map[k] || []).push(o)
-      })
-    }
-    return map
-  }, [board, group, settings])
+  const users = settings?.users || []
 
-  const [columnOrder, setColumnOrder] = useState<string[]>([])
-  const [cardOrders, setCardOrders] = useState<Record<string, string[]>>({})
+  const selectedClientIds = useMemo(() => {
+    const ids = new Set<string>()
+    selections.customers.forEach(name => {
+      const u = users.find(x => x.name === name && x.role === 'supplier_client')
+      if (u) ids.add(u.id)
+    })
+    selections.privateClients.forEach(name => {
+      const u = users.find(x => x.name === name && x.role === 'client')
+      if (u) ids.add(u.id)
+    })
+    return ids
+  }, [selections.customers, selections.privateClients, users])
+
+  const filterOptions = useMemo(() => ({
+    suppliers: users.filter(u => u.active && u.role === 'supplier_client').map(u => ({ value: u.name, label: u.name })),
+    customers: users.filter(u => u.active && u.role === 'supplier_client').map(u => ({ value: u.name, label: u.name })),
+    privateClients: users.filter(u => u.active && u.role === 'client').map(u => ({ value: u.name, label: u.name })),
+    projects: (settings?.projects || [])
+      .filter(p => p.status === 'active' && (selectedClientIds.size === 0 || !p.clientId || selectedClientIds.has(p.clientId)))
+      .map(p => ({ value: p.id, label: p.name })),
+    specProjects: (settings?.specProjects || [])
+      .filter(p => p.status === 'active' && (selectedClientIds.size === 0 || !p.clientId || selectedClientIds.has(p.clientId)))
+      .map(p => ({ value: p.id, label: p.name })),
+  }), [users, settings, selectedClientIds])
+
+  const columns = useMemo((): { key: FilterColKey; title: string; specId?: string }[] => {
+    const cols: { key: FilterColKey; title: string; specId?: string }[] = []
+    selections.suppliers.forEach(v => cols.push({ key: `sup::${v}`, title: v }))
+    selections.customers.forEach(v => cols.push({ key: `cust::${v}`, title: v }))
+    selections.privateClients.forEach(v => cols.push({ key: `priv::${v}`, title: v }))
+    selections.projects.forEach(v => {
+      const p = settings?.projects.find(x => x.id === v)
+      cols.push({ key: `proj::${v}`, title: p?.name || v })
+    })
+    selections.specProjects.forEach(v => {
+      const p = settings?.specProjects.find(x => x.id === v)
+      cols.push({ key: `spec::${v}`, title: p?.name || v, specId: v })
+    })
+    return cols
+  }, [selections, settings])
+
+  const hasSelection = columns.length > 0
+
+  const grouped = useMemo(() => {
+    const map: Record<FilterColKey, Order[]> = {}
+    if (!hasSelection) return map
+    columns.forEach(c => { map[c.key] = [] })
+    board.forEach(o => {
+      columns.forEach(c => {
+        if (orderMatchesFilterCol(o, c.key, settings)) {
+          map[c.key].push(o)
+        }
+      })
+    })
+    return map
+  }, [board, columns, hasSelection, settings])
+
+  const [columnOrder, setColumnOrder] = useState<FilterColKey[]>([])
+  const [cardOrders, setCardOrders] = useState<Record<FilterColKey, string[]>>({})
 
   useEffect(() => {
-    const keys = Object.keys(grouped)
-    const saved = loadColumnOrder(group)
-    const ordered = saved ? saved.filter(k => keys.includes(k)).concat(keys.filter(k => !saved.includes(k))) : keys.sort()
-    setColumnOrder(ordered)
-    const co: Record<string, string[]> = {}
-    keys.forEach(k => { co[k] = grouped[k].map(o => o.id) })
+    const keys = columns.map(c => c.key)
+    setColumnOrder(keys)
+    const co: Record<FilterColKey, string[]> = {}
+    keys.forEach(k => { co[k] = (grouped[k] || []).map(o => o.id) })
     setCardOrders(co)
-  }, [grouped, group])
+  }, [grouped, columns])
 
-  function getSpecEstimate(colName: string) {
-    const sp = settings?.specProjects.find(s => s.name === colName)
+  function getSpecEstimate(specId: string | undefined) {
+    if (!specId || !settings) return undefined
+    const sp = settings.specProjects.find(s => s.id === specId)
     if (!sp) return undefined
     const linked = board.filter(o => o.specProjectId === sp.id)
     const items = sp.items.map(it => {
@@ -1197,9 +1303,7 @@ function FilterKanban({ orders, group, setGroup, statusFilter, setStatusFilter, 
       const oldIndex = columnOrder.indexOf(activeId)
       const newIndex = columnOrder.indexOf(overId)
       if (oldIndex >= 0 && newIndex >= 0) {
-        const next = arrayMove(columnOrder, oldIndex, newIndex)
-        setColumnOrder(next)
-        saveColumnOrder(group, next)
+        setColumnOrder(arrayMove(columnOrder, oldIndex, newIndex))
       }
       return
     }
@@ -1214,47 +1318,58 @@ function FilterKanban({ orders, group, setGroup, statusFilter, setStatusFilter, 
     }
   }
 
-  const groups: [FilterGroup, string][] = [
-    ['clients', 'По заказчикам'], ['suppliers', 'По поставщикам'],
-    ['projects', 'По проектам'], ['specprojects', 'По СпецПроектам'],
-  ]
   const statuses: [FilterStatus, string][] = [['inwork', 'В работе'], ['delivered', 'Доставлено'], ['all', 'Все']]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%', animation: 'ukfade .25s' }}>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {groups.map(([g, label]) => (
-            <button key={g} onClick={() => setGroup(g)} style={{ padding: '7px 12px', borderRadius: 7, border: `1px solid ${group === g ? '#d4613a' : '#d8d3cc'}`, background: group === g ? '#fff0ea' : '#fff', color: group === g ? '#c0532a' : '#6b655b', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600 }}>{label}</button>
-          ))}
-        </div>
+        <FilterMultiSelect label="Поставщики" options={filterOptions.suppliers} selected={selections.suppliers}
+          onChange={suppliers => setSelections({ ...selections, suppliers })} />
+        <FilterMultiSelect label="Заказчики" options={filterOptions.customers} selected={selections.customers}
+          onChange={customers => setSelections({ ...selections, customers })} />
+        <FilterMultiSelect label="Частные клиенты" options={filterOptions.privateClients} selected={selections.privateClients}
+          onChange={privateClients => setSelections({ ...selections, privateClients })} />
+        <FilterMultiSelect label="Проекты" options={filterOptions.projects} selected={selections.projects}
+          onChange={projects => setSelections({ ...selections, projects })} />
+        <FilterMultiSelect label="СпецПроекты" options={filterOptions.specProjects} selected={selections.specProjects}
+          onChange={specProjects => setSelections({ ...selections, specProjects })} />
         <div style={{ display: 'flex', gap: 4 }}>
           {statuses.map(([s, label]) => (
             <button key={s} onClick={() => setStatusFilter(s)} style={{ padding: '7px 12px', borderRadius: 7, border: `1px solid ${statusFilter === s ? '#d4613a' : '#d8d3cc'}`, background: statusFilter === s ? '#fff0ea' : '#fff', color: statusFilter === s ? '#c0532a' : '#6b655b', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600 }}>{label}</button>
           ))}
         </div>
-        <div style={{ marginLeft: 'auto', fontSize: 12, color: '#8a847c' }}>{board.length} карточек в {columnOrder.length} колонках</div>
+        <div style={{ marginLeft: 'auto', fontSize: 12, color: '#8a847c' }}>
+          {hasSelection ? `${board.length} карточек · ${columnOrder.length} колонок` : 'Выберите фильтры'}
+        </div>
       </div>
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
-          <div style={{ flex: 1, display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 10, alignItems: 'flex-start' }}>
-            {columnOrder.map(col => {
-              const ids = cardOrders[col] || []
-              const cards = ids.map(id => board.find(o => o.id === id)).filter(Boolean) as Order[]
-              return (
-                <KanbanColumn
-                  key={col}
-                  colId={col}
-                  title={col}
-                  cards={cards}
-                  onOpen={onOpen}
-                  estimate={group === 'specprojects' ? getSpecEstimate(col) : undefined}
-                />
-              )
-            })}
-          </div>
-        </SortableContext>
-      </DndContext>
+
+      {!hasSelection ? (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a39c92', fontSize: 14, padding: 40 }}>
+          Экран пуст — выберите поставщиков, заказчиков, клиентов или проекты из списков выше
+        </div>
+      ) : (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
+            <div style={{ flex: 1, display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 10, alignItems: 'flex-start' }}>
+              {columnOrder.map(colKey => {
+                const col = columns.find(c => c.key === colKey)
+                const ids = cardOrders[colKey] || []
+                const cards = ids.map(id => board.find(o => o.id === id)).filter(Boolean) as Order[]
+                return (
+                  <KanbanColumn
+                    key={colKey}
+                    colId={colKey}
+                    title={col?.title || colKey}
+                    cards={cards}
+                    onOpen={onOpen}
+                    estimate={col?.specId ? getSpecEstimate(col.specId) : undefined}
+                  />
+                )
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
     </div>
   )
 }
@@ -2029,7 +2144,7 @@ export default function AdminApp({ user }: { user: SessionUser }) {
   const [screen, setScreen] = useState<AdminScreen>('dashboard')
   const [incTab, setIncTab] = useState<IncTab>('new')
   const [outTab, setOutTab] = useState<OutgoingTab>('inwork')
-  const [filterGroup, setFilterGroup] = useState<FilterGroup>('clients')
+  const [filterSelections, setFilterSelections] = useState<AdminFilterSelections>(EMPTY_FILTER_SELECTIONS)
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('inwork')
   const [archiveTab, setArchiveTab] = useState<ArchiveTab>('cards')
   const [bookkeepingTab, setBookkeepingTab] = useState<BookkeepingTab>('cards')
@@ -2242,8 +2357,8 @@ export default function AdminApp({ user }: { user: SessionUser }) {
           {screen === 'filter' && (
             <FilterKanban
               orders={orders}
-              group={filterGroup}
-              setGroup={setFilterGroup}
+              selections={filterSelections}
+              setSelections={setFilterSelections}
               statusFilter={filterStatus}
               setStatusFilter={setFilterStatus}
               onOpen={setDetailId}

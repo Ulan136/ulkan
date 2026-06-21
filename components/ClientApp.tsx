@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   fetchClientOrders,
+  fetchDirectory,
   createClientOrder,
   orderAction,
   fetchNotifications,
@@ -211,13 +212,40 @@ const inputStyle: React.CSSProperties = {
 
 // ─── Modals ────────────────────────────────────────────────────
 
+function ToField({
+  show,
+  value,
+  onChange,
+  logists,
+}: {
+  show: boolean
+  value: string
+  onChange: (v: string) => void
+  logists: { name: string }[]
+}) {
+  if (!show) return null
+  return (
+    <div>
+      <FieldLabel>К кому</FieldLabel>
+      <select style={inputStyle} value={value} onChange={e => onChange(e.target.value)}>
+        <option value="">Выберите логиста…</option>
+        {logists.map(u => <option key={u.name} value={u.name}>{u.name}</option>)}
+      </select>
+    </div>
+  )
+}
+
 function CreateOrderModal({
   user,
+  logists,
+  showToField,
   onClose,
   onSuccess,
   onDraftSaved,
 }: {
   user: SessionUser
+  logists: { name: string }[]
+  showToField: boolean
   onClose: () => void
   onSuccess: (order: Order, trackingUrl: string) => void
   onDraftSaved: () => void
@@ -261,10 +289,7 @@ function CreateOrderModal({
             <FieldLabel>От кого</FieldLabel>
             <input style={{ ...inputStyle, background: COLORS.bgCard, color: COLORS.textMuted }} value={user.name} disabled />
           </div>
-          <div>
-            <FieldLabel>К кому</FieldLabel>
-            <input style={inputStyle} value={to} onChange={e => setTo(e.target.value)} placeholder="Получатель / объект" />
-          </div>
+          <ToField show={showToField} value={to} onChange={setTo} logists={logists} />
           <div>
             <FieldLabel>Желаемая дата</FieldLabel>
             <input type="date" style={inputStyle} value={deadline} onChange={e => setDeadline(e.target.value)} />
@@ -500,11 +525,15 @@ function OrderDetailModal({
 function ChangeOrderModal({
   order,
   user,
+  logists,
+  showToField,
   onClose,
   onSaved,
 }: {
   order: Order
   user: SessionUser
+  logists: { name: string }[]
+  showToField: boolean
   onClose: () => void
   onSaved: () => void
 }) {
@@ -546,10 +575,7 @@ function ChangeOrderModal({
         <h2 style={{ margin: '0 0 18px', fontSize: 18, fontWeight: 700 }}>Изменить заявку {order.id}</h2>
 
         <div style={{ display: 'grid', gap: 14 }}>
-          <div>
-            <FieldLabel>К кому</FieldLabel>
-            <input style={inputStyle} value={to} onChange={e => setTo(e.target.value)} />
-          </div>
+          <ToField show={showToField} value={to} onChange={setTo} logists={logists} />
           <div>
             <FieldLabel>Дата</FieldLabel>
             <input type="date" style={inputStyle} value={deadline} onChange={e => setDeadline(e.target.value)} />
@@ -597,12 +623,16 @@ function ChangeOrderModal({
 
 function DraftModal({
   order,
+  logists,
+  showToField,
   onClose,
   onSaved,
   onDeleted,
   onSent,
 }: {
   order: Order
+  logists: { name: string }[]
+  showToField: boolean
   onClose: () => void
   onSaved: () => void
   onDeleted: () => void
@@ -669,10 +699,7 @@ function DraftModal({
         <p style={{ margin: '0 0 18px', fontSize: 13, color: COLORS.textMuted }}>Заявка ещё не отправлена менеджеру</p>
 
         <div style={{ display: 'grid', gap: 14 }}>
-          <div>
-            <FieldLabel>К кому</FieldLabel>
-            <input style={inputStyle} value={to} onChange={e => setTo(e.target.value)} placeholder="Получатель" />
-          </div>
+          <ToField show={showToField} value={to} onChange={setTo} logists={logists} />
           <div>
             <FieldLabel>Дата</FieldLabel>
             <input type="date" style={inputStyle} value={deadline} onChange={e => setDeadline(e.target.value)} />
@@ -719,6 +746,8 @@ export default function ClientApp({ user }: { user: SessionUser }) {
   const [detailOrder, setDetailOrder] = useState<Order | null>(null)
   const [changeOrder, setChangeOrder] = useState<Order | null>(null)
   const [draftOrder, setDraftOrder] = useState<Order | null>(null)
+  const [logists, setLogists] = useState<{ name: string }[]>([])
+  const showToField = user.role !== 'client'
 
   const showToast = useCallback((msg: string) => {
     setToast(msg)
@@ -739,6 +768,12 @@ export default function ClientApp({ user }: { user: SessionUser }) {
   }, [showToast])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    fetchDirectory()
+      .then(d => setLogists(d.logists || []))
+      .catch(() => {})
+  }, [])
 
   const stats = useMemo(() => ({
     total: orders.filter(o => !o.isCancelled).length,
@@ -1002,6 +1037,8 @@ export default function ClientApp({ user }: { user: SessionUser }) {
       {showCreate && (
         <CreateOrderModal
           user={user}
+          logists={logists}
+          showToField={showToField}
           onClose={() => setShowCreate(false)}
           onSuccess={(order, trackUrl) => {
             setShowCreate(false)
@@ -1035,6 +1072,8 @@ export default function ClientApp({ user }: { user: SessionUser }) {
         <ChangeOrderModal
           order={changeOrder}
           user={user}
+          logists={logists}
+          showToField={showToField}
           onClose={() => setChangeOrder(null)}
           onSaved={() => { showToast('Изменение отправлено'); load() }}
         />
@@ -1043,6 +1082,8 @@ export default function ClientApp({ user }: { user: SessionUser }) {
       {draftOrder && (
         <DraftModal
           order={draftOrder}
+          logists={logists}
+          showToField={showToField}
           onClose={() => setDraftOrder(null)}
           onSaved={() => { showToast('Черновик сохранён'); load() }}
           onDeleted={() => { showToast('Черновик удалён'); load() }}

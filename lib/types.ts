@@ -164,6 +164,22 @@ export type AdminScreen =
 export type IncTab = 'new' | 'changed' | 'toacc' | 'drafts' | 'cancelled'
 export type FilterGroup = 'clients' | 'suppliers' | 'projects' | 'specprojects'
 export type FilterStatus = 'inwork' | 'delivered' | 'all'
+
+export interface AdminFilterSelections {
+  suppliers: string[]
+  customers: string[]
+  privateClients: string[]
+  projects: string[]
+  specProjects: string[]
+}
+
+export const EMPTY_FILTER_SELECTIONS: AdminFilterSelections = {
+  suppliers: [],
+  customers: [],
+  privateClients: [],
+  projects: [],
+  specProjects: [],
+}
 export type ArchiveTab = 'cards' | 'projects' | 'specprojects'
 export type SettingsTab = 'users' | 'projects' | 'specprojects' | 'nomenclature' | 'payment'
 export type BookkeepingTab = 'cards' | 'reports'

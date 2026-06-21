@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { fetchClientOrders, orderAction, createOrder, createDailyReport } from '@/lib/api'
+import { fetchLogistOrders, fetchDirectory, orderAction, createOrder, createDailyReport } from '@/lib/api'
 import { COLORS } from '@/lib/colors'
 import { statusStyle } from '@/lib/display'
 import type { Order, Position, SessionUser, DailyReportRow } from '@/lib/types'
@@ -206,6 +206,7 @@ export default function LogistPortal({ user }: { user: SessionUser }) {
   const [newName, setNewName] = useState('')
   const [newQty, setNewQty] = useState('')
   const [creating, setCreating] = useState(false)
+  const [directory, setDirectory] = useState<{ logists: { name: string }[]; fromUsers: { name: string }[] }>({ logists: [], fromUsers: [] })
 
   const showToast = useCallback((msg: string) => {
     setToast(msg)
@@ -215,7 +216,7 @@ export default function LogistPortal({ user }: { user: SessionUser }) {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await fetchClientOrders()
+      const data = await fetchLogistOrders()
       setOrders(data)
     } catch {
       showToast('Ошибка загрузки')
@@ -225,6 +226,12 @@ export default function LogistPortal({ user }: { user: SessionUser }) {
   }, [showToast])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    fetchDirectory()
+      .then(d => setDirectory({ logists: d.logists || [], fromUsers: d.fromUsers || [] }))
+      .catch(() => {})
+  }, [])
 
   const incoming = useMemo((): PositionView[] => {
     const items: PositionView[] = []
@@ -449,7 +456,11 @@ export default function LogistPortal({ user }: { user: SessionUser }) {
                 </div>
                 <div>
                   <label style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, display: 'block', marginBottom: 5 }}>КОМУ</label>
-                  <input style={inputStyle} value={newTo} onChange={e => setNewTo(e.target.value)} placeholder="Получатель" />
+                  <select style={inputStyle} value={newTo} onChange={e => setNewTo(e.target.value)}>
+                    <option value="">Выберите…</option>
+                    {directory.logists.map(u => <option key={u.name} value={u.name}>{u.name}</option>)}
+                    {directory.fromUsers.map(u => <option key={`f-${u.name}`} value={u.name}>{u.name}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, display: 'block', marginBottom: 5 }}>НАИМЕНОВАНИЕ</label>
