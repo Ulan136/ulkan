@@ -30,7 +30,7 @@ export default function HomePage() {
               <span key={t} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: '#3a3631', color: '#bdb7ae' }}>{t}</span>
             ))}
           </div>
-          <a href="/admin" style={{ background: '#d4613a', color: '#fff', padding: '10px 18px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 13 }}>Открыть админку →</a>
+          <a href="/login?from=/admin" style={{ background: '#d4613a', color: '#fff', padding: '10px 18px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 13 }}>Открыть админку →</a>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>

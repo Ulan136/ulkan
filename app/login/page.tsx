@@ -1,14 +1,41 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function LoginPage() {
+const ADMIN_ROLES = ['super_admin', 'bookkeeper', 'admin']
+
+function LoginForm() {
   const router = useRouter()
+  const params = useSearchParams()
+  const from = params.get('from') || ''
+  const reason = params.get('reason') || ''
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [sessionRole, setSessionRole] = useState<string | null>(null)
+  const [checkingSession, setCheckingSession] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(r => r.ok ? r.json() : null)
+      .then(user => {
+        if (!user) return
+        setSessionRole(user.role)
+        if (from === '/admin' && ADMIN_ROLES.includes(user.role)) {
+          router.replace('/admin')
+        }
+      })
+      .finally(() => setCheckingSession(false))
+  }, [from, router])
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    setSessionRole(null)
+    setError('')
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,7 +50,9 @@ export default function LoginPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Ошибка входа')
 
-      if (data.user.role === 'logist' && data.user.slug) {
+      if (from === '/admin' && ADMIN_ROLES.includes(data.user.role)) {
+        router.push('/admin')
+      } else if (data.user.role === 'logist' && data.user.slug) {
         router.push(`/rsp/${data.user.slug}`)
       } else if (['client', 'supplier_client'].includes(data.user.role) && data.user.slug) {
         router.push(`/client/${data.user.slug}`)
@@ -37,6 +66,8 @@ export default function LoginPage() {
     }
   }
 
+  const wrongRoleHint = reason === 'wrong_role' || (sessionRole && from === '/admin' && !ADMIN_ROLES.includes(sessionRole))
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1efec', fontFamily: "'Golos Text', system-ui, sans-serif", padding: 20 }}>
       <div style={{ width: '100%', maxWidth: 380, background: '#fff', borderRadius: 14, border: '1px solid #e6e2dc', padding: 32 }}>
@@ -44,8 +75,26 @@ export default function LoginPage() {
           <div style={{ width: 32, height: 32, borderRadius: 8, background: '#d4613a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff' }}>U</div>
           <span style={{ fontWeight: 700, fontSize: 16 }}>U-Kan</span>
         </div>
-        <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px' }}>Вход в систему</h1>
-        <p style={{ fontSize: 13, color: '#8a847c', marginBottom: 24 }}>Введите данные вашего аккаунта</p>
+        <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px' }}>
+          {from === '/admin' ? 'Вход в админку' : 'Вход в систему'}
+        </h1>
+        <p style={{ fontSize: 13, color: '#8a847c', marginBottom: 24 }}>
+          {from === '/admin' ? 'Войдите по email и паролю администратора' : 'Введите данные вашего аккаунта'}
+        </p>
+
+        {checkingSession && (
+          <div style={{ fontSize: 13, color: '#8a847c', marginBottom: 16 }}>Проверка сессии…</div>
+        )}
+
+        {wrongRoleHint && (
+          <div style={{ background: '#fff8e6', color: '#8a5a10', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
+            Сейчас вы вошли как <b>клиент/логист</b> (вход по телефону). Для админки нужен отдельный вход по email.
+            <button type="button" onClick={handleLogout}
+              style={{ display: 'block', marginTop: 10, background: '#211f1c', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600 }}>
+              Выйти и войти в админку →
+            </button>
+          </div>
+        )}
 
         {error && <div style={{ background: '#faeaea', color: '#b03020', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>{error}</div>}
 
@@ -77,5 +126,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 40, textAlign: 'center' }}>Загрузка…</div>}>
+      <LoginForm />
+    </Suspense>
   )
 }
