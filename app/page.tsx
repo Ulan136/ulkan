@@ -37,9 +37,10 @@ export default function HomePage() {
           <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e6e2dc', padding: 20 }}>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>👤 Кабинет заказчика</div>
             <p style={{ fontSize: 13, color: '#8a847c', marginBottom: 14, lineHeight: 1.5 }}>Создание заявок, трекинг, изменения.</p>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <a href="/login" style={{ background: '#d4613a', color: '#fff', padding: '8px 14px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 12 }}>Войти →</a>
-              <button onClick={() => copy(`${origin}/register`)} style={{ border: '1px solid #e0dcd5', background: '#fff', padding: '8px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12 }}>📋 Ссылка</button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <a href="/client" style={{ background: '#d4613a', color: '#fff', padding: '8px 14px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 12 }}>Войти по телефону →</a>
+              <a href="/register" style={{ border: '1px solid #e0dcd5', background: '#fff', color: '#26231f', padding: '8px 12px', borderRadius: 8, textDecoration: 'none', fontSize: 12, fontWeight: 600 }}>Регистрация</a>
+              <button onClick={() => copy(`${origin}/client`)} style={{ border: '1px solid #e0dcd5', background: '#fff', padding: '8px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12 }}>📋 Ссылка</button>
             </div>
           </div>
           <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e6e2dc', padding: 20 }}>

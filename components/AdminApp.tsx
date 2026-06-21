@@ -104,6 +104,10 @@ interface SettingsData {
   paymentStatuses: PaymentStatus[]
 }
 
+const EMPTY_SETTINGS: SettingsData = {
+  users: [], projects: [], specProjects: [], suppliers: [], nomenclature: [], paymentStatuses: [],
+}
+
 interface DashboardData {
   kpi: { active: number; deliveredToday: number; overdue: number; inwork: number; turnoverToday: number }
   flow: { incoming: number; reception: number; outgoing: number; accounting: number; bookkeeping: number; archive: number }
@@ -2203,18 +2207,18 @@ export default function AdminApp({ user }: { user: SessionUser }) {
               specProjects={settingsData.specProjects}
             />
           )}
-          {screen === 'settings' && settingsLoading && !settingsData && (
-            <div style={{ padding: 60, textAlign: 'center', color: '#8a847c' }}>Загрузка настроек…</div>
-          )}
-          {screen === 'settings' && settingsData && (
+          {screen === 'settings' && (
             <>
+              {settingsLoading && (
+                <div style={{ padding: '8px 0 12px', fontSize: 13, color: '#8a847c' }}>Загрузка справочников…</div>
+              )}
               {settingsError && (
                 <div style={{ background: '#fff8e1', border: '1px solid #e6d9a8', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 13, color: '#6b655b' }}>
                   ⚠ {settingsError}
                   <button onClick={loadSettings} style={{ marginLeft: 12, border: '1px solid #d8d3cc', background: '#fff', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>Повторить</button>
                 </div>
               )}
-              <SettingsScreen data={settingsData} orders={orders} onRefresh={loadSettings} onToast={showToast} />
+              <SettingsScreen data={settingsData ?? EMPTY_SETTINGS} orders={orders} onRefresh={loadSettings} onToast={showToast} />
             </>
           )}
         </div>

@@ -8,6 +8,7 @@ import {
   fetchNotifications,
   fetchHistory,
   markNotificationRead,
+  logout,
 } from '@/lib/api'
 import { COLORS } from '@/lib/colors'
 import {
@@ -801,6 +802,7 @@ export default function ClientApp({ user }: { user: SessionUser }) {
             <div style={{ fontWeight: 700, fontSize: 15 }}>U-Kan · Личный кабинет</div>
           </div>
           <div style={{ fontSize: 13.5, fontWeight: 600, color: COLORS.textMuted }}>{user.name}</div>
+          <button onClick={() => logout()} style={{ border: '1px solid #e0dcd5', background: '#fff', padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', color: '#6b655b' }}>Выйти</button>
         </div>
       </div>
 
