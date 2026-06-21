@@ -1,4 +1,3 @@
-// app/api/auth/login/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createToken } from '@/lib/auth'
@@ -7,14 +6,12 @@ import bcrypt from 'bcryptjs'
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json()
-
     if (!email || !password) {
       return NextResponse.json({ error: 'Email и пароль обязательны' }, { status: 400 })
     }
 
     const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } })
-
-    if (!user || !user.active) {
+    if (!user || !user.active || !user.password) {
       return NextResponse.json({ error: 'Неверный email или пароль' }, { status: 401 })
     }
 
@@ -23,14 +20,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Неверный email или пароль' }, { status: 401 })
     }
 
-    const token = await createToken({
+    const sessionUser = {
       id: user.id,
       name: user.name,
-      email: user.email,
+      email: user.email || undefined,
+      phone: user.phone || undefined,
       role: user.role,
-    })
+      slug: user.slug || undefined,
+    }
 
-    const res = NextResponse.json({ ok: true, user: { name: user.name, role: user.role } })
+    const token = await createToken(sessionUser)
+    const res = NextResponse.json({ ok: true, user: { ...sessionUser, slug: user.slug || undefined } })
     res.cookies.set('ukan_session', token, {
       httpOnly: true,
       sameSite: 'lax',
@@ -38,7 +38,6 @@ export async function POST(req: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       path: '/',
     })
-
     return res
   } catch (e) {
     console.error('Login error:', e)

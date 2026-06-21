@@ -1,17 +1,12 @@
-// lib/display.ts
 import { Order, Position } from './types'
+import { COLORS } from './colors'
 
-export const PCT: Record<string, number> = {
-  'В работе': 10,
-  'Готово к отгрузке': 60,
-  'В пути': 80,
-  'Доставлено': 100,
-  '': 0,
+const PCT: Record<string, number> = {
+  'В работе': 10, 'Готово к отгрузке': 60,
+  'В пути': 80, 'Доставлено': 100, '': 0,
 }
 
-export function posPct(p: Position): number {
-  return PCT[p.status] ?? 0
-}
+export function posPct(p: Position): number { return PCT[p.status] ?? 0 }
 
 export function cardProgress(o: Order): number {
   if (!o.positions.length) return o.status === 'Доставлено' ? 100 : 0
@@ -37,46 +32,39 @@ export function primaryResp(o: Order): string {
   return best
 }
 
-export function srcLabel(s: string): string {
-  const m: Record<string, string> = {
-    cabinet: 'Кабинет', external: 'Внешняя',
-    webhook: 'Вебхук', admin_manual: 'Админ', responsible_portal: 'Портал',
-  }
-  return m[s] || s
-}
-
-export function srcStyle(s: string): string {
-  const m: Record<string, string> = {
-    cabinet: '250', external: '30', webhook: '290',
-    admin_manual: '260', responsible_portal: '160',
-  }
-  const h = m[s] || '260'
-  return `font-size:10.5px;padding:1px 8px;border-radius:20px;font-weight:600;color:oklch(0.5 0.1 ${h});background:oklch(0.95 0.03 ${h})`
-}
-
-export function statusTag(status: string): { label: string; style: string } {
-  const map: Record<string, [string, string]> = {
-    'В ожидании': ['250', 'В ожидании'],
-    'Новая заявка': ['250', 'Новая заявка'],
-    'Принят': ['30', 'Принят'],
-    'В обработке': ['30', 'В обработке'],
-    'В работе': ['30', 'В работе'],
-    'Готово к отгрузке': ['70', 'Готово'],
-    'В пути': ['70', 'В пути'],
-    'Доставлено': ['155', 'Доставлено'],
-    'К учёту': ['155', 'К учёту'],
-    'Бухгалтерия': ['155', 'Бухгалтерия'],
-    'Архив': ['260', 'Архив'],
-    'Отменён': ['25', 'Отменён'],
-    'Черновик': ['n', 'Черновик'],
-  }
-  const e = map[status] || ['n', status]
-  if (e[0] === 'n') return { label: e[1], style: 'font-size:10.5px;padding:1px 9px;border-radius:20px;font-weight:600;color:#6b655b;background:#efece8' }
-  return { label: e[1], style: `font-size:10.5px;padding:1px 9px;border-radius:20px;font-weight:600;color:oklch(0.5 0.12 ${e[0]});background:oklch(0.95 0.05 ${e[0]})` }
-}
-
 export function barColor(pct: number): string {
-  return pct >= 100 ? 'oklch(0.6 0.13 155)' : pct >= 60 ? 'oklch(0.7 0.14 70)' : 'oklch(0.62 0.17 30)'
+  return pct >= 100 ? COLORS.progress.high
+    : pct >= 60 ? COLORS.progress.mid
+    : COLORS.progress.low
+}
+
+export function statusStyle(status: string): React.CSSProperties {
+  const map: Record<string, { bg: string; color: string }> = {
+    'В ожидании': COLORS.status.waiting,
+    'Новая заявка': COLORS.status.waiting,
+    'Принят': COLORS.status.accepted,
+    'В обработке': COLORS.status.accepted,
+    'В работе': COLORS.status.accepted,
+    'Готово к отгрузке': COLORS.status.ready,
+    'В пути': COLORS.status.ready,
+    'Доставлено': COLORS.status.delivered,
+    'К учёту': COLORS.status.delivered,
+    'Бухгалтерия': COLORS.status.delivered,
+    'Отменён': COLORS.status.cancelled,
+    'Черновик': COLORS.status.draft,
+    'Архив': COLORS.status.archive,
+  }
+  const s = map[status] || COLORS.status.draft
+  return { fontSize: '10.5px', padding: '1px 9px', borderRadius: 20, fontWeight: 600, whiteSpace: 'nowrap', background: s.bg, color: s.color }
+}
+
+export function sourceStyle(source: string): React.CSSProperties {
+  const s = COLORS.source[source as keyof typeof COLORS.source] || COLORS.source.cabinet
+  return { fontSize: '10px', padding: '1px 8px', borderRadius: 20, fontWeight: 600, background: s.bg, color: s.color }
+}
+
+export function sourceLabel(s: string): string {
+  return ({ cabinet: 'Кабинет', external: 'Внешняя', webhook: 'Вебхук', admin_manual: 'Админ', responsible_portal: 'Портал' })[s] || s
 }
 
 export function fmtMoney(n: number): string {
@@ -85,17 +73,26 @@ export function fmtMoney(n: number): string {
 
 export function fmtDate(d: string | null | undefined): string {
   if (!d) return '—'
-  const date = new Date(d)
-  return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })
+  return new Date(d).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }
 
 export function fmtDateTime(d: string | null | undefined): string {
   if (!d) return '—'
   const date = new Date(d)
-  const now = Date.now()
-  const diff = Math.floor((now - date.getTime()) / 60000)
+  const diff = Math.floor((Date.now() - date.getTime()) / 60000)
   if (diff < 1) return 'только что'
   if (diff < 60) return `${diff} мин`
   if (diff < 1440) return `${Math.floor(diff / 60)} ч`
   return fmtDate(d)
+}
+
+export function roleLabel(role: string): string {
+  const m: Record<string, string> = {
+    super_admin: 'Супер-Админ',
+    bookkeeper: 'Бухгалтер',
+    logist: 'Логист',
+    supplier_client: 'Поставщик/заказчик',
+    client: 'Клиент',
+  }
+  return m[role] || role
 }

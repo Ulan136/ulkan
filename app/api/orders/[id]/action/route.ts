@@ -1,15 +1,14 @@
-// app/api/orders/[id]/action/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSessionFromRequest } from '@/lib/auth'
 import { generatePosId } from '@/lib/ids'
+import { notify, notifyAdmins } from '@/lib/notifications'
+import { releaseStock } from '@/lib/stock'
 
 type Params = { params: Promise<{ id: string }> }
 
 async function log(cardId: string, action: string, detail: string, userName: string) {
-  try {
-    await prisma.history.create({ data: { cardId, action, detail, userName } })
-  } catch {}
+  await prisma.history.create({ data: { cardId, action, detail, userName } })
 }
 
 export async function POST(req: NextRequest, { params }: Params) {
@@ -63,12 +62,16 @@ export async function POST(req: NextRequest, { params }: Params) {
       }
       case 'updatePos': {
         const { posId, status: newStatus } = payload
+        const pos = await prisma.position.findUnique({ where: { id: posId } })
         await prisma.position.update({
           where: { id: posId },
           data: { status: newStatus, late: newStatus === 'Доставлено' ? false : undefined },
         })
+        if (pos && newStatus === 'Доставлено' && pos.supplier === 'Центр Склад') {
+          await releaseStock(posId, pos.name1c || pos.oral, pos.qty, id)
+        }
         const updatedPositions = await prisma.position.findMany({ where: { cardId: id } })
-        if (updatedPositions.every((p: { status: string }) => p.status === 'Доставлено')) {
+        if (updatedPositions.every((p) => p.status === 'Доставлено')) {
           await prisma.order.update({
             where: { id },
             data: { screen: 'incoming', status: 'Доставлено', toacc: true, delivered: new Date() },
@@ -80,6 +83,11 @@ export async function POST(req: NextRequest, { params }: Params) {
         break
       }
       case 'markAll': {
+        for (const p of order.positions) {
+          if (p.supplier === 'Центр Склад') {
+            await releaseStock(p.id, p.name1c || p.oral, p.qty, id)
+          }
+        }
         await prisma.position.updateMany({
           where: { cardId: id },
           data: { status: 'Доставлено', late: false },
@@ -92,10 +100,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         break
       }
       case 'sendAcc': {
-        await prisma.order.update({
-          where: { id },
-          data: { screen: 'accounting', status: 'К учёту' },
-        })
+        await prisma.order.update({ where: { id }, data: { screen: 'accounting', status: 'К учёту' } })
         await log(id, 'Отправлен к учёту', '', who)
         break
       }
@@ -142,20 +147,20 @@ export async function POST(req: NextRequest, { params }: Params) {
       case 'confirmChg': {
         await prisma.order.update({ where: { id }, data: { isChanged: false } })
         await log(id, 'Изменение подтверждено', '', who)
+        if (order.fromId) {
+          await notify(order.fromId, `Изменение по заявке ${id} принято`, id)
+        }
         break
       }
       case 'postpone': {
-        await prisma.order.update({
-          where: { id },
-          data: { postponed: !order.postponed },
-        })
+        await prisma.order.update({ where: { id }, data: { postponed: !order.postponed } })
         await log(id, order.postponed ? 'Снят с паузы' : 'Отложен', '', who)
         break
       }
       case 'createDoc': {
         const field = payload.type === 'invoice' ? { invoice: true } : { fact: true }
         await prisma.order.update({ where: { id }, data: field })
-        await log(id, `Создан документ`, payload.type || '', who)
+        await log(id, 'Создан документ', payload.type || '', who)
         break
       }
       case 'post1C': {
@@ -164,8 +169,27 @@ export async function POST(req: NextRequest, { params }: Params) {
         break
       }
       case 'sendArchive': {
+        if (!order.posted1C) {
+          return NextResponse.json({ error: 'Сначала проведите в 1С' }, { status: 400 })
+        }
         await prisma.order.update({ where: { id }, data: { screen: 'archive', status: 'Архив' } })
         await log(id, 'Отправлен в архив', '', who)
+        break
+      }
+      case 'changeOrder': {
+        await prisma.order.update({
+          where: { id },
+          data: {
+            isChanged: true,
+            changeText: payload.changeText || '',
+            changePhone: payload.changePhone || '',
+            to: payload.to || order.to,
+            comment: payload.text || order.comment,
+            deadline: payload.deadline ? new Date(payload.deadline) : order.deadline,
+          },
+        })
+        await notifyAdmins(`Клиент изменил заявку ${id}`, id)
+        await log(id, 'Изменение от клиента', payload.changeText || '', who)
         break
       }
       default:
@@ -174,7 +198,6 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const updated = await prisma.order.findUnique({ where: { id }, include: { positions: true } })
     return NextResponse.json({ success: true, order: updated })
-
   } catch (error) {
     console.error('Action error:', error)
     return NextResponse.json({ error: 'Внутренняя ошибка' }, { status: 500 })

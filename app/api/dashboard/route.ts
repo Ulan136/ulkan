@@ -1,17 +1,17 @@
-// app/api/dashboard/route.ts
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getSession } from '@/lib/auth'
-import { cardProgress, cardSum, isOverdue } from '@/lib/ids'
+import { getSessionFromRequest } from '@/lib/auth'
+import { cardProgress, cardSum, isOverdue } from '@/lib/display'
+import { Order } from '@/lib/types'
 
-export async function GET() {
-  const session = await getSession()
+export async function GET(req: NextRequest) {
+  const session = await getSessionFromRequest(req)
   if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
   const orders = await prisma.order.findMany({
-    include: { positions: true, history: { orderBy: { createdAt: 'desc' }, take: 1 } },
+    include: { positions: true },
     orderBy: { createdAt: 'desc' },
-  })
+  }) as unknown as Order[]
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -27,31 +27,23 @@ export async function GET() {
   const newCards = incoming.filter(o => !o.isDraft && !o.isCancelled && !o.toacc)
   const toaccIncoming = incoming.filter(o => o.toacc && o.status === 'Доставлено')
   const changed = orders.filter(o => o.isChanged && !o.isCancelled && !o.isDraft)
-  const overdueCards = outgoing.filter(o => isOverdue(o.positions))
+  const overdueCards = orders.filter(o => o.screen === 'outgoing' && isOverdue(o))
 
-  // KPI
-  const deliveredToday = orders.filter(o => o.delivered && o.delivered >= today)
-  const turnoverToday = deliveredToday.reduce((s, o) => s + cardSum(o.positions), 0)
+  const deliveredToday = orders.filter(o => o.delivered && new Date(o.delivered) >= today)
+  const turnoverToday = deliveredToday.reduce((s, o) => s + cardSum(o), 0)
 
-  // Progress
-  const progSrc = [...outgoing, ...accounting, ...toaccIncoming]
+  const progSrc = [...orders.filter(o => o.screen === 'outgoing'), ...accounting, ...toaccIncoming]
   const overallPct = progSrc.length
-    ? Math.round(progSrc.reduce((s, o) => s + cardProgress(o.positions), 0) / progSrc.length)
+    ? Math.round(progSrc.reduce((s, o) => s + cardProgress(o), 0) / progSrc.length)
     : 0
 
-  // Attention items
   const attention: Array<{ label: string; sub: string; tag: string; hue: string; screen: string; tab?: string }> = []
   overdueCards.forEach(o => attention.push({ label: `${o.id} просрочен`, sub: `${o.from} → ${o.to}`, tag: 'просрочено', hue: '25', screen: 'outgoing' }))
-  changed.forEach(o => attention.push({ label: `${o.id} изменён клиентом`, sub: o.changeText || `${o.from} → ${o.to}`, tag: 'изменено', hue: '70', screen: 'incoming', tab: 'changed' }))
-  toaccIncoming.forEach(o => attention.push({ label: `${o.id} готов к учёту`, sub: `${o.from} → ${o.to}`, tag: 'к учёту', hue: '155', screen: 'incoming', tab: 'toacc' }))
+  changed.forEach(o => attention.push({ label: `${o.id} изменён`, sub: o.changeText || `${o.from} → ${o.to}`, tag: 'изменено', hue: '70', screen: 'incoming', tab: 'changed' }))
+  toaccIncoming.forEach(o => attention.push({ label: `${o.id} к учёту`, sub: `${o.from} → ${o.to}`, tag: 'к учёту', hue: '155', screen: 'incoming', tab: 'toacc' }))
 
-  // Recent history
-  const recentHistory = await prisma.history.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 8,
-  })
+  const recentHistory = await prisma.history.findMany({ orderBy: { createdAt: 'desc' }, take: 8 })
 
-  // Top clients
   const clientCounts: Record<string, number> = {}
   active.forEach(o => { clientCounts[o.from] = (clientCounts[o.from] || 0) + 1 })
   const maxCount = Math.max(1, ...Object.values(clientCounts))
@@ -60,14 +52,32 @@ export async function GET() {
     .slice(0, 5)
     .map(([name, count]) => ({ name, count, pct: Math.round((count / maxCount) * 100) }))
 
+  const specProjects = await prisma.specProject.findMany({
+    where: { status: 'active' },
+    include: { items: true, orders: { include: { positions: true } } },
+  })
+
+  const specProjectsData = specProjects.map(sp => {
+    const cardCount = sp.orders.length
+    let totalNeeded = 0
+    let totalCollected = 0
+    for (const item of sp.items) {
+      totalNeeded += item.qty
+      const collected = sp.orders.flatMap(o => o.positions)
+        .filter(p => (p.name1c || p.oral) === item.name && p.status === 'Доставлено')
+        .reduce((s, p) => s + p.qty, 0)
+      totalCollected += Math.min(collected, item.qty)
+    }
+    const pct = totalNeeded ? Math.round((totalCollected / totalNeeded) * 100) : 0
+    return { id: sp.id, name: sp.name, pct, cardCount }
+  })
+
   return NextResponse.json({
     kpi: {
       active: active.length,
-      inwork: outgoing.length,
-      overdue: overdueCards.length,
-      toacc: toaccIncoming.length + accounting.length,
-      changed: changed.length,
       deliveredToday: deliveredToday.length,
+      overdue: overdueCards.length,
+      inwork: outgoing.length,
       turnoverToday,
     },
     flow: {
@@ -78,21 +88,10 @@ export async function GET() {
       bookkeeping: bookkeeping.length,
       archive: archive.length,
     },
-    progress: {
-      overallPct,
-      inwork: outgoing.length,
-      delivered: toaccIncoming.length,
-      overdue: overdueCards.length,
-      waiting: reception.filter(o => o.block === 'waiting').length,
-    },
+    progress: { overallPct, inwork: outgoing.length, delivered: toaccIncoming.length, overdue: overdueCards.length },
     attention: attention.slice(0, 6),
-    attentionTotal: attention.length,
-    activity: recentHistory.map(h => ({
-      text: h.action,
-      sub: h.detail || h.cardId,
-      time: h.createdAt,
-      userName: h.userName,
-    })),
+    activity: recentHistory.map(h => ({ text: h.action, sub: h.detail || h.cardId, time: h.createdAt, userName: h.userName })),
     topClients,
+    specProjects: specProjectsData,
   })
 }

@@ -1,96 +1,79 @@
-// app/api/orders/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getSession } from '@/lib/auth'
+import { getSessionFromRequest } from '@/lib/auth'
 import { generateCardId, generatePosId, generateTrackingLink } from '@/lib/ids'
-
-export async function GET(req: NextRequest) {
-  const session = await getSession()
-  if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
-
-  const { searchParams } = new URL(req.url)
-  const screen = searchParams.get('screen')
-  const block = searchParams.get('block')
-
-  const where: Record<string, unknown> = {}
-  if (screen) where.screen = screen
-  if (block) where.block = block
-
-  const orders = await prisma.order.findMany({
-    where,
-    include: { positions: true },
-    orderBy: { createdAt: 'desc' },
-  })
-
-  return NextResponse.json(orders)
-}
+import { notifyAdmins } from '@/lib/notifications'
 
 export async function POST(req: NextRequest) {
-  const session = await getSession()
-  if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+  try {
+    const session = await getSessionFromRequest(req)
+    if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
-  const body = await req.json()
-  const { from, to, comment, projectId, positions, source = 'admin_manual', isDraft = false } = body
+    const body = await req.json()
+    const {
+      from, to, comment, phone, deadline, projectId, specProjectId, contactId,
+      source = 'admin_manual', isDraft = false, positions, directOutgoing = false,
+    } = body
 
-  if (!from) return NextResponse.json({ error: 'Поле from обязательно' }, { status: 400 })
+    if (!from) return NextResponse.json({ error: 'Поле from обязательно' }, { status: 400 })
 
-  const cardId = generateCardId()
-  const trackingLink = generateTrackingLink(cardId)
+    const cardId = generateCardId()
+    const trackingLink = generateTrackingLink(cardId)
 
-  // Parse positions from comment if not provided
-  let posData: Array<{ id: string; cardId: string; oral: string; status: string }> = []
+    const posCreate = positions?.length
+      ? positions.map((p: Record<string, unknown>, i: number) => ({
+          id: generatePosId(cardId, i + 1),
+          name1c: String(p.name1c || ''),
+          oral: String(p.oral || ''),
+          qty: Number(p.qty) || 0,
+          unit: String(p.unit || 'шт'),
+          price: Number(p.price) || 0,
+          resp: String(p.resp || ''),
+          supplier: String(p.supplier || ''),
+          payment: String(p.payment || ''),
+          status: String(p.status || 'В работе'),
+          deadline: p.deadline ? new Date(p.deadline as string) : undefined,
+        }))
+      : []
 
-  if (positions && positions.length > 0) {
-    posData = positions.map((p: Record<string, unknown>, i: number) => ({
-      id: generatePosId(cardId, i + 1),
-      cardId,
-      name1c: p.name1c || '',
-      oral: p.oral || '',
-      qty: p.qty || 0,
-      unit: p.unit || 'шт',
-      price: p.price || 0,
-      resp: p.resp || '',
-      supplier: p.supplier || '',
-      status: p.status || 'В работе',
-    }))
-  } else if (comment) {
-    posData = comment
-      .split('\n')
-      .map((line: string) => line.trim())
-      .filter(Boolean)
-      .map((line: string, i: number) => ({
-        id: generatePosId(cardId, i + 1),
+    const order = await prisma.order.create({
+      data: {
+        id: cardId,
+        from,
+        to: to || '',
+        screen: isDraft ? 'incoming' : directOutgoing ? 'outgoing' : 'incoming',
+        status: isDraft ? 'Черновик' : directOutgoing ? 'В работе' : 'В ожидании',
+        block: directOutgoing ? '' : '',
+        source,
+        isDraft,
+        comment: comment || '',
+        phone: phone || null,
+        deadline: deadline ? new Date(deadline) : null,
+        projectId: projectId || null,
+        specProjectId: specProjectId || null,
+        contactId: contactId || null,
+        trackingLink,
+        positions: posCreate.length ? { create: posCreate } : undefined,
+      },
+      include: { positions: true },
+    })
+
+    await prisma.history.create({
+      data: {
         cardId,
-        oral: line,
-        status: 'В работе',
-      }))
+        action: isDraft ? 'Создан черновик' : 'Создан заказ',
+        detail: `Источник: ${source}`,
+        userName: session.name,
+      },
+    })
+
+    if (source === 'cabinet' || source === 'external') {
+      await notifyAdmins(`Новая заявка ${cardId} от ${from}`, cardId)
+    }
+
+    return NextResponse.json(order, { status: 201 })
+  } catch (e) {
+    console.error('Create order error:', e)
+    return NextResponse.json({ error: 'Ошибка создания' }, { status: 500 })
   }
-
-  const order = await prisma.order.create({
-    data: {
-      id: cardId,
-      from,
-      to: to || '',
-      screen: isDraft ? 'incoming' : 'incoming',
-      status: isDraft ? 'Черновик' : 'В ожидании',
-      source,
-      isDraft,
-      comment: comment || '',
-      projectId: projectId || null,
-      trackingLink,
-      positions: posData.length > 0 ? { create: posData } : undefined,
-    },
-    include: { positions: true },
-  })
-
-  await prisma.history.create({
-    data: {
-      cardId,
-      action: isDraft ? 'Создан черновик' : 'Создан заказ',
-      detail: `Источник: ${source}`,
-      userName: session.name,
-    },
-  })
-
-  return NextResponse.json(order, { status: 201 })
 }

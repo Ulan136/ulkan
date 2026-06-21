@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,126 +7,219 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── Пользователи (админы) ────────────────────────────────────────────────
 model User {
   id        String   @id @default(cuid())
   name      String
-  email     String   @unique
-  password  String
-  role      String   @default("admin") // admin | super_admin | responsible
+  phone     String?  @unique
+  email     String?  @unique
+  password  String?
+  role      String   @default("client")
+  companyId String?
+  company   User?    @relation("SubUsers", fields: [companyId], references: [id])
+  subUsers  User[]   @relation("SubUsers")
   slug      String?  @unique
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
+
+  orders        Order[]       @relation("OrderContact")
+  notifications Notification[]
+  dailyReports  DailyReport[]
 }
 
-// ─── Клиенты (заказчики) ─────────────────────────────────────────────────
-model Client {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  active    Boolean  @default(true)
-  phone     String?
-  createdAt DateTime @default(now())
-  orders    Order[]
-}
-
-// ─── Поставщики ───────────────────────────────────────────────────────────
-model Supplier {
-  id        String     @id @default(cuid())
-  name      String     @unique
-  type      String     @default("Внешний") // Внешний | Внутренний склад
-  active    Boolean    @default(true)
-  positions Position[]
-}
-
-// ─── Номенклатура ─────────────────────────────────────────────────────────
-model Nomenclature {
-  id   String @id @default(cuid())
-  name String // Наименование 1С
-  unit String @default("шт")
-  cat  String @default("")
-}
-
-// ─── Проекты ──────────────────────────────────────────────────────────────
-model Project {
-  id        String   @id // PRJ-xxx-DDHHMMYY
-  name      String
-  clientId  String?
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  orders    Order[]
-}
-
-// ─── Заказы (CardID = C-xxx-DDHHMMYY) ────────────────────────────────────
 model Order {
-  id           String     @id // C-xxx-DDHHMMYY
-  fromId       String?
-  from         String     // Имя заказчика
-  to           String     @default("")
-  screen       String     @default("incoming")
-  // incoming | reception | outgoing | accounting | bookkeeping | archive
-  block        String     @default("") // waiting | processing | ""
-  status       String     @default("В ожидании")
-  source       String     @default("cabinet")
-  // cabinet | external | webhook | admin_manual | responsible_portal
-  projectId    String?
-  comment      String     @default("")
-  phone        String?
-  deadline     DateTime?
-  delivered    DateTime?
-  isDraft      Boolean    @default(false)
-  isChanged    Boolean    @default(false)
-  changeText   String     @default("")
-  changePhone  String     @default("")
-  isCancelled  Boolean    @default(false)
-  cancelReason String     @default("")
-  toacc        Boolean    @default(false)
-  postponed    Boolean    @default(false)
-  invoice      Boolean    @default(false)
-  fact         Boolean    @default(false)
-  posted1C     Boolean    @default(false)
-  trackingLink String     @default("")
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id            String    @id
+  from          String
+  fromId        String?
+  to            String    @default("")
+  screen        String    @default("incoming")
+  block         String    @default("")
+  status        String    @default("В ожидании")
+  source        String    @default("cabinet")
+  projectId     String?
+  specProjectId String?
+  contactId     String?
+  comment       String    @default("")
+  phone         String?
+  deadline      DateTime?
+  delivered     DateTime?
+  isDraft       Boolean   @default(false)
+  isChanged     Boolean   @default(false)
+  changeText    String    @default("")
+  changePhone   String    @default("")
+  isCancelled   Boolean   @default(false)
+  cancelReason  String    @default("")
+  toacc         Boolean   @default(false)
+  postponed     Boolean   @default(false)
+  invoice       Boolean   @default(false)
+  fact          Boolean   @default(false)
+  posted1C      Boolean   @default(false)
+  cold          Boolean   @default(false)
+  trackingLink  String    @default("")
+  sortOrder     Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  client    Client?    @relation(fields: [fromId], references: [id])
-  project   Project?   @relation(fields: [projectId], references: [id])
-  positions Position[]
-  history   History[]
+  contact     User?        @relation("OrderContact", fields: [contactId], references: [id])
+  project     Project?     @relation(fields: [projectId], references: [id])
+  specProject SpecProject? @relation(fields: [specProjectId], references: [id])
+  positions   Position[]
+  history     History[]
 }
 
-// ─── Позиции ──────────────────────────────────────────────────────────────
 model Position {
-  id         String   @id // CardID-Pn
+  id         String    @id
   cardId     String
-  name1c     String   @default("")
-  oral       String   @default("")
-  qty        Float    @default(0)
-  unit       String   @default("шт")
-  price      Float    @default(0)
-  resp       String   @default("")
+  name1c     String    @default("")
+  oral       String    @default("")
+  qty        Float     @default(0)
+  unit       String    @default("шт")
+  price      Float     @default(0)
+  resp       String    @default("")
   supplierId String?
-  supplier   String   @default("")
-  status     String   @default("В работе")
-  // В работе | Готово к отгрузке | В пути | Доставлено
-  late       Boolean  @default(false)
-  payment    String   @default("")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  supplier   String    @default("")
+  status     String    @default("В работе")
+  late       Boolean   @default(false)
+  payment    String    @default("")
+  deadline   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  order     Order     @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  supplierR Supplier? @relation(fields: [supplierId], references: [id])
+  order       Order          @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  supplierRef Supplier?      @relation(fields: [supplierId], references: [id])
+  movements   StockMovement[]
 }
 
-// ─── История (лог действий) ───────────────────────────────────────────────
 model History {
   id        String   @id @default(cuid())
   cardId    String
   action    String
   detail    String   @default("")
-  userId    String?
   userName  String   @default("Система")
   createdAt DateTime @default(now())
 
   order Order @relation(fields: [cardId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id          String   @id
+  name        String
+  clientId    String?
+  description String   @default("")
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+
+  orders Order[]
+}
+
+model SpecProject {
+  id          String   @id
+  name        String
+  clientId    String?
+  description String   @default("")
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+
+  orders Order[]
+  items  SpecProjectItem[]
+}
+
+model SpecProjectItem {
+  id             String  @id @default(cuid())
+  specProjectId  String
+  name           String
+  qty            Float
+  unit           String  @default("шт")
+  nomenclatureId String?
+
+  specProject  SpecProject   @relation(fields: [specProjectId], references: [id], onDelete: Cascade)
+  nomenclature Nomenclature? @relation(fields: [nomenclatureId], references: [id])
+}
+
+model Supplier {
+  id       String     @id @default(cuid())
+  name     String     @unique
+  type     String     @default("Внешний")
+  active   Boolean    @default(true)
+  positions Position[]
+  stock    Stock[]
+}
+
+model Nomenclature {
+  id   String @id @default(cuid())
+  name String
+  unit String @default("шт")
+  cat  String @default("")
+
+  specItems SpecProjectItem[]
+  stock     Stock[]
+}
+
+model Stock {
+  id             String @id @default(cuid())
+  supplierId     String
+  nomenclatureId String
+  name           String
+  unit           String @default("шт")
+  qty            Float  @default(0)
+  reserved       Float  @default(0)
+
+  supplier     Supplier     @relation(fields: [supplierId], references: [id])
+  nomenclature Nomenclature @relation(fields: [nomenclatureId], references: [id])
+}
+
+model StockMovement {
+  id         String   @id @default(cuid())
+  type       String
+  name       String
+  qty        Float
+  unit       String   @default("шт")
+  positionId String?
+  cardId     String?
+  createdAt  DateTime @default(now())
+
+  position Position? @relation(fields: [positionId], references: [id])
+}
+
+model DailyReport {
+  id        String   @id @default(cuid())
+  logistId  String
+  date      DateTime
+  comment   String   @default("")
+  status    String   @default("processing")
+  createdAt DateTime @default(now())
+
+  logist User             @relation(fields: [logistId], references: [id])
+  rows   DailyReportRow[]
+}
+
+model DailyReportRow {
+  id          String @id @default(cuid())
+  reportId    String
+  fromWho     String @default("")
+  name        String @default("")
+  qtyIn       Float  @default(0)
+  commentIn   String @default("")
+  toWho       String @default("")
+  qtyOut      Float  @default(0)
+  commentOut  String @default("")
+  invoiceNum  String @default("")
+
+  report DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  text      String
+  cardId    String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model PaymentStatus {
+  id     String  @id @default(cuid())
+  name   String  @unique
+  active Boolean @default(true)
 }

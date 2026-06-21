@@ -1,25 +1,17 @@
-// middleware.ts
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getSessionFromRequest } from './lib/auth'
 
-const PUBLIC_PATHS = ['/login', '/track', '/api/auth']
+const PUBLIC = ['/login', '/register', '/track', '/api/auth', '/api/track', '/api/client']
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // Allow public paths
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next()
-  }
-
-  // Allow static files
-  if (pathname.startsWith('/_next') || pathname.startsWith('/favicon')) {
-    return NextResponse.next()
-  }
+  if (PUBLIC.some(p => pathname.startsWith(p))) return NextResponse.next()
+  if (pathname.startsWith('/_next') || pathname.startsWith('/favicon')) return NextResponse.next()
+  if (pathname === '/') return NextResponse.next()
 
   const session = await getSessionFromRequest(req)
-
   if (!session) {
     const url = req.nextUrl.clone()
     url.pathname = '/login'

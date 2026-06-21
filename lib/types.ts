@@ -1,5 +1,3 @@
-// lib/types.ts
-
 export interface Position {
   id: string
   cardId: string
@@ -10,9 +8,11 @@ export interface Position {
   price: number
   resp: string
   supplier: string
+  supplierId?: string
   status: string
   late: boolean
   payment: string
+  deadline?: string
   createdAt: string
   updatedAt: string
 }
@@ -20,17 +20,19 @@ export interface Position {
 export interface Order {
   id: string
   from: string
-  fromId: string | null
+  fromId?: string
   to: string
   screen: string
   block: string
   status: string
   source: string
-  projectId: string | null
+  projectId?: string
+  specProjectId?: string
+  contactId?: string
   comment: string
-  phone: string | null
-  deadline: string | null
-  delivered: string | null
+  phone?: string
+  deadline?: string
+  delivered?: string
   isDraft: boolean
   isChanged: boolean
   changeText: string
@@ -42,29 +44,126 @@ export interface Order {
   invoice: boolean
   fact: boolean
   posted1C: boolean
+  cold: boolean
   trackingLink: string
+  sortOrder: number
   createdAt: string
   updatedAt: string
   positions: Position[]
 }
 
+export interface User {
+  id: string
+  name: string
+  phone?: string
+  email?: string
+  role: string
+  companyId?: string
+  slug?: string
+  active: boolean
+  createdAt: string
+}
+
+export interface Project {
+  id: string
+  name: string
+  clientId?: string
+  description: string
+  status: string
+  createdAt: string
+}
+
+export interface SpecProject {
+  id: string
+  name: string
+  clientId?: string
+  description: string
+  status: string
+  createdAt: string
+  items: SpecProjectItem[]
+}
+
+export interface SpecProjectItem {
+  id: string
+  specProjectId: string
+  name: string
+  qty: number
+  unit: string
+  nomenclatureId?: string
+}
+
+export interface Supplier {
+  id: string
+  name: string
+  type: string
+  active: boolean
+}
+
+export interface Nomenclature {
+  id: string
+  name: string
+  unit: string
+  cat: string
+}
+
+export interface Stock {
+  id: string
+  name: string
+  unit: string
+  qty: number
+  reserved: number
+}
+
+export interface DailyReport {
+  id: string
+  logistId: string
+  date: string
+  comment: string
+  status: string
+  createdAt: string
+  logist?: User
+  rows: DailyReportRow[]
+}
+
+export interface DailyReportRow {
+  id: string
+  reportId: string
+  fromWho: string
+  name: string
+  qtyIn: number
+  commentIn: string
+  toWho: string
+  qtyOut: number
+  commentOut: string
+  invoiceNum: string
+}
+
+export interface Notification {
+  id: string
+  userId: string
+  text: string
+  cardId?: string
+  read: boolean
+  createdAt: string
+}
+
 export interface SessionUser {
   id: string
   name: string
-  email: string
+  email?: string
+  phone?: string
   role: string
+  slug?: string
 }
 
-export type Screen =
-  | 'dashboard'
-  | 'reception'
-  | 'incoming'
-  | 'outgoing'
-  | 'filter'
-  | 'accounting'
-  | 'bookkeeping'
-  | 'settings'
-  | 'warehouse'
-  | 'archive'
+export type AdminScreen =
+  | 'dashboard' | 'reception' | 'incoming' | 'outgoing'
+  | 'filter' | 'accounting' | 'warehouse' | 'bookkeeping'
+  | 'archive' | 'settings'
 
 export type IncTab = 'new' | 'changed' | 'toacc' | 'drafts' | 'cancelled'
+export type FilterGroup = 'clients' | 'suppliers' | 'projects' | 'specprojects'
+export type FilterStatus = 'inwork' | 'delivered' | 'all'
+export type ArchiveTab = 'cards' | 'projects' | 'specprojects'
+export type SettingsTab = 'users' | 'projects' | 'specprojects' | 'nomenclature' | 'payment'
+export type BookkeepingTab = 'cards' | 'reports'

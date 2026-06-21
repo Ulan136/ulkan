@@ -1,23 +1,20 @@
-// app/api/orders/all/route.ts
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getSession } from '@/lib/auth'
+import { getSessionFromRequest } from '@/lib/auth'
 
-export async function GET() {
-  const session = await getSession()
+export async function GET(req: NextRequest) {
+  const session = await getSessionFromRequest(req)
   if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
   const orders = await prisma.order.findMany({
     include: { positions: true },
     orderBy: { createdAt: 'desc' },
   })
-
   return NextResponse.json(orders)
 }
 
-export async function POST() {
-  // postAll — send all accounting to bookkeeping
-  const session = await getSession()
+export async function POST(req: NextRequest) {
+  const session = await getSessionFromRequest(req)
   if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
   const toPost = await prisma.order.findMany({

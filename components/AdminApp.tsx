@@ -1,115 +1,363 @@
 'use client'
-// components/AdminApp.tsx — rebuilt to match original U-Kan UI exactly
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { SessionUser, Order, Screen, IncTab } from '@/lib/types'
-import { fetchAllOrders, fetchDashboard, fetchSettings, orderAction, postAll, logout, createOrder } from '@/lib/api'
-import { cardProgress, cardSum, isOverdue, primaryResp, srcLabel, fmtMoney, fmtDate, fmtDateTime, posPct } from '@/lib/display'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import {
+  DndContext,
+  closestCenter,
+  DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import {
+  SessionUser,
+  Order,
+  User,
+  Project,
+  SpecProject,
+  Nomenclature,
+  Stock,
+  DailyReport,
+  AdminScreen,
+  IncTab,
+  FilterGroup,
+  FilterStatus,
+  ArchiveTab,
+  SettingsTab,
+  BookkeepingTab,
+} from '@/lib/types'
+import {
+  fetchAllOrders,
+  fetchDashboard,
+  fetchSettings,
+  orderAction,
+  postAll,
+  logout,
+  createOrder,
+  fetchHistory,
+  fetchStock,
+  fetchStockMovements,
+  fetchDailyReports,
+  updateDailyReport,
+  createUser,
+  updateUser,
+  createProject,
+  createSpecProject,
+} from '@/lib/api'
+import {
+  cardProgress,
+  cardSum,
+  isOverdue,
+  sourceLabel,
+  fmtMoney,
+  fmtDate,
+  fmtDateTime,
+  posPct,
+  barColor,
+  statusStyle,
+  sourceStyle,
+  roleLabel,
+} from '@/lib/display'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type OutgoingTab = 'inwork' | 'ready' | 'all'
+
+interface HistoryItem {
+  id: string
+  action: string
+  detail: string
+  userName: string
+  createdAt: string
+}
+
+interface PaymentStatus {
+  id: string
+  name: string
+  active: boolean
+}
+
+interface StockMovement {
+  id: string
+  type: string
+  name: string
+  qty: number
+  unit: string
+  cardId?: string
+  createdAt: string
+}
+
+interface SettingsData {
+  users: User[]
+  projects: Project[]
+  specProjects: SpecProject[]
+  suppliers: { id: string; name: string; type: string; active: boolean }[]
+  nomenclature: Nomenclature[]
+  paymentStatuses: PaymentStatus[]
+}
+
+interface DashboardData {
+  kpi: { active: number; deliveredToday: number; overdue: number; inwork: number; turnoverToday: number }
+  flow: { incoming: number; reception: number; outgoing: number; accounting: number; bookkeeping: number; archive: number }
+  progress: { overallPct: number; inwork: number; delivered: number; overdue: number }
+  attention: Array<{ label: string; sub: string; tag: string; hue: string; screen: string }>
+  activity: Array<{ text: string; sub: string; time: string }>
+  topClients: Array<{ name: string; count: number; pct: number }>
+  specProjects?: Array<{ id: string; name: string; pct: number; cards: number }>
+}
+
+interface FormPosition {
+  name: string
+  qty: number
+  price: number
+  resp: string
+  supplier: string
+  deadline: string
+  payment: string
+  showPayment: boolean
+}
+
+interface UserFormData {
+  id?: string
+  name: string
+  role: string
+  companyId: string
+  email: string
+  phone: string
+  password: string
+  slug: string
+  active: boolean
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const PCT: Record<string, number> = { 'В работе': 10, 'Готово к отгрузке': 60, 'В пути': 80, 'Доставлено': 100, '': 0 }
+const POS_STATUSES = ['В работе', 'Готово к отгрузке', 'В пути', 'Доставлено'] as const
 
-function pct(status: string) { return PCT[status] ?? 0 }
-
-function barColor(p: number) {
-  return p >= 100 ? '#3a9d6e' : p >= 60 ? '#c4a832' : '#d4613a'
+const ROLE_COLORS: Record<string, { bg: string; color: string }> = {
+  super_admin: { bg: '#eef2ff', color: '#4a5aaa' },
+  bookkeeper: { bg: '#e8f5ee', color: '#2e8a5e' },
+  logist: { bg: '#fff0ea', color: '#c0532a' },
+  supplier_client: { bg: '#f3eeff', color: '#7a3aaa' },
+  client: { bg: '#eef2ff', color: '#4a5aaa' },
 }
 
-function statusStyle(status: string): string {
-  const map: Record<string, string> = {
-    'В ожидании': 'background:#eef2ff;color:#4a5aaa',
-    'Новая заявка': 'background:#eef2ff;color:#4a5aaa',
-    'Принят': 'background:#fff0ea;color:#c0532a',
-    'В обработке': 'background:#fff0ea;color:#c0532a',
-    'В работе': 'background:#fff0ea;color:#c0532a',
-    'Готово к отгрузке': 'background:#fdf8e1;color:#8a6f00',
-    'В пути': 'background:#fdf8e1;color:#8a6f00',
-    'Доставлено': 'background:#e8f5ee;color:#2e8a5e',
-    'К учёту': 'background:#e8f5ee;color:#2e8a5e',
-    'Бухгалтерия': 'background:#e8f5ee;color:#2e8a5e',
-    'Архив': 'background:#eef2ff;color:#4a5aaa',
-    'Отменён': 'background:#faeaea;color:#b03020',
-    'Черновик': 'background:#efece8;color:#6b655b',
+function copyText(text: string) {
+  try { navigator.clipboard.writeText(text) } catch { /* ignore */ }
+}
+
+function slugify(name: string) {
+  return name.toLowerCase().replace(/[^a-zа-яё0-9]+/gi, '-').replace(/^-|-$/g, '').slice(0, 40) || 'user'
+}
+
+function userLink(u: User): string | null {
+  if (u.role === 'logist' && u.slug) return `${typeof window !== 'undefined' ? window.location.origin : ''}/rsp/${u.slug}`
+  if ((u.role === 'client' || u.role === 'supplier_client') && u.slug) return `${typeof window !== 'undefined' ? window.location.origin : ''}/client/${u.slug}`
+  return null
+}
+
+function loadColumnOrder(group: FilterGroup): string[] | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(`ukan-filter-columns-${group}`)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+function saveColumnOrder(group: FilterGroup, order: string[]) {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(`ukan-filter-columns-${group}`, JSON.stringify(order)) } catch { /* ignore */ }
+}
+
+function isClientRole(role: string) {
+  return role === 'client' || role === 'supplier_client'
+}
+
+function emptyPos(): FormPosition {
+  return { name: '', qty: 1, price: 0, resp: '', supplier: '', deadline: '', payment: 'Не оплачено', showPayment: false }
+}
+
+// ─── Shared UI ────────────────────────────────────────────────────────────────
+
+function Btn({ children, onClick, variant = 'default', size = 'md', disabled }: {
+  children: React.ReactNode
+  onClick?: () => void
+  variant?: 'primary' | 'default' | 'danger' | 'ghost' | 'dark'
+  size?: 'sm' | 'md'
+  disabled?: boolean
+}) {
+  const styles: Record<string, React.CSSProperties> = {
+    primary: { background: '#d4613a', color: '#fff', border: '1px solid transparent' },
+    default: { background: '#fff', color: '#3a352f', border: '1px solid #d8d3cc' },
+    danger: { background: '#fff', color: '#c0392b', border: '1px solid #e6dcd6' },
+    ghost: { background: 'transparent', color: '#6b655b', border: '1px solid #d8d3cc' },
+    dark: { background: '#211f1c', color: '#fff', border: '1px solid transparent' },
   }
-  const s = map[status] || 'background:#efece8;color:#6b655b'
-  return s + ';font-size:10.5px;padding:1px 9px;border-radius:20px;font-weight:600;white-space:nowrap'
-}
-
-function srcBadge(s: string): string {
-  const m: Record<string, string> = { cabinet: '#eef2ff;color:#4a5aaa', external: '#fff0ea;color:#c0532a', webhook: '#f3eeff;color:#7a3aaa', admin_manual: '#eef2ff;color:#4a5aaa', responsible_portal: '#e8f5ee;color:#2e8a5e' }
-  const v = m[s] || '#efece8;color:#6b655b'
-  return `background:${v};font-size:10px;padding:1px 8px;border-radius:20px;font-weight:600`
-}
-
-function parseStyle(s: string): React.CSSProperties {
-  const o: Record<string, string> = {}
-  for (const d of s.split(';')) {
-    const i = d.indexOf(':')
-    if (i < 0) continue
-    const k = d.slice(0, i).trim().replace(/-([a-z])/g, (_, c) => c.toUpperCase())
-    o[k] = d.slice(i + 1).trim()
-  }
-  return o as React.CSSProperties
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        ...styles[variant],
+        padding: size === 'sm' ? '6px 10px' : '7px 13px',
+        borderRadius: 7,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        fontFamily: 'inherit',
+        fontWeight: 600,
+        fontSize: size === 'sm' ? 11 : 12,
+        opacity: disabled ? 0.55 : 1,
+      }}
+    >
+      {children}
+    </button>
+  )
 }
 
 function Toast({ msg }: { msg: string }) {
-  return <div style={{ position: 'fixed', bottom: 26, left: '50%', transform: 'translateX(-50%)', background: '#211f1c', color: '#fff', padding: '11px 20px', borderRadius: 9, fontSize: 13, fontWeight: 500, boxShadow: '0 8px 24px rgba(0,0,0,.22)', animation: 'uktoast .2s', zIndex: 50 }}>{msg}</div>
+  return (
+    <div style={{
+      position: 'fixed', bottom: 26, left: '50%', transform: 'translateX(-50%)',
+      background: '#211f1c', color: '#fff', padding: '11px 20px', borderRadius: 9,
+      fontSize: 13, fontWeight: 500, boxShadow: '0 8px 24px rgba(0,0,0,.22)',
+      animation: 'uktoast .2s', zIndex: 50,
+    }}
+    >
+      {msg}
+    </div>
+  )
+}
+
+function ProgressBar({ pct, height = 5 }: { pct: number; height?: number }) {
+  return (
+    <div style={{ height, background: '#f0ece6', borderRadius: 4, overflow: 'hidden' }}>
+      <div style={{ width: `${pct}%`, height: '100%', borderRadius: 4, background: barColor(pct), transition: 'width .3s' }} />
+    </div>
+  )
+}
+
+function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '9px 14px', border: 'none',
+        borderBottom: `2px solid ${active ? '#d4613a' : 'transparent'}`,
+        background: 'none', cursor: 'pointer', fontFamily: 'inherit',
+        fontSize: 13, fontWeight: active ? 700 : 500,
+        color: active ? '#26231f' : '#8a847c', marginBottom: -1,
+      }}
+    >
+      {children}
+    </button>
+  )
 }
 
 // ─── Card Detail Modal ────────────────────────────────────────────────────────
 
-function DetailModal({ order, onClose, onAction }: { order: Order; onClose: () => void; onAction: (id: string, a: string, p?: Record<string, unknown>) => void }) {
+function CardDetailModal({ order, onClose }: { order: Order; onClose: () => void }) {
+  const [history, setHistory] = useState<HistoryItem[]>([])
+  const [loadingHist, setLoadingHist] = useState(true)
   const prog = cardProgress(order)
   const sum = cardSum(order)
   const url = typeof window !== 'undefined' ? `${window.location.origin}/track?id=${order.id}` : order.trackingLink
 
+  useEffect(() => {
+    let cancelled = false
+    setLoadingHist(true)
+    fetchHistory(order.id)
+      .then((data: HistoryItem[]) => { if (!cancelled) setHistory(data) })
+      .catch(() => { if (!cancelled) setHistory([]) })
+      .finally(() => { if (!cancelled) setLoadingHist(false) })
+    return () => { cancelled = true }
+  }, [order.id])
+
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(33,31,28,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 45, padding: 24 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, width: 580, maxWidth: '100%', maxHeight: '88vh', overflowY: 'auto', animation: 'ukpop .18s', boxShadow: '0 24px 60px rgba(0,0,0,.28)' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '17px 22px', borderBottom: '1px solid #eee8e1', position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(33,31,28,.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 45, padding: 24,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#fff', borderRadius: 14, width: 580, maxWidth: '100%', maxHeight: '88vh',
+          overflowY: 'auto', animation: 'ukpop .18s', boxShadow: '0 24px 60px rgba(0,0,0,.28)',
+        }}
+      >
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 11, padding: '17px 22px',
+          borderBottom: '1px solid #eee8e1', position: 'sticky', top: 0, background: '#fff', zIndex: 1,
+        }}
+        >
           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, fontSize: 15 }}>{order.id}</span>
-          <span style={parseStyle(statusStyle(order.status))}>{order.status}</span>
-          <span style={{ marginLeft: 'auto', fontSize: 11.5, color: '#a39c92' }}>{srcLabel(order.source)} · {fmtDateTime(order.createdAt)}</span>
+          <span style={statusStyle(order.status)}>{order.status}</span>
+          <span style={{ marginLeft: 'auto', fontSize: 11.5, color: '#a39c92' }}>
+            {sourceLabel(order.source)} · {fmtDateTime(order.createdAt)}
+          </span>
           <button onClick={onClose} style={{ width: 30, height: 30, border: 'none', background: '#f1ede7', borderRadius: 8, cursor: 'pointer', color: '#6b655b', fontSize: 14 }}>✕</button>
         </div>
         <div style={{ padding: '20px 22px' }}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{order.from} → {order.to || '—'}</div>
-          {/* Progress */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '14px 0 20px' }}>
-            <div style={{ flex: 1, height: 7, background: '#f0ece6', borderRadius: 4, overflow: 'hidden' }}>
-              <div style={{ width: `${prog}%`, height: '100%', borderRadius: 4, background: barColor(prog) }} />
-            </div>
+            <div style={{ flex: 1 }}><ProgressBar pct={prog} height={7} /></div>
             <span style={{ fontSize: 12, color: '#8a847c', fontFamily: 'JetBrains Mono, monospace' }}>{prog}%</span>
           </div>
-          {/* Positions */}
-          <div style={{ fontSize: 10.5, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase', letterSpacing: .4, marginBottom: 9 }}>
+          <div style={{ fontSize: 10.5, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 9 }}>
             Позиции <span style={{ color: '#c0532a' }}>· цены только в админке</span>
           </div>
-          {order.positions.length === 0 && <div style={{ fontSize: 12.5, color: '#a39c92', padding: '4px 0 14px' }}>Позиции ещё не сформированы — заявка из комментария.</div>}
+          {order.positions.length === 0 && (
+            <div style={{ fontSize: 12.5, color: '#a39c92', padding: '4px 0 14px' }}>
+              Позиции ещё не сформированы — заявка из комментария.
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
             {order.positions.map((p, i) => (
               <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '22px 1fr 86px 116px', gap: 10, alignItems: 'center', padding: '10px 12px', background: '#faf8f6', borderRadius: 8 }}>
                 <span style={{ fontSize: 11, color: '#b8b1a6', fontFamily: 'JetBrains Mono, monospace' }}>{i + 1}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 12.5, fontWeight: 500 }}>{p.name1c || p.oral || '—'}</span>
-                  <span style={parseStyle(statusStyle(p.status || 'В работе'))}>{p.status || 'В работе'}</span>
+                  <span style={statusStyle(p.status || 'В работе')}>{p.status || 'В работе'}</span>
                 </div>
                 <span style={{ fontSize: 12, color: '#6b655b', fontFamily: 'JetBrains Mono, monospace' }}>{p.qty} {p.unit}</span>
                 <span style={{ fontSize: 12.5, fontWeight: 600, textAlign: 'right', fontFamily: 'JetBrains Mono, monospace' }}>{fmtMoney(p.qty * p.price)}</span>
               </div>
             ))}
           </div>
-          {/* Sum */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 14px', background: '#fdf0ea', borderRadius: 8, marginBottom: 20 }}>
             <span style={{ fontSize: 12.5, color: '#6b655b' }}>Сумма заказа</span>
             <span style={{ fontSize: 16, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>{fmtMoney(sum)}</span>
           </div>
-          {/* Tracking */}
+          <div style={{ fontSize: 10.5, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 9 }}>История</div>
+          {loadingHist ? (
+            <div style={{ fontSize: 12.5, color: '#a39c92', marginBottom: 16 }}>Загрузка…</div>
+          ) : history.length === 0 ? (
+            <div style={{ fontSize: 12.5, color: '#a39c92', marginBottom: 16 }}>Записей нет</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 20 }}>
+              {history.map(h => (
+                <div key={h.id} style={{ display: 'flex', gap: 11, padding: '7px 0', borderBottom: '1px solid #f1ede7' }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#d4613a', marginTop: 5, flexShrink: 0 }} />
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 12.5, fontWeight: 500 }}>{h.action}{h.detail ? ` — ${h.detail}` : ''}</span>
+                    <span style={{ display: 'block', fontSize: 11, color: '#a39c92' }}>{h.userName}</span>
+                  </span>
+                  <span style={{ fontSize: 10.5, color: '#b8b1a6', whiteSpace: 'nowrap' }}>{fmtDateTime(h.createdAt)}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 9 }}>
             <input value={url} readOnly style={{ flex: 1, padding: '9px 11px', border: '1px solid #e0dcd5', borderRadius: 8, fontFamily: 'JetBrains Mono, monospace', fontSize: 11.5, color: '#6b655b', background: '#faf8f6' }} />
-            <button onClick={() => { try { navigator.clipboard.writeText(url) } catch {} }} style={{ border: '1px solid #d8d3cc', background: '#fff', padding: '9px 13px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600 }}>📋 Ссылка</button>
+            <Btn onClick={() => copyText(url)}>📋 Ссылка</Btn>
             <a href={`/track?id=${order.id}`} target="_blank" rel="noreferrer" style={{ background: '#d4613a', color: '#fff', padding: '9px 14px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 12, display: 'flex', alignItems: 'center' }}>Трекинг →</a>
           </div>
         </div>
@@ -118,19 +366,130 @@ function DetailModal({ order, onClose, onAction }: { order: Order; onClose: () =
   )
 }
 
-// ─── Screens ──────────────────────────────────────────────────────────────────
+// ─── User Modal ───────────────────────────────────────────────────────────────
 
-function Dashboard({ data, onGo }: { data: Record<string, unknown> | null; onGo: (s: Screen) => void }) {
-  if (!data) return <div style={{ padding: 40, color: '#a39c92', textAlign: 'center' }}>Загрузка…</div>
-  const { kpi, flow, progress, attention, activity, topClients } = data as {
-    kpi: Record<string, number>
-    flow: Record<string, number>
-    progress: Record<string, number>
-    attention: Array<{ label: string; sub: string; tag: string; hue: string; screen: string }>
-    activity: Array<{ text: string; sub: string; time: string }>
-    topClients: Array<{ name: string; count: number; pct: number }>
+function UserModal({ user, allUsers, onClose, onSave, onToast }: {
+  user: UserFormData | null
+  allUsers: User[]
+  onClose: () => void
+  onSave: (data: UserFormData, isNew: boolean) => Promise<{ password?: string; user: User }>
+  onToast: (msg: string) => void
+}) {
+  const isNew = !user?.id
+  const [form, setForm] = useState<UserFormData>(user || {
+    name: '', role: 'client', companyId: '', email: '', phone: '', password: '', slug: '', active: true,
+  })
+  const [saving, setSaving] = useState(false)
+  const [access, setAccess] = useState<{ link: string; login: string; password: string } | null>(null)
+
+  const companies = allUsers.filter(u => isClientRole(u.role) && !u.companyId)
+  const subUsers = allUsers.filter(u => u.companyId === form.id)
+
+  async function handleSave() {
+    if (!form.name.trim()) return
+    setSaving(true)
+    try {
+      const result = await onSave(form, isNew)
+      if (isNew && result.password) {
+        const link = userLink(result.user) || ''
+        setAccess({ link, login: result.user.email || result.user.phone || '', password: result.password })
+      } else {
+        onToast('✓ Пользователь сохранён')
+        onClose()
+      }
+    } catch (e) {
+      onToast(`Ошибка: ${(e as Error).message}`)
+    } finally { setSaving(false) }
   }
-  const flowItems: [string, number, Screen][] = [
+
+  if (access) {
+    return (
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(33,31,28,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 24 }}>
+        <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, width: 440, maxWidth: '100%', padding: 24, animation: 'ukpop .18s' }}>
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 16, color: '#2e8a5e' }}>✓ Пользователь создан!</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+            <label style={{ fontSize: 12, color: '#6b655b' }}>Ссылка
+              <input readOnly value={access.link} style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontSize: 12 }} />
+            </label>
+            <div style={{ fontSize: 13 }}>Логин: <b>{access.login}</b></div>
+            <div style={{ fontSize: 13 }}>Пароль: <b>{access.password}</b></div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <Btn onClick={() => copyText(`Ссылка: ${access.link}\nЛогин: ${access.login}\nПароль: ${access.password}`)}>📋 Скопировать всё</Btn>
+            <Btn variant="primary" onClick={onClose}>Закрыть</Btn>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(33,31,28,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 24 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, width: 480, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', padding: 22, animation: 'ukpop .18s' }}>
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>{isNew ? 'Новый пользователь' : 'Редактировать пользователя'}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <label style={{ fontSize: 12, color: '#6b655b' }}>Имя *
+            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value, slug: f.slug || slugify(e.target.value) }))} style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit' }} />
+          </label>
+          <label style={{ fontSize: 12, color: '#6b655b' }}>Роль
+            <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit' }}>
+              <option value="super_admin">Супер-Админ</option>
+              <option value="bookkeeper">Бухгалтер</option>
+              <option value="logist">Логист</option>
+              <option value="supplier_client">Поставщик/заказчик</option>
+              <option value="client">Клиент</option>
+            </select>
+          </label>
+          <label style={{ fontSize: 12, color: '#6b655b' }}>Компания (для суб-пользователя)
+            <select value={form.companyId} onChange={e => setForm(f => ({ ...f, companyId: e.target.value }))} style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit' }}>
+              <option value="">—</option>
+              {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>
+          <label style={{ fontSize: 12, color: '#6b655b' }}>Email
+            <input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit' }} />
+          </label>
+          <label style={{ fontSize: 12, color: '#6b655b' }}>Телефон (+7)
+            <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+7" style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit' }} />
+          </label>
+          {isNew && (
+            <label style={{ fontSize: 12, color: '#6b655b' }}>Пароль
+              <input type="text" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit' }} />
+            </label>
+          )}
+          <label style={{ fontSize: 12, color: '#6b655b' }}>Slug
+            <input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit' }} />
+          </label>
+          <label style={{ fontSize: 12, color: '#6b655b' }}>Статус
+            <select value={form.active ? '1' : '0'} onChange={e => setForm(f => ({ ...f, active: e.target.value === '1' }))} style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit' }}>
+              <option value="1">Активен</option>
+              <option value="0">Неактивен</option>
+            </select>
+          </label>
+          {!isNew && subUsers.length > 0 && (
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#6b655b', marginBottom: 6 }}>Суб-пользователи</div>
+              {subUsers.map(s => (
+                <div key={s.id} style={{ fontSize: 12.5, padding: '6px 0', borderBottom: '1px solid #f1ede7' }}>{s.name} · {s.phone || s.email}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
+          <Btn onClick={onClose}>Отмена</Btn>
+          <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? 'Сохранение…' : 'Сохранить →'}</Btn>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+
+function Dashboard({ data, onGo }: { data: DashboardData | null; onGo: (s: AdminScreen) => void }) {
+  if (!data) return <div style={{ padding: 40, color: '#a39c92', textAlign: 'center' }}>Загрузка…</div>
+  const { kpi, flow, progress, attention, activity, topClients, specProjects } = data
+  const flowItems: [string, number, AdminScreen][] = [
     ['Входящие', flow.incoming, 'incoming'],
     ['Приёмка', flow.reception, 'reception'],
     ['Исходящие', flow.outgoing, 'outgoing'],
@@ -142,7 +501,6 @@ function Dashboard({ data, onGo }: { data: Record<string, unknown> | null; onGo:
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 1320, animation: 'ukfade .25s' }}>
-      {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 14 }}>
         {[
           { label: 'Активных карточек', value: kpi.active, color: '#26231f' },
@@ -153,21 +511,20 @@ function Dashboard({ data, onGo }: { data: Record<string, unknown> | null; onGo:
         ].map(k => (
           <div key={k.label} style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, padding: '15px 16px' }}>
             <div style={{ fontSize: 11.5, color: '#8a847c', marginBottom: 8 }}>{k.label}</div>
-            <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: -.5, fontFamily: 'JetBrains Mono, monospace', color: k.color }}>{k.value}</div>
+            <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.5, fontFamily: 'JetBrains Mono, monospace', color: k.color }}>{k.value}</div>
           </div>
         ))}
       </div>
-      {/* Mid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.1fr .9fr', gap: 14 }}>
         <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, padding: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <div style={{ fontWeight: 700, fontSize: 13.5 }}>Требуют внимания</div>
             <div style={{ fontSize: 11, color: '#a39c92' }}>{attention.length} всего</div>
           </div>
-          {attention.length === 0 ? <div style={{ color: '#a39c92', fontSize: 13 }}>Всё в порядке</div> :
+          {attention.length === 0 ? <div style={{ color: '#a39c92', fontSize: 13 }}>Всё в порядке</div> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {attention.map((a, i) => (
-                <button key={i} onClick={() => onGo(a.screen as Screen)} style={{ display: 'flex', gap: 10, alignItems: 'center', textAlign: 'left', background: '#faf8f6', border: '1px solid #ece8e2', borderRadius: 8, padding: '9px 11px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                <button key={i} onClick={() => onGo(a.screen as AdminScreen)} style={{ display: 'flex', gap: 10, alignItems: 'center', textAlign: 'left', background: '#faf8f6', border: '1px solid #ece8e2', borderRadius: 8, padding: '9px 11px', cursor: 'pointer', fontFamily: 'inherit' }}>
                   <span style={{ width: 9, height: 9, borderRadius: '50%', background: a.hue === '25' ? '#c0392b' : a.hue === '70' ? '#c4a832' : '#3a9d6e', flexShrink: 0 }} />
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600 }}>{a.label}</span>
@@ -177,7 +534,7 @@ function Dashboard({ data, onGo }: { data: Record<string, unknown> | null; onGo:
                 </button>
               ))}
             </div>
-          }
+          )}
         </div>
         <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, padding: 16 }}>
           <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 12 }}>Последние действия</div>
@@ -209,13 +566,12 @@ function Dashboard({ data, onGo }: { data: Record<string, unknown> | null; onGo:
           </div>
         </div>
       </div>
-      {/* Bottom */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 14 }}>
         <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, padding: 16 }}>
           <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 14 }}>Поток карточек</div>
           <div style={{ display: 'flex', alignItems: 'stretch', gap: 6 }}>
-            {flowItems.map(([label, value, screen]) => (
-              <button key={label} onClick={() => onGo(screen)} style={{ flex: 1, background: '#faf8f6', border: '1px solid #ece8e2', borderRadius: 9, padding: '13px 8px', cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit' }}>
+            {flowItems.map(([label, value, scr]) => (
+              <button key={label} onClick={() => onGo(scr)} style={{ flex: 1, background: '#faf8f6', border: '1px solid #ece8e2', borderRadius: 9, padding: '13px 8px', cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit' }}>
                 <div style={{ fontSize: 23, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: '#d4613a' }}>{value}</div>
                 <div style={{ fontSize: 11, color: '#6b655b', marginTop: 3 }}>{label}</div>
               </button>
@@ -231,63 +587,95 @@ function Dashboard({ data, onGo }: { data: Record<string, unknown> | null; onGo:
                   <span style={{ fontWeight: 500 }}>{c.name}</span>
                   <span style={{ color: '#8a847c', fontFamily: 'JetBrains Mono, monospace' }}>{c.count}</span>
                 </div>
-                <div style={{ height: 7, background: '#f0ece6', borderRadius: 4, overflow: 'hidden' }}>
-                  <div style={{ width: `${c.pct}%`, height: '100%', borderRadius: 4, background: '#d4613a' }} />
-                </div>
+                <ProgressBar pct={c.pct} />
               </div>
             ))}
           </div>
         </div>
       </div>
+      {specProjects && specProjects.length > 0 && (
+        <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, padding: 16 }}>
+          <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 14 }}>СпецПроекты · активные</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {specProjects.map(sp => (
+              <div key={sp.id}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 5 }}>
+                  <span style={{ fontWeight: 600 }}>{sp.name}</span>
+                  <span style={{ color: '#8a847c', fontFamily: 'JetBrains Mono, monospace' }}>{sp.pct}% · {sp.cards} карточек</span>
+                </div>
+                <ProgressBar pct={sp.pct} height={7} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function Reception({ orders, onAction, onOpen, settings }: {
+// ─── Reception ────────────────────────────────────────────────────────────────
+
+function Reception({ orders, onAction, onOpen, settings, onCreated }: {
   orders: Order[]
   onAction: (id: string, a: string, p?: Record<string, unknown>) => void
   onOpen: (id: string) => void
-  settings: Record<string, unknown> | null
+  settings: SettingsData | null
+  onCreated: () => void
 }) {
   const waiting = orders.filter(o => o.screen === 'reception' && o.block === 'waiting')
   const processing = orders.filter(o => o.screen === 'reception' && o.block === 'processing')
   const drafts = orders.filter(o => o.isDraft)
+  const changedCount = orders.filter(o => o.isChanged && !o.isCancelled && !o.isDraft).length
 
-  const clients = (settings?.clients as Array<{ name: string }> | undefined) || []
-  const users = (settings?.users as Array<{ name: string }> | undefined) || []
-  const suppliers = (settings?.suppliers as Array<{ name: string }> | undefined) || []
+  const clients = settings?.users.filter(u => isClientRole(u.role)) || []
+  const logists = settings?.users.filter(u => u.role === 'logist') || []
+  const suppliers = settings?.suppliers || []
+  const projects = settings?.projects.filter(p => p.status === 'active') || []
+  const specProjects = settings?.specProjects.filter(p => p.status === 'active') || []
+  const paymentStatuses = settings?.paymentStatuses || []
 
-  const [form, setForm] = useState({ from: '', to: '', positions: [{ name: '', qty: 1, price: 0, resp: '', supplier: '' }] })
+  const [form, setForm] = useState({
+    fromId: '', from: '', to: '', projectId: '', specProjectId: '', contactId: '',
+    positions: [emptyPos()],
+  })
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+
+  const selectedClient = clients.find(c => c.id === form.fromId)
+  const subContacts = settings?.users.filter(u => u.companyId === form.fromId) || []
 
   async function handleSubmit(isDraft: boolean) {
     if (!form.from) return
     setSubmitting(true)
     try {
       await createOrder({
-        from: form.from, to: form.to,
-        positions: form.positions.filter(p => p.name).map((p, i) => ({ id: `temp-${i}`, cardId: '', oral: p.name, name1c: p.name, qty: p.qty, unit: 'шт', price: p.price, resp: p.resp, supplier: p.supplier, status: 'В работе', late: false, payment: '', createdAt: '', updatedAt: '' })),
+        from: form.from,
+        fromId: form.fromId || undefined,
+        to: form.to,
+        projectId: form.projectId || undefined,
+        specProjectId: form.specProjectId || undefined,
+        contactId: form.contactId || undefined,
+        positions: form.positions.filter(p => p.name).map((p, i) => ({
+          id: `temp-${i}`, cardId: '', oral: p.name, name1c: p.name,
+          qty: p.qty, unit: 'шт', price: p.price, resp: p.resp, supplier: p.supplier,
+          status: 'В работе', late: false, payment: p.payment,
+          deadline: p.deadline || undefined, createdAt: '', updatedAt: '',
+        })),
         source: 'admin_manual', isDraft,
       })
       setShowForm(false)
-      setForm({ from: '', to: '', positions: [{ name: '', qty: 1, price: 0, resp: '', supplier: '' }] })
+      setForm({ fromId: '', from: '', to: '', projectId: '', specProjectId: '', contactId: '', positions: [emptyPos()] })
+      onCreated()
     } finally { setSubmitting(false) }
   }
 
-  const Btn = ({ children, onClick, primary, danger, small }: { children: React.ReactNode; onClick?: () => void; primary?: boolean; danger?: boolean; small?: boolean }) => (
-    <button onClick={onClick} style={{ border: `1px solid ${primary ? 'transparent' : danger ? '#e6dcd6' : '#d8d3cc'}`, background: primary ? '#d4613a' : '#fff', color: primary ? '#fff' : danger ? '#c0392b' : '#3a352f', padding: small ? '6px 10px' : '7px 13px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: small ? 11 : 12 }}>
-      {children}
-    </button>
-  )
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 1180, animation: 'ukfade .25s' }}>
-      {/* Header stats */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {[
           { label: 'В ожидании', value: waiting.length, color: '#d4613a' },
           { label: 'К приёму', value: processing.length, color: '#d4613a' },
+          { label: 'Изменено', value: changedCount, color: '#8a6f00' },
           { label: 'Черновики', value: drafts.length, color: '#6b655b' },
         ].map(h => (
           <div key={h.label} style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 8, padding: '8px 14px', display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -297,7 +685,6 @@ function Reception({ orders, onAction, onOpen, settings }: {
         ))}
       </div>
 
-      {/* Block 1: Create order */}
       <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10 }}>
         <button onClick={() => setShowForm(!showForm)} style={{ width: '100%', padding: '14px 16px', cursor: 'pointer', fontWeight: 700, fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', fontFamily: 'inherit', textAlign: 'left' }}>
           <span style={{ color: '#d4613a' }}>＋</span> Создать новый заказ
@@ -305,46 +692,77 @@ function Reception({ orders, onAction, onOpen, settings }: {
         </button>
         {showForm && (
           <div style={{ padding: '0 16px 16px', borderTop: '1px solid #f1ede7' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, margin: '14px 0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, margin: '14px 0' }}>
               <label style={{ fontSize: 11.5, color: '#6b655b' }}>От кого
-                <select value={form.from} onChange={e => setForm(f => ({ ...f, from: e.target.value }))} style={{ display: 'block', width: '100%', marginTop: 5, padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 13 }}>
+                <select value={form.fromId} onChange={e => {
+                  const c = clients.find(x => x.id === e.target.value)
+                  setForm(f => ({ ...f, fromId: e.target.value, from: c?.name || '', contactId: '' }))
+                }} style={{ display: 'block', width: '100%', marginTop: 5, padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 13 }}>
                   <option value="">Выберите…</option>
-                  {clients.map(c => <option key={c.name}>{c.name}</option>)}
+                  {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </label>
               <label style={{ fontSize: 11.5, color: '#6b655b' }}>К кому
                 <select value={form.to} onChange={e => setForm(f => ({ ...f, to: e.target.value }))} style={{ display: 'block', width: '100%', marginTop: 5, padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 13 }}>
                   <option value="">Выберите…</option>
-                  {users.map(u => <option key={u.name}>{u.name}</option>)}
+                  {logists.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                </select>
+              </label>
+              <label style={{ fontSize: 11.5, color: '#6b655b' }}>Контакт
+                <select value={form.contactId} onChange={e => setForm(f => ({ ...f, contactId: e.target.value }))} disabled={!selectedClient} style={{ display: 'block', width: '100%', marginTop: 5, padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 13 }}>
+                  <option value="">—</option>
+                  {subContacts.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </label>
+              <label style={{ fontSize: 11.5, color: '#6b655b' }}>Проект
+                <select value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))} style={{ display: 'block', width: '100%', marginTop: 5, padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 13 }}>
+                  <option value="">—</option>
+                  {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </label>
+              <label style={{ fontSize: 11.5, color: '#6b655b' }}>СпецПроект
+                <select value={form.specProjectId} onChange={e => setForm(f => ({ ...f, specProjectId: e.target.value }))} style={{ display: 'block', width: '100%', marginTop: 5, padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 13 }}>
+                  <option value="">—</option>
+                  {specProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </label>
             </div>
+            <div style={{ fontSize: 10, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase', marginBottom: 6, display: 'grid', gridTemplateColumns: '2fr 60px 80px 100px 100px 90px 28px 28px 28px', gap: 7 }}>
+              <span>Наим-ние</span><span>Кол-во</span><span>Цена(тг)</span><span>Логист</span><span>Поставщик</span><span>Срок</span><span>💳</span><span>📋</span><span />
+            </div>
             {form.positions.map((pos, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 70px 90px 120px 120px 32px', gap: 7, alignItems: 'center', marginBottom: 8 }}>
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: pos.showPayment ? '2fr 60px 80px 100px 100px 90px 90px 28px 28px 28px' : '2fr 60px 80px 100px 100px 90px 28px 28px 28px', gap: 7, alignItems: 'center', marginBottom: 8 }}>
                 <input placeholder="Наименование…" value={pos.name} onChange={e => setForm(f => ({ ...f, positions: f.positions.map((p, j) => j === i ? { ...p, name: e.target.value } : p) }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 12.5 }} />
-                <input type="number" placeholder="Кол-во" value={pos.qty} onChange={e => setForm(f => ({ ...f, positions: f.positions.map((p, j) => j === i ? { ...p, qty: +e.target.value } : p) }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 12.5 }} />
-                <input type="number" placeholder="Цена" value={pos.price || ''} onChange={e => setForm(f => ({ ...f, positions: f.positions.map((p, j) => j === i ? { ...p, price: +e.target.value } : p) }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 12.5 }} />
-                <select value={pos.resp} onChange={e => setForm(f => ({ ...f, positions: f.positions.map((p, j) => j === i ? { ...p, resp: e.target.value } : p) }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 12.5 }}>
-                  <option value="">Ответств.</option>
-                  {users.map(u => <option key={u.name}>{u.name}</option>)}
+                <input type="number" value={pos.qty} onChange={e => setForm(f => ({ ...f, positions: f.positions.map((p, j) => j === i ? { ...p, qty: +e.target.value } : p) }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 12.5 }} />
+                <input type="number" value={pos.price || ''} onChange={e => setForm(f => ({ ...f, positions: f.positions.map((p, j) => j === i ? { ...p, price: +e.target.value } : p) }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 12.5 }} />
+                <select value={pos.resp} onChange={e => setForm(f => ({ ...f, positions: f.positions.map((p, j) => j === i ? { ...p, resp: e.target.value } : p) }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 12 }}>
+                  <option value="">Логист</option>
+                  {logists.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
                 </select>
-                <select value={pos.supplier} onChange={e => setForm(f => ({ ...f, positions: f.positions.map((p, j) => j === i ? { ...p, supplier: e.target.value } : p) }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 12.5 }}>
+                <select value={pos.supplier} onChange={e => setForm(f => ({ ...f, positions: f.positions.map((p, j) => j === i ? { ...p, supplier: e.target.value } : p) }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 12 }}>
                   <option value="">Поставщик</option>
-                  {suppliers.map(s => <option key={s.name}>{s.name}</option>)}
+                  {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                 </select>
-                <button onClick={() => setForm(f => ({ ...f, positions: f.positions.filter((_, j) => j !== i) }))} style={{ width: 32, height: 32, border: '1px solid #e6dcd6', background: '#fff', borderRadius: 7, cursor: 'pointer', color: '#b06' }}>✕</button>
+                <input type="date" value={pos.deadline} onChange={e => setForm(f => ({ ...f, positions: f.positions.map((p, j) => j === i ? { ...p, deadline: e.target.value } : p) }))} style={{ padding: 7, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 12 }} />
+                {pos.showPayment && (
+                  <select value={pos.payment} onChange={e => setForm(f => ({ ...f, positions: f.positions.map((p, j) => j === i ? { ...p, payment: e.target.value } : p) }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 12 }}>
+                    {paymentStatuses.map(ps => <option key={ps.id} value={ps.name}>{ps.name}</option>)}
+                  </select>
+                )}
+                <button onClick={() => setForm(f => ({ ...f, positions: f.positions.map((p, j) => j === i ? { ...p, showPayment: !p.showPayment } : p) }))} style={{ width: 28, height: 28, border: '1px solid #d8d3cc', background: pos.showPayment ? '#fff0ea' : '#fff', borderRadius: 7, cursor: 'pointer' }} title="Оплата">💳</button>
+                <button onClick={() => copyText(pos.name)} style={{ width: 28, height: 28, border: '1px solid #d8d3cc', background: '#fff', borderRadius: 7, cursor: 'pointer' }}>📋</button>
+                <button onClick={() => setForm(f => ({ ...f, positions: f.positions.length > 1 ? f.positions.filter((_, j) => j !== i) : [emptyPos()] }))} style={{ width: 28, height: 28, border: '1px solid #e6dcd6', background: '#fff', borderRadius: 7, cursor: 'pointer', color: '#b03020' }}>🗑</button>
               </div>
             ))}
-            <button onClick={() => setForm(f => ({ ...f, positions: [...f.positions, { name: '', qty: 1, price: 0, resp: '', supplier: '' }] }))} style={{ background: 'none', border: '1px dashed #d8d3cc', color: '#6b655b', padding: '7px 12px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>＋ Добавить позицию</button>
+            <button onClick={() => setForm(f => ({ ...f, positions: [...f.positions, emptyPos()] }))} style={{ background: 'none', border: '1px dashed #d8d3cc', color: '#6b655b', padding: '7px 12px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>＋ Добавить позицию</button>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
               <Btn onClick={() => handleSubmit(true)}>Сохранить черновик</Btn>
-              <Btn primary onClick={() => handleSubmit(false)}>{submitting ? 'Отправка…' : 'ОТПРАВИТЬ ЗАКАЗ →'}</Btn>
+              <Btn variant="primary" onClick={() => handleSubmit(false)} disabled={submitting}>{submitting ? 'Отправка…' : 'ОТПРАВИТЬ ЗАКАЗ →'}</Btn>
             </div>
           </div>
         )}
       </div>
 
-      {/* Block 2: Processing (Стол приёмки) */}
       <div>
         <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
           Стол приёмки <span style={{ background: '#fff0ea', color: '#c0532a', fontSize: 11, padding: '1px 8px', borderRadius: 20, fontWeight: 600 }}>{processing.length}</span>
@@ -358,29 +776,37 @@ function Reception({ orders, onAction, onOpen, settings }: {
                   <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, fontSize: 13 }}>{card.id}</span>
                   <span style={{ color: '#8a847c', fontSize: 12.5, marginLeft: 8 }}>{card.from} → {card.to}</span>
                 </div>
-                <span style={parseStyle(statusStyle(card.status))}>{card.status}</span>
+                <span style={statusStyle(card.status)}>{card.status}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 12 }}>
                 {card.positions.map(p => (
-                  <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '1.3fr 18px 1.5fr 70px 90px', gap: 8, alignItems: 'center' }}>
-                    <div style={{ background: '#fdf8e1', border: '1px solid #e8d87a', color: '#8a6f00', padding: '7px 9px', borderRadius: 6, fontSize: 12 }}>{p.oral || p.name1c || '—'}</div>
+                  <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '1.2fr 16px 1.4fr 60px 80px 100px 100px 90px', gap: 8, alignItems: 'center' }}>
+                    <div style={{ background: '#fdf8e1', border: '1px solid #e8d87a', color: '#8a6f00', padding: '7px 9px', borderRadius: 6, fontSize: 12 }}>{p.oral || '—'}</div>
                     <div style={{ textAlign: 'center', color: '#b8b1a6' }}>→</div>
-                    <input placeholder="Наименование 1С (поиск)…" defaultValue={p.name1c} style={{ padding: '7px 9px', border: '1px solid #ddd8d0', borderRadius: 6, fontFamily: 'inherit', fontSize: 12 }} />
+                    <input placeholder="Наименование 1С…" defaultValue={p.name1c} style={{ padding: '7px 9px', border: '1px solid #ddd8d0', borderRadius: 6, fontFamily: 'inherit', fontSize: 12 }} />
                     <input defaultValue={p.qty} style={{ padding: 7, border: '1px solid #ddd8d0', borderRadius: 6, fontFamily: 'inherit', fontSize: 12 }} />
-                    <input defaultValue={p.price} style={{ padding: 7, border: '1px solid #ddd8d0', borderRadius: 6, fontFamily: 'inherit', fontSize: 12, color: '#3a352f' }} />
+                    <input defaultValue={p.price} style={{ padding: 7, border: '1px solid #ddd8d0', borderRadius: 6, fontFamily: 'inherit', fontSize: 12 }} />
+                    <select defaultValue={p.resp} style={{ padding: 7, border: '1px solid #ddd8d0', borderRadius: 6, fontFamily: 'inherit', fontSize: 12 }}>
+                      <option value="">Логист</option>
+                      {logists.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                    </select>
+                    <select defaultValue={p.supplier} style={{ padding: 7, border: '1px solid #ddd8d0', borderRadius: 6, fontFamily: 'inherit', fontSize: 12 }}>
+                      <option value="">Поставщик</option>
+                      {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                    </select>
+                    <input type="date" defaultValue={p.deadline?.slice(0, 10)} style={{ padding: 6, border: '1px solid #ddd8d0', borderRadius: 6, fontFamily: 'inherit', fontSize: 11 }} />
                   </div>
                 ))}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                 <Btn onClick={() => onAction(card.id, 'returnOut')}>← Вернуть</Btn>
-                <Btn primary onClick={() => onAction(card.id, 'process')}>ОТПРАВИТЬ В ИСХОДЯЩИЕ →</Btn>
+                <Btn variant="primary" onClick={() => onAction(card.id, 'process')}>ОТПРАВИТЬ В ИСХОДЯЩИЕ →</Btn>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Block 3: Waiting (Ожидание) */}
       <div>
         <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
           Ожидание <span style={{ background: '#fff0ea', color: '#c0532a', fontSize: 11, padding: '1px 8px', borderRadius: 20, fontWeight: 600 }}>{waiting.length}</span>
@@ -390,7 +816,7 @@ function Reception({ orders, onAction, onOpen, settings }: {
             <div key={card.id} style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, padding: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
                 <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, fontSize: 12.5 }}>{card.id}</span>
-                <span style={parseStyle(srcBadge(card.source))}>{srcLabel(card.source)}</span>
+                <span style={sourceStyle(card.source)}>{sourceLabel(card.source)}</span>
               </div>
               <div style={{ fontSize: 12.5, color: '#6b655b', marginBottom: 6 }}>{card.from} → {card.to}</div>
               <div style={{ fontSize: 12, color: '#8a847c', background: '#faf8f6', borderRadius: 7, padding: '8px 10px', marginBottom: 10, whiteSpace: 'pre-line', maxHeight: 74, overflow: 'hidden' }}>{card.comment}</div>
@@ -403,7 +829,6 @@ function Reception({ orders, onAction, onOpen, settings }: {
         </div>
       </div>
 
-      {/* Block 4: Drafts */}
       {drafts.length > 0 && (
         <div>
           <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -415,8 +840,8 @@ function Reception({ orders, onAction, onOpen, settings }: {
                 <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, fontSize: 12.5 }}>{card.id}</span>
                 <div style={{ fontSize: 12, color: '#8a847c', margin: '5px 0 9px' }}>{(card.comment || '').slice(0, 80)}</div>
                 <div style={{ display: 'flex', gap: 7 }}>
-                  <Btn onClick={() => onOpen(card.id)} small>Открыть</Btn>
-                  <Btn onClick={() => onAction(card.id, 'accept')} small>Отправить</Btn>
+                  <Btn size="sm" onClick={() => onOpen(card.id)}>Доработать</Btn>
+                  <Btn size="sm" onClick={() => onAction(card.id, 'accept')}>Отправить</Btn>
                 </div>
               </div>
             ))}
@@ -425,13 +850,16 @@ function Reception({ orders, onAction, onOpen, settings }: {
       )}
     </div>
   )
-
-
 }
 
+// ─── Incoming ─────────────────────────────────────────────────────────────────
+
 function Incoming({ orders, tab, setTab, onAction, onOpen }: {
-  orders: Order[]; tab: IncTab; setTab: (t: IncTab) => void
-  onAction: (id: string, a: string, p?: Record<string, unknown>) => void; onOpen: (id: string) => void
+  orders: Order[]
+  tab: IncTab
+  setTab: (t: IncTab) => void
+  onAction: (id: string, a: string, p?: Record<string, unknown>) => void
+  onOpen: (id: string) => void
 }) {
   const inc = orders.filter(o => o.screen === 'incoming')
   const newCards = inc.filter(o => !o.isDraft && !o.isCancelled && !o.toacc && (o.status === 'В ожидании' || o.status === 'Новая заявка'))
@@ -439,62 +867,66 @@ function Incoming({ orders, tab, setTab, onAction, onOpen }: {
   const toacc = inc.filter(o => o.toacc && o.status === 'Доставлено')
   const drafts = orders.filter(o => o.isDraft)
   const cancelled = orders.filter(o => o.isCancelled)
-  const tabs: [IncTab, string, Order[]][] = [['new', 'Новые', newCards], ['changed', 'Изменённые', changed], ['toacc', 'К учёту', toacc], ['drafts', 'Черновики', drafts], ['cancelled', 'Отменённые', cancelled]]
+  const tabs: [IncTab, string, Order[]][] = [
+    ['new', 'Новые', newCards], ['changed', 'Изменённые', changed],
+    ['toacc', 'К учёту', toacc], ['drafts', 'Черновики', drafts], ['cancelled', 'Отменённые', cancelled],
+  ]
   const list = tabs.find(t => t[0] === tab)?.[2] || []
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 1080, animation: 'ukfade .25s' }}>
       <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #e6e2dc' }}>
         {tabs.map(([id, label, items]) => (
-          <button key={id} onClick={() => setTab(id)} style={{ padding: '9px 14px', border: 'none', borderBottom: `2px solid ${tab === id ? '#d4613a' : 'transparent'}`, background: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: tab === id ? 700 : 500, color: tab === id ? '#26231f' : '#8a847c', marginBottom: -1 }}>
-            {label} <span style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', padding: '0 6px', borderRadius: 20, background: tab === id ? '#fff0ea' : '#f1ede7', color: tab === id ? '#c0532a' : '#8a847c' }}>{items.length}</span>
-          </button>
+          <TabBtn key={id} active={tab === id} onClick={() => setTab(id)}>
+            {label}{' '}
+            <span style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', padding: '0 6px', borderRadius: 20, background: tab === id ? '#fff0ea' : '#f1ede7', color: tab === id ? '#c0532a' : '#8a847c' }}>{items.length}</span>
+          </TabBtn>
         ))}
       </div>
       {list.length === 0 && <div style={{ color: '#a39c92', fontSize: 13, padding: '30px 0', textAlign: 'center' }}>Нет карточек в этой вкладке</div>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
         {list.map(card => (
-          <div key={card.id} style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, padding: 15, opacity: card.postponed ? .6 : 1 }}>
+          <div key={card.id} style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, padding: 15, opacity: card.postponed ? 0.6 : 1 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 5, flexWrap: 'wrap' }}>
                   <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, fontSize: 13 }}>{card.id}</span>
-                  <span style={parseStyle(statusStyle(card.status))}>{card.status}</span>
+                  <span style={statusStyle(card.status)}>{card.status}</span>
                   {card.isChanged && <span style={{ background: '#fdf8e1', color: '#8a6f00', fontSize: 10.5, padding: '1px 8px', borderRadius: 20, fontWeight: 600 }}>изменено</span>}
                   {card.postponed && <span style={{ background: '#efece8', color: '#8a847c', fontSize: 10.5, padding: '1px 8px', borderRadius: 20, fontWeight: 600 }}>отложено</span>}
-                  <span style={parseStyle(srcBadge(card.source))}>{srcLabel(card.source)}</span>
+                  <span style={sourceStyle(card.source)}>{sourceLabel(card.source)}</span>
                 </div>
                 <div style={{ fontSize: 13, color: '#3a352f', marginBottom: 3 }}>{card.from} → {card.to || '—'}</div>
                 <div style={{ fontSize: 12, color: '#8a847c', marginBottom: 3 }}>{(card.comment || '').slice(0, 110)}</div>
                 {card.isChanged && <div style={{ fontSize: 12, color: '#8a6f00', background: '#fdf8e1', border: '1px solid #e8d87a', borderRadius: 7, padding: '8px 10px', margin: '6px 0' }}>✎ {card.changeText} · тел. {card.changePhone}</div>}
-                <div style={{ fontSize: 11, color: '#b8b1a6' }}>{fmtDateTime(card.createdAt)} · позиций: {card.positions.length} {card.toacc ? `· сумма ${fmtMoney(cardSum(card))}` : ''}</div>
+                <div style={{ fontSize: 11, color: '#b8b1a6' }}>{fmtDateTime(card.createdAt)} · позиций: {card.positions.length}{card.toacc ? ` · сумма ${fmtMoney(cardSum(card))}` : ''}</div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7, alignItems: 'flex-end' }}>
-                <button onClick={() => { try { navigator.clipboard.writeText(`${window.location.origin}/track?id=${card.id}`) } catch {} }} title="Скопировать ссылку трекинга" style={{ width: 34, height: 34, border: '1px solid #e0dcd5', background: '#fff', borderRadius: 7, cursor: 'pointer', color: '#6b655b' }}>📎</button>
-                <button onClick={() => onOpen(card.id)} style={{ fontSize: 11.5, color: '#6b655b', border: '1px solid #e0dcd5', background: '#fff', borderRadius: 7, cursor: 'pointer', padding: '6px 11px', fontFamily: 'inherit', fontWeight: 600 }}>Открыть</button>
+                <button onClick={() => copyText(`${window.location.origin}/track?id=${card.id}`)} title="Скопировать ссылку" style={{ width: 34, height: 34, border: '1px solid #e0dcd5', background: '#fff', borderRadius: 7, cursor: 'pointer', color: '#6b655b' }}>📎</button>
+                <Btn size="sm" onClick={() => onOpen(card.id)}>Открыть</Btn>
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12, borderTop: '1px solid #f1ede7', paddingTop: 12 }}>
               {tab === 'new' && <>
-                <button onClick={() => onAction(card.id, 'postpone')} style={{ border: '1px solid #d8d3cc', background: '#fff', color: '#3a352f', padding: '7px 13px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>Отложить</button>
-                <button onClick={() => onAction(card.id, 'cancel')} style={{ border: '1px solid #e6dcd6', background: '#fff', color: '#c0392b', padding: '7px 13px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>Отменить</button>
-                <button onClick={() => onAction(card.id, 'accept')} style={{ background: '#d4613a', border: 'none', color: '#fff', padding: '7px 16px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>ПРИНЯТЬ →</button>
+                <Btn onClick={() => onAction(card.id, 'postpone')}>Отложить</Btn>
+                <Btn variant="danger" onClick={() => onAction(card.id, 'cancel')}>Отменить</Btn>
+                <Btn variant="primary" onClick={() => onAction(card.id, 'accept')}>ПРИНЯТЬ →</Btn>
               </>}
               {tab === 'changed' && <>
-                <button onClick={() => onAction(card.id, 'cancel')} style={{ border: '1px solid #e6dcd6', background: '#fff', color: '#c0392b', padding: '7px 13px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>Отклонить</button>
-                <button onClick={() => onAction(card.id, 'confirmChg')} style={{ background: '#3a9d6e', border: 'none', color: '#fff', padding: '7px 14px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>✓ Принять изменения</button>
+                <Btn variant="danger" onClick={() => onAction(card.id, 'cancel')}>Отклонить</Btn>
+                <Btn variant="primary" onClick={() => onAction(card.id, 'confirmChg')}>✓ Принять изменения</Btn>
               </>}
               {tab === 'toacc' && <>
-                <button onClick={() => onAction(card.id, 'returnOut')} style={{ border: '1px solid #d8d3cc', background: '#fff', color: '#3a352f', padding: '7px 13px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>← В Исходящие</button>
-                <button onClick={() => onAction(card.id, 'sendAcc')} style={{ background: '#d4613a', border: 'none', color: '#fff', padding: '7px 16px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>Отправить в К Учёту →</button>
+                <Btn onClick={() => onAction(card.id, 'returnOut')}>← В Исходящие</Btn>
+                <Btn variant="primary" onClick={() => onAction(card.id, 'sendAcc')}>Отправить в К Учёту →</Btn>
               </>}
               {tab === 'drafts' && <>
-                <button onClick={() => onOpen(card.id)} style={{ border: '1px solid #d8d3cc', background: '#fff', color: '#3a352f', padding: '7px 13px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>Доработать</button>
-                <button onClick={() => onAction(card.id, 'accept')} style={{ border: '1px solid #d8d3cc', background: '#fff', color: '#3a352f', padding: '7px 13px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>Отправить</button>
+                <Btn onClick={() => onOpen(card.id)}>Доработать</Btn>
+                <Btn onClick={() => onAction(card.id, 'accept')}>Отправить</Btn>
               </>}
               {tab === 'cancelled' && <>
                 <span style={{ fontSize: 12, color: '#a39c92', alignSelf: 'center', marginRight: 'auto' }}>Причина: {card.cancelReason || '—'}</span>
-                <button onClick={() => onAction(card.id, 'restore')} style={{ border: '1px solid #d8d3cc', background: '#fff', color: '#3a352f', padding: '7px 14px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>↺ Восстановить</button>
+                <Btn onClick={() => onAction(card.id, 'restore')}>↺ Восстановить</Btn>
               </>}
             </div>
           </div>
@@ -504,30 +936,54 @@ function Incoming({ orders, tab, setTab, onAction, onOpen }: {
   )
 }
 
-function Outgoing({ orders, onAction, onOpen }: { orders: Order[]; onAction: (id: string, a: string, p?: Record<string, unknown>) => void; onOpen: (id: string) => void }) {
-  const cards = orders.filter(o => o.screen === 'outgoing' && o.status === 'В работе')
-  const posStatuses = ['В работе', 'Готово к отгрузке', 'В пути', 'Доставлено']
+// ─── Outgoing ─────────────────────────────────────────────────────────────────
+
+function Outgoing({ orders, tab, setTab, onAction, onOpen }: {
+  orders: Order[]
+  tab: OutgoingTab
+  setTab: (t: OutgoingTab) => void
+  onAction: (id: string, a: string, p?: Record<string, unknown>) => void
+  onOpen: (id: string) => void
+}) {
+  const all = orders.filter(o => o.screen === 'outgoing' && o.status === 'В работе')
+  const inwork = all.filter(o => cardProgress(o) < 60)
+  const ready = all.filter(o => cardProgress(o) >= 60 && !isOverdue(o))
+  const tabs: [OutgoingTab, string, Order[]][] = [
+    ['inwork', 'В работе', inwork],
+    ['ready', 'Готово к доставке', ready],
+    ['all', 'Все', all],
+  ]
+  const list = tabs.find(t => t[0] === tab)?.[2] || []
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 1080, animation: 'ukfade .25s' }}>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ marginLeft: 'auto', fontSize: 12, color: '#8a847c' }}>Всего: <b>{cards.length}</b> карточек {cards.filter(o => isOverdue(o)).length > 0 && <span style={{ color: '#c0392b', fontWeight: 600 }}>· ⚠ просрочено: {cards.filter(o => isOverdue(o)).length}</span>}</div>
+      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #e6e2dc' }}>
+        {tabs.map(([id, label, items]) => (
+          <TabBtn key={id} active={tab === id} onClick={() => setTab(id)}>
+            {label}{' '}
+            <span style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', padding: '0 6px', borderRadius: 20, background: tab === id ? '#fff0ea' : '#f1ede7', color: tab === id ? '#c0532a' : '#8a847c' }}>{items.length}</span>
+          </TabBtn>
+        ))}
       </div>
+      {list.length === 0 && <div style={{ color: '#a39c92', fontSize: 13, padding: '30px 0', textAlign: 'center' }}>Активных заказов нет</div>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {cards.length === 0 && <div style={{ color: '#a39c92', fontSize: 13, padding: '30px 0', textAlign: 'center' }}>Активных заказов нет</div>}
-        {cards.map(card => {
+        {list.map(card => {
           const prog = cardProgress(card)
           const over = isOverdue(card)
-          const ready = prog >= 60 && !over
-          const tagStyle = over ? 'background:#faeaea;color:#b03020' : ready ? 'background:#fdf8e1;color:#8a6f00' : 'background:#fff0ea;color:#c0532a'
-          const tag = over ? '⚠ Просрочено' : ready ? '✓ Готово к доставке' : 'В работе'
+          const readyTag = prog >= 60 && !over
+          const tagStyle: React.CSSProperties = over
+            ? { background: '#faeaea', color: '#b03020' }
+            : readyTag
+              ? { background: '#fdf8e1', color: '#8a6f00' }
+              : { background: '#fff0ea', color: '#c0532a' }
+          const tag = over ? '⚠ Просрочено' : readyTag ? '✓ Готово к доставке' : 'В работе'
           return (
             <div key={card.id} style={{ background: '#fff', border: `1px solid ${over ? '#e8a0a0' : '#e6e2dc'}`, borderRadius: 10, padding: 15 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 4, flexWrap: 'wrap' }}>
                     <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, fontSize: 13 }}>{card.id}</span>
-                    <span style={parseStyle(tagStyle + ';font-size:10.5px;padding:1px 9px;border-radius:20px;font-weight:600')}>{tag}</span>
+                    <span style={{ ...tagStyle, fontSize: 10.5, padding: '1px 9px', borderRadius: 20, fontWeight: 600 }}>{tag}</span>
                     {card.isChanged && <span style={{ background: '#fdf8e1', color: '#8a6f00', fontSize: 10.5, padding: '1px 8px', borderRadius: 20, fontWeight: 600 }}>изменено клиентом</span>}
                   </div>
                   <div style={{ fontSize: 12.5, color: '#6b655b' }}>{card.from} → {card.to} · срок {fmtDate(card.deadline)}</div>
@@ -537,31 +993,27 @@ function Outgoing({ orders, onAction, onOpen }: { orders: Order[]; onAction: (id
                   <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>{prog}%</div>
                 </div>
               </div>
-              <div style={{ height: 6, background: '#f0ece6', borderRadius: 4, overflow: 'hidden', marginBottom: 12 }}>
-                <div style={{ width: `${prog}%`, height: '100%', borderRadius: 4, background: barColor(prog) }} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+              <ProgressBar pct={prog} height={6} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '12px 0' }}>
                 {card.positions.map(p => (
                   <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '1.6fr 1.4fr 160px', gap: 10, alignItems: 'center', padding: '7px 10px', background: '#faf8f6', borderRadius: 7 }}>
                     <div>
                       <div style={{ fontSize: 12.5, fontWeight: 500 }}>{p.name1c || p.oral || '—'}</div>
-                      <div style={{ fontSize: 11, color: '#a39c92' }}>{p.qty} {p.unit} · {p.resp || '—'}{p.supplier ? ' · ' + p.supplier : ''}</div>
+                      <div style={{ fontSize: 11, color: '#a39c92' }}>{p.qty} {p.unit} · {p.resp || '—'}{p.supplier ? ` · ${p.supplier}` : ''}</div>
                     </div>
-                    <div style={{ height: 5, background: '#ece8e2', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ width: `${pct(p.status)}%`, height: '100%', borderRadius: 3, background: barColor(pct(p.status)) }} />
-                    </div>
+                    <ProgressBar pct={posPct(p)} height={5} />
                     <select value={p.status} onChange={e => onAction(card.id, 'updatePos', { posId: p.id, status: e.target.value })} style={{ padding: '6px 8px', border: '1px solid #ddd8d0', borderRadius: 6, fontFamily: 'inherit', fontSize: 12, background: '#fff' }}>
-                      {posStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                      {POS_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
                 ))}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, borderTop: '1px solid #f1ede7', paddingTop: 12 }}>
                 <span style={{ fontSize: 12, color: '#8a847c', marginRight: 'auto' }}>Сумма: <b>{fmtMoney(cardSum(card))}</b></span>
-                <button onClick={() => onOpen(card.id)} style={{ border: '1px solid #e0dcd5', background: '#fff', color: '#6b655b', padding: '7px 12px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>Открыть</button>
-                <button onClick={() => { try { navigator.clipboard.writeText(`${window.location.origin}/track?id=${card.id}`) } catch {} }} style={{ border: '1px solid #e0dcd5', background: '#fff', color: '#6b655b', padding: '7px 12px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>📎 Ссылка клиенту</button>
-                <button onClick={() => onAction(card.id, 'returnOut')} style={{ border: '1px solid #d8d3cc', background: '#fff', color: '#3a352f', padding: '7px 12px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>← Вернуть</button>
-                <button onClick={() => onAction(card.id, 'markAll')} style={{ background: '#3a9d6e', border: 'none', color: '#fff', padding: '7px 14px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>✓ Всё выполнено</button>
+                <Btn size="sm" onClick={() => onOpen(card.id)}>Открыть</Btn>
+                <Btn size="sm" onClick={() => copyText(`${window.location.origin}/track?id=${card.id}`)}>📎 Ссылка клиенту</Btn>
+                <Btn size="sm" onClick={() => onAction(card.id, 'returnOut')}>← Вернуть</Btn>
+                <Btn variant="primary" onClick={() => onAction(card.id, 'markAll')}>✓ Всё выполнено</Btn>
               </div>
             </div>
           )
@@ -571,62 +1023,258 @@ function Outgoing({ orders, onAction, onOpen }: { orders: Order[]; onAction: (id
   )
 }
 
-function FilterKanban({ orders, onOpen }: { orders: Order[]; onOpen: (id: string) => void }) {
-  const board = orders.filter(o => !o.isDraft && !o.isCancelled && o.screen !== 'bookkeeping')
-  const byClient: Record<string, Order[]> = {}
-  board.forEach(o => { (byClient[o.from] = byClient[o.from] || []).push(o) })
+// ─── Filter Kanban (dnd-kit) ──────────────────────────────────────────────────
 
+function KanbanCard({ card, onOpen }: { card: Order; onOpen: (id: string) => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id })
+  const prog = cardProgress(card)
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    background: '#fff',
+    border: '1px solid #e6e2dc',
+    borderRadius: 8,
+    padding: 11,
+    cursor: 'grab',
+    marginBottom: 8,
+  }
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%', animation: 'ukfade .25s' }}>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <div style={{ marginLeft: 'auto', fontSize: 12, color: '#8a847c' }}>{board.length} карточек в {Object.keys(byClient).length} колонках</div>
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onOpen(card.id)}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, fontSize: 12 }}>{card.id}</span>
+        <span style={statusStyle(card.status)}>{card.status}</span>
       </div>
-      <div style={{ flex: 1, display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 10, alignItems: 'flex-start' }}>
-        {Object.entries(byClient).map(([client, cards]) => (
-          <div key={client} style={{ flexShrink: 0, width: 280, background: '#ece8e2', borderRadius: 10, padding: 11, maxHeight: '100%', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 5px 10px' }}>
-              <span style={{ fontWeight: 700, fontSize: 13 }}>{client}</span>
-              <span style={{ background: '#fff', color: '#6b655b', fontSize: 11, padding: '1px 9px', borderRadius: 20, fontWeight: 600, fontFamily: 'JetBrains Mono, monospace' }}>{cards.length}</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
-              {cards.map(card => {
-                const prog = cardProgress(card)
-                return (
-                  <div key={card.id} onClick={() => onOpen(card.id)} style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 8, padding: 11, cursor: 'pointer' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, fontSize: 12 }}>{card.id}</span>
-                      <span style={parseStyle(statusStyle(card.status))}>{card.status}</span>
-                    </div>
-                    <div style={{ fontSize: 11.5, color: '#8a847c', marginBottom: 8 }}>→ {card.to || '—'}</div>
-                    <div style={{ height: 5, background: '#f0ece6', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ width: `${prog}%`, height: '100%', borderRadius: 3, background: barColor(prog) }} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
+      <div style={{ fontSize: 11.5, color: '#8a847c', marginBottom: 8 }}>→ {card.to || '—'}</div>
+      <ProgressBar pct={prog} />
     </div>
   )
 }
 
-function Accounting({ orders, onAction, onOpen, onPostAll }: { orders: Order[]; onAction: (id: string, a: string, p?: Record<string, unknown>) => void; onOpen: (id: string) => void; onPostAll: () => void }) {
+function KanbanColumn({ colId, title, cards, onOpen, estimate }: {
+  colId: string
+  title: string
+  cards: Order[]
+  onOpen: (id: string) => void
+  estimate?: { items: Array<{ name: string; need: number; got: number; unit: string }>; overallPct: number }
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: colId })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.85 : 1,
+    flexShrink: 0,
+    width: 280,
+    background: '#ece8e2',
+    borderRadius: 10,
+    padding: 11,
+    maxHeight: 'calc(100vh - 200px)',
+    display: 'flex',
+    flexDirection: 'column',
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      <div {...attributes} {...listeners} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 5px 10px', cursor: 'grab' }}>
+        <span style={{ fontWeight: 700, fontSize: 13 }}>{title}</span>
+        <span style={{ background: '#fff', color: '#6b655b', fontSize: 11, padding: '1px 9px', borderRadius: 20, fontWeight: 600, fontFamily: 'JetBrains Mono, monospace' }}>{cards.length}</span>
+      </div>
+      {estimate && estimate.items.length > 0 && (
+        <div style={{ background: '#fff', borderRadius: 8, padding: 10, marginBottom: 10, fontSize: 11 }}>
+          <div style={{ fontWeight: 600, marginBottom: 6, color: '#6b655b' }}>СМЕТА vs СОБРАНО</div>
+          {estimate.items.slice(0, 4).map(it => {
+            const pct = it.need > 0 ? Math.min(100, Math.round((it.got / it.need) * 100)) : 0
+            return (
+              <div key={it.name} style={{ marginBottom: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                  <span>{it.name}</span>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#8a847c' }}>{it.got}/{it.need} {it.unit}</span>
+                </div>
+                <ProgressBar pct={pct} height={4} />
+              </div>
+            )
+          })}
+          <div style={{ marginTop: 8, fontSize: 11, color: '#6b655b' }}>Общий: <b>{estimate.overallPct}%</b></div>
+        </div>
+      )}
+      <SortableContext items={cards.map(c => c.id)} strategy={verticalListSortingStrategy}>
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {cards.map(card => <KanbanCard key={card.id} card={card} onOpen={onOpen} />)}
+        </div>
+      </SortableContext>
+    </div>
+  )
+}
+
+function FilterKanban({ orders, group, setGroup, statusFilter, setStatusFilter, onOpen, settings }: {
+  orders: Order[]
+  group: FilterGroup
+  setGroup: (g: FilterGroup) => void
+  statusFilter: FilterStatus
+  setStatusFilter: (s: FilterStatus) => void
+  onOpen: (id: string) => void
+  settings: SettingsData | null
+}) {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
+
+  const boardBase = useMemo(() => orders.filter(o =>
+    !o.isDraft && !o.isCancelled && o.screen !== 'bookkeeping' && o.screen !== 'archive'
+  ), [orders])
+
+  const board = useMemo(() => {
+    if (statusFilter === 'inwork') return boardBase.filter(o => o.screen !== 'archive' && cardProgress(o) < 100 && o.status !== 'Доставлено')
+    if (statusFilter === 'delivered') return boardBase.filter(o => o.status === 'Доставлено' || o.toacc || cardProgress(o) === 100)
+    return boardBase
+  }, [boardBase, statusFilter])
+
+  const grouped = useMemo(() => {
+    const map: Record<string, Order[]> = {}
+    if (group === 'clients') {
+      board.forEach(o => { const k = o.from || '—'; (map[k] = map[k] || []).push(o) })
+    } else if (group === 'suppliers') {
+      board.forEach(o => {
+        const sup = o.positions.map(p => p.supplier).find(Boolean) || 'Без поставщика'
+        ;(map[sup] = map[sup] || []).push(o)
+      })
+    } else if (group === 'projects') {
+      board.forEach(o => {
+        const p = settings?.projects.find(pr => pr.id === o.projectId)
+        const k = p?.name || 'Без проекта'
+        ;(map[k] = map[k] || []).push(o)
+      })
+    } else {
+      board.forEach(o => {
+        const sp = settings?.specProjects.find(s => s.id === o.specProjectId)
+        const k = sp?.name || 'Без СпецПроекта'
+        ;(map[k] = map[k] || []).push(o)
+      })
+    }
+    return map
+  }, [board, group, settings])
+
+  const [columnOrder, setColumnOrder] = useState<string[]>([])
+  const [cardOrders, setCardOrders] = useState<Record<string, string[]>>({})
+
+  useEffect(() => {
+    const keys = Object.keys(grouped)
+    const saved = loadColumnOrder(group)
+    const ordered = saved ? saved.filter(k => keys.includes(k)).concat(keys.filter(k => !saved.includes(k))) : keys.sort()
+    setColumnOrder(ordered)
+    const co: Record<string, string[]> = {}
+    keys.forEach(k => { co[k] = grouped[k].map(o => o.id) })
+    setCardOrders(co)
+  }, [grouped, group])
+
+  function getSpecEstimate(colName: string) {
+    const sp = settings?.specProjects.find(s => s.name === colName)
+    if (!sp) return undefined
+    const linked = board.filter(o => o.specProjectId === sp.id)
+    const items = sp.items.map(it => {
+      let got = 0
+      linked.forEach(o => o.positions.forEach(p => {
+        if ((p.name1c || p.oral) === it.name) got += p.qty
+      }))
+      return { name: it.name, need: it.qty, got, unit: it.unit }
+    })
+    const overallPct = items.length
+      ? Math.round(items.reduce((s, it) => s + (it.need > 0 ? Math.min(100, (it.got / it.need) * 100) : 0), 0) / items.length)
+      : 0
+    return { items, overallPct }
+  }
+
+  function onDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const activeId = String(active.id)
+    const overId = String(over.id)
+
+    if (columnOrder.includes(activeId)) {
+      const oldIndex = columnOrder.indexOf(activeId)
+      const newIndex = columnOrder.indexOf(overId)
+      if (oldIndex >= 0 && newIndex >= 0) {
+        const next = arrayMove(columnOrder, oldIndex, newIndex)
+        setColumnOrder(next)
+        saveColumnOrder(group, next)
+      }
+      return
+    }
+
+    for (const col of Object.keys(cardOrders)) {
+      const ids = cardOrders[col]
+      if (ids.includes(activeId) && ids.includes(overId)) {
+        const next = arrayMove(ids, ids.indexOf(activeId), ids.indexOf(overId))
+        setCardOrders(prev => ({ ...prev, [col]: next }))
+        break
+      }
+    }
+  }
+
+  const groups: [FilterGroup, string][] = [
+    ['clients', 'По заказчикам'], ['suppliers', 'По поставщикам'],
+    ['projects', 'По проектам'], ['specprojects', 'По СпецПроектам'],
+  ]
+  const statuses: [FilterStatus, string][] = [['inwork', 'В работе'], ['delivered', 'Доставлено'], ['all', 'Все']]
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%', animation: 'ukfade .25s' }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {groups.map(([g, label]) => (
+            <button key={g} onClick={() => setGroup(g)} style={{ padding: '7px 12px', borderRadius: 7, border: `1px solid ${group === g ? '#d4613a' : '#d8d3cc'}`, background: group === g ? '#fff0ea' : '#fff', color: group === g ? '#c0532a' : '#6b655b', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600 }}>{label}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {statuses.map(([s, label]) => (
+            <button key={s} onClick={() => setStatusFilter(s)} style={{ padding: '7px 12px', borderRadius: 7, border: `1px solid ${statusFilter === s ? '#d4613a' : '#d8d3cc'}`, background: statusFilter === s ? '#fff0ea' : '#fff', color: statusFilter === s ? '#c0532a' : '#6b655b', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600 }}>{label}</button>
+          ))}
+        </div>
+        <div style={{ marginLeft: 'auto', fontSize: 12, color: '#8a847c' }}>{board.length} карточек в {columnOrder.length} колонках</div>
+      </div>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
+          <div style={{ flex: 1, display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 10, alignItems: 'flex-start' }}>
+            {columnOrder.map(col => {
+              const ids = cardOrders[col] || []
+              const cards = ids.map(id => board.find(o => o.id === id)).filter(Boolean) as Order[]
+              return (
+                <KanbanColumn
+                  key={col}
+                  colId={col}
+                  title={col}
+                  cards={cards}
+                  onOpen={onOpen}
+                  estimate={group === 'specprojects' ? getSpecEstimate(col) : undefined}
+                />
+              )
+            })}
+          </div>
+        </SortableContext>
+      </DndContext>
+    </div>
+  )
+}
+
+// ─── Accounting ─────────────────────────────────────────────────────────────────
+
+function Accounting({ orders, onAction, onOpen, onPostAll }: {
+  orders: Order[]
+  onAction: (id: string, a: string, p?: Record<string, unknown>) => void
+  onOpen: (id: string) => void
+  onPostAll: () => void
+}) {
   const cards = orders.filter(o => o.screen === 'accounting' && o.status === 'К учёту')
-  const posted = orders.filter(o => o.screen === 'bookkeeping').length
+  const postedToday = orders.filter(o => o.screen === 'bookkeeping' && o.updatedAt && new Date(o.updatedAt).toDateString() === new Date().toDateString()).length
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 1000, animation: 'ukfade .25s' }}>
       <div style={{ display: 'flex', gap: 14, alignItems: 'center', background: '#fff', border: '1px solid #e6e2dc', borderRadius: 9, padding: '11px 16px' }}>
         <span style={{ fontSize: 12.5, color: '#6b655b' }}>На рассмотрении: <b style={{ fontFamily: 'JetBrains Mono, monospace', color: '#c0532a' }}>{cards.length}</b></span>
-        <span style={{ fontSize: 12.5, color: '#6b655b' }}>Проведено сегодня: <b style={{ fontFamily: 'JetBrains Mono, monospace', color: '#3a9d6e' }}>{posted}</b></span>
-        <button onClick={onPostAll} style={{ marginLeft: 'auto', background: '#d4613a', border: 'none', color: '#fff', padding: '8px 14px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12.5 }}>Все в Бухгалтерию →</button>
+        <span style={{ fontSize: 12.5, color: '#6b655b' }}>Проведено сегодня: <b style={{ fontFamily: 'JetBrains Mono, monospace', color: '#3a9d6e' }}>{postedToday}</b></span>
+        {cards.length > 0 && <span style={{ marginLeft: 'auto' }}><Btn variant="primary" onClick={onPostAll}>Все в Бухгалтерию →</Btn></span>}
       </div>
       {cards.length === 0 && <div style={{ color: '#a39c92', fontSize: 13, padding: '30px 0', textAlign: 'center' }}>Нет карточек на рассмотрении</div>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {cards.map(card => (
-          <div key={card.id} style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, padding: 15, opacity: card.postponed ? .6 : 1 }}>
+          <div key={card.id} style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, padding: 15, opacity: card.postponed ? 0.6 : 1 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 4 }}>
@@ -643,16 +1291,17 @@ function Accounting({ orders, onAction, onOpen, onPostAll }: { orders: Order[]; 
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
               {card.positions.map(p => (
-                <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 130px', gap: 8, alignItems: 'center', padding: '6px 10px', background: '#faf8f6', borderRadius: 7 }}>
+                <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 130px 28px', gap: 8, alignItems: 'center', padding: '6px 10px', background: '#faf8f6', borderRadius: 7 }}>
                   <span style={{ fontSize: 12.5 }}>{p.name1c || p.oral || '—'}</span>
                   <span style={{ fontSize: 12, color: '#6b655b', fontFamily: 'JetBrains Mono, monospace' }}>{p.qty} {p.unit}</span>
                   <span style={{ fontSize: 12.5, fontWeight: 600, textAlign: 'right', fontFamily: 'JetBrains Mono, monospace' }}>{fmtMoney(p.qty * p.price)}</span>
+                  <button onClick={() => copyText(p.name1c || p.oral)} style={{ width: 28, height: 28, border: '1px solid #d8d3cc', background: '#fff', borderRadius: 6, cursor: 'pointer', fontSize: 11 }}>📋</button>
                 </div>
               ))}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, borderTop: '1px solid #f1ede7', paddingTop: 12 }}>
-              <button onClick={() => onAction(card.id, 'returnOut')} style={{ border: '1px solid #d8d3cc', background: '#fff', color: '#3a352f', padding: '7px 13px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>← Вернуть в Исходящие</button>
-              <button onClick={() => onAction(card.id, 'postAcc')} style={{ background: '#d4613a', border: 'none', color: '#fff', padding: '7px 16px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>Провести → Бухгалтерия</button>
+              <Btn onClick={() => onAction(card.id, 'returnOut')}>← Вернуть в Исходящие</Btn>
+              <Btn variant="primary" onClick={() => onAction(card.id, 'postAcc')}>Провести → Бухгалтерия</Btn>
             </div>
           </div>
         ))}
@@ -661,186 +1310,699 @@ function Accounting({ orders, onAction, onOpen, onPostAll }: { orders: Order[]; 
   )
 }
 
-function Bookkeeping({ orders, onAction, onOpen }: { orders: Order[]; onAction: (id: string, a: string, p?: Record<string, unknown>) => void; onOpen: (id: string) => void }) {
+// ─── Warehouse ────────────────────────────────────────────────────────────────
+
+function Warehouse() {
+  const [stock, setStock] = useState<Stock[]>([])
+  const [movements, setMovements] = useState<StockMovement[]>([])
+  const [movTab, setMovTab] = useState<'all' | 'reserve' | 'income' | 'expense'>('all')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([fetchStock(), fetchStockMovements()])
+      .then(([s, m]) => { setStock(s); setMovements(m) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const filteredMov = movements.filter(m => movTab === 'all' || m.type === movTab)
+  const reserveCount = movements.filter(m => m.type === 'reserve').length
+  const incomeCount = movements.filter(m => m.type === 'income').length
+  const expenseCount = movements.filter(m => m.type === 'expense').length
+  const totalReserve = stock.reduce((s, x) => s + x.reserved, 0)
+
+  if (loading) return <div style={{ padding: 40, color: '#a39c92', textAlign: 'center' }}>Загрузка…</div>
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 1100, animation: 'ukfade .25s' }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {[
+          { label: 'Позиций', value: stock.length },
+          { label: 'Резервы', value: totalReserve },
+          { label: 'Приход', value: incomeCount },
+          { label: 'Расход', value: expenseCount },
+        ].map(h => (
+          <div key={h.label} style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 8, padding: '10px 16px' }}>
+            <div style={{ fontSize: 11, color: '#8a847c' }}>{h.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: '#d4613a' }}>{h.value}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ padding: '12px 16px', fontWeight: 700, borderBottom: '1px solid #f1ede7' }}>Остатки · Центр Склад</div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+          <thead>
+            <tr style={{ background: '#faf8f6', borderBottom: '1px solid #eee8e1' }}>
+              {['Номенклатура', 'Ед.', 'На складе', 'Резерв', 'Доступно'].map(h => (
+                <th key={h} style={{ padding: '11px 16px', textAlign: 'left', fontSize: 10.5, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {stock.map(s => (
+              <tr key={s.id} style={{ borderBottom: '1px solid #f4f1ec' }}>
+                <td style={{ padding: '12px 16px', fontWeight: 500 }}>{s.name}</td>
+                <td style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono, monospace', color: '#6b655b' }}>{s.unit}</td>
+                <td style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono, monospace' }}>{s.qty}</td>
+                <td style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono, monospace', color: '#c0532a' }}>{s.reserved}</td>
+                <td style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono, monospace', color: '#2e8a5e', fontWeight: 600 }}>{s.qty - s.reserved}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', gap: 4, padding: '10px 16px', borderBottom: '1px solid #f1ede7' }}>
+          {([
+            ['all', `Все ${movements.length}`],
+            ['reserve', `Резервы ${reserveCount}`],
+            ['income', `Приход ${incomeCount}`],
+            ['expense', `Расход ${expenseCount}`],
+          ] as const).map(([id, label]) => (
+            <button key={id} onClick={() => setMovTab(id)} style={{ padding: '6px 12px', borderRadius: 7, border: `1px solid ${movTab === id ? '#d4613a' : '#d8d3cc'}`, background: movTab === id ? '#fff0ea' : '#fff', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, color: movTab === id ? '#c0532a' : '#6b655b' }}>{label}</button>
+          ))}
+        </div>
+        <div style={{ padding: '8px 0' }}>
+          {filteredMov.length === 0 ? (
+            <div style={{ padding: 20, color: '#a39c92', textAlign: 'center' }}>Нет записей</div>
+          ) : filteredMov.map(m => (
+            <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '90px 1fr 120px 80px 100px', gap: 12, padding: '10px 16px', borderBottom: '1px solid #f4f1ec', fontSize: 12.5 }}>
+              <span style={{ fontWeight: 600, color: m.type === 'reserve' ? '#c0532a' : m.type === 'income' ? '#2e8a5e' : '#b03020' }}>{m.type}</span>
+              <span>{m.name}</span>
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#6b655b' }}>{m.cardId || '—'}</span>
+              <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{m.qty} {m.unit}</span>
+              <span style={{ color: '#a39c92' }}>{fmtDate(m.createdAt)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Bookkeeping ──────────────────────────────────────────────────────────────
+
+function BookkeepingScreen({ orders, tab, setTab, onAction, onOpen, reports, onReportAction }: {
+  orders: Order[]
+  tab: BookkeepingTab
+  setTab: (t: BookkeepingTab) => void
+  onAction: (id: string, a: string, p?: Record<string, unknown>) => void
+  onOpen: (id: string) => void
+  reports: DailyReport[]
+  onReportAction: (id: string, status: string) => void
+}) {
   const cards = orders.filter(o => o.screen === 'bookkeeping')
   const posted = cards.filter(o => o.posted1C).length
   const archive = orders.filter(o => o.screen === 'archive').length
+  const [expandedReport, setExpandedReport] = useState<string | null>(null)
+
+  const chip = (on: boolean) => ({
+    fontSize: 10.5, padding: '2px 9px', borderRadius: 20, fontWeight: 600,
+    background: on ? '#e8f5ee' : '#f1ede7', color: on ? '#2e8a5e' : '#a39c92',
+  } as React.CSSProperties)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 1000, animation: 'ukfade .25s' }}>
-      <div style={{ display: 'flex', gap: 16, alignItems: 'center', background: '#fff', border: '1px solid #e6e2dc', borderRadius: 9, padding: '11px 16px' }}>
-        <span style={{ fontSize: 12.5, color: '#6b655b' }}>В работе: <b style={{ fontFamily: 'JetBrains Mono, monospace', color: '#c0532a' }}>{cards.length}</b></span>
-        <span style={{ fontSize: 12.5, color: '#6b655b' }}>Проведено в 1С: <b style={{ fontFamily: 'JetBrains Mono, monospace', color: '#2e8a5e' }}>{posted}</b></span>
-        <span style={{ fontSize: 12.5, color: '#6b655b' }}>В архиве: <b style={{ fontFamily: 'JetBrains Mono, monospace' }}>{archive}</b></span>
+      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #e6e2dc' }}>
+        <TabBtn active={tab === 'cards'} onClick={() => setTab('cards')}>
+          Карточки <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, marginLeft: 4 }}>{cards.length}</span>
+        </TabBtn>
+        <TabBtn active={tab === 'reports'} onClick={() => setTab('reports')}>
+          Ежедневный отчёт <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, marginLeft: 4 }}>{reports.length}</span>
+        </TabBtn>
       </div>
-      {cards.length === 0 && <div style={{ color: '#a39c92', fontSize: 13, padding: '30px 0', textAlign: 'center' }}>Нет карточек в бухгалтерии</div>}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {cards.map(card => {
-          const chipStyle = (on: boolean) => ({ fontSize: 10.5, padding: '2px 9px', borderRadius: 20, fontWeight: 600, background: on ? '#e8f5ee' : '#f1ede7', color: on ? '#2e8a5e' : '#a39c92' } as React.CSSProperties)
-          return (
-            <div key={card.id} style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, padding: 15 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 11 }}>
+
+      {tab === 'cards' && (
+        <>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', background: '#fff', border: '1px solid #e6e2dc', borderRadius: 9, padding: '11px 16px' }}>
+            <span style={{ fontSize: 12.5, color: '#6b655b' }}>В работе: <b style={{ fontFamily: 'JetBrains Mono, monospace', color: '#c0532a' }}>{cards.length}</b></span>
+            <span style={{ fontSize: 12.5, color: '#6b655b' }}>Проведено в 1С: <b style={{ fontFamily: 'JetBrains Mono, monospace', color: '#2e8a5e' }}>{posted}</b></span>
+            <span style={{ fontSize: 12.5, color: '#6b655b' }}>В архиве: <b style={{ fontFamily: 'JetBrains Mono, monospace' }}>{archive}</b></span>
+          </div>
+          {cards.length === 0 && <div style={{ color: '#a39c92', fontSize: 13, padding: '30px 0', textAlign: 'center' }}>Нет карточек в бухгалтерии</div>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {cards.map(card => (
+              <div key={card.id} style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, padding: 15 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 11 }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 5, flexWrap: 'wrap' }}>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, fontSize: 13 }}>{card.id}</span>
+                      <span style={chip(card.invoice)}>{card.invoice ? '✓ ' : ''}Счёт</span>
+                      <span style={chip(card.fact)}>{card.fact ? '✓ ' : ''}Счёт-фактура</span>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: '#6b655b' }}>{card.from} → {card.to} · доставлено {fmtDate(card.delivered)} · позиций {card.positions.length}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 11, color: '#a39c92' }}>сумма</div>
+                    <div style={{ fontSize: 19, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>{fmtMoney(cardSum(card))}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, borderTop: '1px solid #f1ede7', paddingTop: 12, flexWrap: 'wrap' }}>
+                  <Btn size="sm" onClick={() => onAction(card.id, 'createDoc', { type: 'invoice' })}>📄 Счёт</Btn>
+                  <Btn size="sm" onClick={() => onAction(card.id, 'createDoc', { type: 'fact' })}>📄 Счёт-фактура</Btn>
+                  <Btn size="sm" onClick={() => onOpen(card.id)}>Открыть</Btn>
+                  <span style={{ flex: 1 }} />
+                  <Btn size="sm" onClick={() => onAction(card.id, 'returnToAcc')}>← В К Учёту</Btn>
+                  <Btn size="sm" onClick={() => onAction(card.id, 'post1C')} variant={card.posted1C ? 'default' : 'primary'}>
+                    {card.posted1C ? '✓ Проведено в 1С' : 'Провести в 1С'}
+                  </Btn>
+                  {card.posted1C && <Btn variant="dark" size="sm" onClick={() => onAction(card.id, 'sendArchive')}>В Архив →</Btn>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {tab === 'reports' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {reports.length === 0 && <div style={{ color: '#a39c92', fontSize: 13, padding: '30px 0', textAlign: 'center' }}>Нет отчётов</div>}
+          {reports.map(r => {
+            const open = expandedReport === r.id
+            const statusColor = r.status === 'done' ? '#2e8a5e' : r.status === 'archive' ? '#6b655b' : '#c0532a'
+            const statusLabel = r.status === 'done' ? 'Готово' : r.status === 'archive' ? 'Архив' : 'В обработке'
+            return (
+              <div key={r.id} style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, overflow: 'hidden' }}>
+                <button onClick={() => setExpandedReport(open ? null : r.id)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                  <span style={{ fontWeight: 600 }}>{fmtDate(r.date)}</span>
+                  <span style={{ color: '#6b655b' }}>{r.logist?.name || 'Логист'}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 11, padding: '2px 9px', borderRadius: 20, fontWeight: 600, background: '#fff0ea', color: statusColor }}>{statusLabel}</span>
+                </button>
+                {open && (
+                  <div style={{ padding: '0 16px 16px', borderTop: '1px solid #f1ede7' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11.5, marginTop: 12 }}>
+                      <thead>
+                        <tr style={{ background: '#faf8f6' }}>
+                          {['От кого', 'Наим', 'Шт', 'Комм', 'К кому', 'Шт', 'Комм', '№ накл'].map(h => (
+                            <th key={h} style={{ padding: '8px 6px', textAlign: 'left', color: '#a39c92', fontSize: 10, fontWeight: 600 }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {r.rows.map(row => (
+                          <tr key={row.id} style={{ borderBottom: '1px solid #f4f1ec' }}>
+                            <td style={{ padding: '8px 6px' }}>{row.fromWho}</td>
+                            <td style={{ padding: '8px 6px' }}>{row.name}</td>
+                            <td style={{ padding: '8px 6px', fontFamily: 'JetBrains Mono, monospace' }}>{row.qtyIn}</td>
+                            <td style={{ padding: '8px 6px', color: '#8a847c' }}>{row.commentIn}</td>
+                            <td style={{ padding: '8px 6px' }}>{row.toWho}</td>
+                            <td style={{ padding: '8px 6px', fontFamily: 'JetBrains Mono, monospace' }}>{row.qtyOut}</td>
+                            <td style={{ padding: '8px 6px', color: '#8a847c' }}>{row.commentOut}</td>
+                            <td style={{ padding: '8px 6px' }}>{row.invoiceNum}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {r.comment && <div style={{ fontSize: 12, color: '#6b655b', marginTop: 10, padding: '8px 10px', background: '#faf8f6', borderRadius: 7 }}>{r.comment}</div>}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
+                      <Btn size="sm" onClick={() => onReportAction(r.id, 'processing')}>Провести в 1С</Btn>
+                      <Btn size="sm" variant="primary" onClick={() => onReportAction(r.id, 'done')}>✓ Готово</Btn>
+                      <Btn size="sm" onClick={() => onReportAction(r.id, 'archive')}>В архив</Btn>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Archive ──────────────────────────────────────────────────────────────────
+
+function Archive({ orders, tab, setTab, onOpen, onAction, projects, specProjects }: {
+  orders: Order[]
+  tab: ArchiveTab
+  setTab: (t: ArchiveTab) => void
+  onOpen: (id: string) => void
+  onAction: (id: string, a: string) => void
+  projects: Project[]
+  specProjects: SpecProject[]
+}) {
+  const [search, setSearch] = useState('')
+  const archivedCards = orders.filter(o => o.screen === 'archive')
+  const archivedProjects = projects.filter(p => p.status === 'archive')
+  const archivedSpec = specProjects.filter(p => p.status === 'archive')
+
+  const q = search.toLowerCase().trim()
+  const filteredCards = archivedCards.filter(o => !q || o.id.toLowerCase().includes(q) || o.from.toLowerCase().includes(q) || o.positions.some(p => (p.name1c || p.oral).toLowerCase().includes(q)))
+  const turnover = filteredCards.reduce((s, o) => s + cardSum(o), 0)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 1080, animation: 'ukfade .25s' }}>
+      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #e6e2dc' }}>
+        <TabBtn active={tab === 'cards'} onClick={() => setTab('cards')}>Карточки <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, marginLeft: 4 }}>{archivedCards.length}</span></TabBtn>
+        <TabBtn active={tab === 'projects'} onClick={() => setTab('projects')}>Проекты <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, marginLeft: 4 }}>{archivedProjects.length}</span></TabBtn>
+        <TabBtn active={tab === 'specprojects'} onClick={() => setTab('specprojects')}>СпецПроекты <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, marginLeft: 4 }}>{archivedSpec.length}</span></TabBtn>
+      </div>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Поиск по номеру, заказчику, номенклатуре…" style={{ flex: 1, padding: '10px 14px', border: '1px solid #ddd8d0', borderRadius: 8, fontFamily: 'inherit', fontSize: 13 }} />
+        {tab === 'cards' && (
+          <div style={{ fontSize: 12, color: '#6b655b', whiteSpace: 'nowrap' }}>
+            Показано: <b>{filteredCards.length}</b> из <b>{archivedCards.length}</b> · Оборот: <b>{fmtMoney(turnover)}</b>
+          </div>
+        )}
+      </div>
+
+      {tab === 'cards' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+          {filteredCards.length === 0 && <div style={{ color: '#a39c92', textAlign: 'center', padding: 30 }}>Нет карточек</div>}
+          {filteredCards.map(card => (
+            <div key={card.id} style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, padding: 15, opacity: card.cold ? 0.5 : 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 5, flexWrap: 'wrap' }}>
                     <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, fontSize: 13 }}>{card.id}</span>
-                    <span style={chipStyle(card.invoice)}>{card.invoice ? '✓ ' : ''}Счёт</span>
-                    <span style={chipStyle(card.fact)}>{card.fact ? '✓ ' : ''}Счёт-фактура</span>
+                    <span style={statusStyle('Архив')}>Архив</span>
+                    {card.posted1C && <span style={{ background: '#e8f5ee', color: '#2e8a5e', fontSize: 10.5, padding: '1px 8px', borderRadius: 20, fontWeight: 600 }}>✓ 1С</span>}
+                    {card.cold && <span title="Холодный архив">❄️</span>}
                   </div>
                   <div style={{ fontSize: 12.5, color: '#6b655b' }}>{card.from} → {card.to} · доставлено {fmtDate(card.delivered)} · позиций {card.positions.length}</div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 11, color: '#a39c92' }}>сумма</div>
-                  <div style={{ fontSize: 19, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>{fmtMoney(cardSum(card))}</div>
-                </div>
+                <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>{fmtMoney(cardSum(card))}</div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, borderTop: '1px solid #f1ede7', paddingTop: 12, flexWrap: 'wrap' }}>
-                <button onClick={() => onAction(card.id, 'createDoc', { type: 'invoice' })} style={{ border: '1px solid #d8d3cc', background: '#fff', color: '#3a352f', padding: '7px 12px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>📄 Счёт</button>
-                <button onClick={() => onAction(card.id, 'createDoc', { type: 'fact' })} style={{ border: '1px solid #d8d3cc', background: '#fff', color: '#3a352f', padding: '7px 12px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>📄 Счёт-фактура</button>
-                <button onClick={() => onOpen(card.id)} style={{ border: '1px solid #e0dcd5', background: '#fff', color: '#6b655b', padding: '7px 12px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>Открыть</button>
-                <span style={{ flex: 1 }} />
-                <button onClick={() => onAction(card.id, 'returnToAcc')} style={{ border: '1px solid #d8d3cc', background: '#fff', color: '#3a352f', padding: '7px 12px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>← В К Учёту</button>
-                <button onClick={() => onAction(card.id, 'post1C')} style={{ background: card.posted1C ? '#e8f5ee' : '#fff', border: `1px solid ${card.posted1C ? '#a0d8b8' : '#d8d3cc'}`, color: card.posted1C ? '#2e8a5e' : '#3a352f', padding: '7px 13px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>
-                  {card.posted1C ? '✓ Проведено в 1С' : 'Провести в 1С'}
-                </button>
-                {card.posted1C && <button onClick={() => onAction(card.id, 'sendArchive')} style={{ background: '#211f1c', border: 'none', color: '#fff', padding: '7px 14px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12 }}>В Архив →</button>}
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
+                <Btn size="sm" onClick={() => onOpen(card.id)}>Открыть</Btn>
+                <Btn size="sm" onClick={() => onAction(card.id, 'createDoc')}>↓ Счёт</Btn>
+                <Btn size="sm" onClick={() => onAction(card.id, 'createDoc')}>↓ Счёт-фактура</Btn>
+                <Btn size="sm" onClick={() => onAction(card.id, 'restore')}>↺ Вернуть</Btn>
               </div>
             </div>
-          )
-        })}
-      </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'projects' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+          {archivedProjects.filter(p => !q || p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)).map(p => {
+            const pOrders = orders.filter(o => o.projectId === p.id)
+            const sum = pOrders.reduce((s, o) => s + cardSum(o), 0)
+            const client = p.clientId ? 'Заказчик' : '—'
+            return (
+              <div key={p.id} style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, padding: 15 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 6 }}>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 }}>{p.id}</span>
+                  <span style={{ fontWeight: 600 }}>{p.name}</span>
+                  <span style={statusStyle('Архив')}>Архив</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: '#6b655b' }}>{client} · {fmtDate(p.createdAt)} · {pOrders.length} карточек · {fmtMoney(sum)} · 100%</div>
+                <div style={{ marginTop: 10 }}><Btn size="sm">Открыть</Btn></div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {tab === 'specprojects' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+          {archivedSpec.filter(p => !q || p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)).map(sp => {
+            const pOrders = orders.filter(o => o.specProjectId === sp.id)
+            const sum = pOrders.reduce((s, o) => s + cardSum(o), 0)
+            return (
+              <div key={sp.id} style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 10, padding: 15 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 6 }}>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 }}>{sp.id}</span>
+                  <span style={{ fontWeight: 600 }}>{sp.name}</span>
+                  <span style={statusStyle('Архив')}>Архив</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: '#6b655b' }}>Смета: {sp.items.length} позиций · собрано 100%</div>
+                <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', marginTop: 6 }}>{fmtMoney(sum)}</div>
+                <div style={{ marginTop: 10 }}><Btn size="sm">Открыть</Btn></div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
 
-function SettingsScreen({ data }: { data: Record<string, unknown> | null }) {
-  const [tab, setTab] = useState<'clients' | 'users' | 'suppliers' | 'nom'>('clients')
-  if (!data) return <div style={{ color: '#a39c92' }}>Загрузка…</div>
-  const { clients, users, suppliers, nomenclature } = data as {
-    clients: Array<{ id: string; name: string; slug: string; active: boolean }>
-    users: Array<{ id: string; name: string; email: string; role: string; slug: string; active: boolean }>
-    suppliers: Array<{ id: string; name: string; type: string; active: boolean }>
-    nomenclature: Array<{ id: string; name: string; unit: string; cat: string }>
+// ─── Settings ─────────────────────────────────────────────────────────────────
+
+function SettingsScreen({ data, orders, onRefresh, onToast }: {
+  data: SettingsData
+  orders: Order[]
+  onRefresh: () => void
+  onToast: (msg: string) => void
+}) {
+  const [tab, setTab] = useState<SettingsTab>('users')
+  const [userModal, setUserModal] = useState<UserFormData | null | 'new'>(null)
+  const [showProjectModal, setShowProjectModal] = useState(false)
+  const [showSpecModal, setShowSpecModal] = useState(false)
+  const [projForm, setProjForm] = useState({ name: '', clientId: '', description: '' })
+  const [specForm, setSpecForm] = useState({ name: '', clientId: '', description: '', items: [{ name: '', qty: 1, unit: 'шт', nomenclatureId: '' }] })
+
+  const clients = data.users.filter(u => isClientRole(u.role))
+  const tabs: [SettingsTab, string, number][] = [
+    ['users', 'Пользователи системы', data.users.length],
+    ['projects', 'Проекты', data.projects.length],
+    ['specprojects', 'СпецПроекты', data.specProjects.length],
+    ['nomenclature', 'Номенклатура', data.nomenclature.length],
+    ['payment', 'Оплата', data.paymentStatuses.length],
+  ]
+
+  async function handleUserSave(form: UserFormData, isNew: boolean) {
+    const payload = {
+      name: form.name, role: form.role, companyId: form.companyId || undefined,
+      email: form.email || undefined, phone: form.phone || undefined,
+      password: form.password || undefined, slug: form.slug || undefined, active: form.active,
+    }
+    if (isNew) {
+      const result = await createUser(payload)
+      onRefresh()
+      return { password: form.password, user: result as User }
+    }
+    await updateUser(form.id!, payload)
+    onRefresh()
+    return { user: { ...form, id: form.id!, createdAt: new Date().toISOString() } as User }
   }
-  const tabs = [['clients', 'Заказчики', clients.length], ['users', 'Ответственные', users.length], ['suppliers', 'Поставщики', suppliers.length], ['nom', 'Номенклатура', nomenclature.length]] as const
-  const hints: Record<string, string> = {
-    clients: 'Личная ссылка ведёт в кабинет заказчика. Slug — параметр URL /client?id=slug',
-    users: 'Ссылка RSP ведёт в портал ответственного. Генерируется для роли «Ответственный».',
-    suppliers: 'Поставщики подставляются в позиции. «Центр Склад» включает складские операции.',
-    nom: 'Справочник номенклатуры 1С — используется при конвертации устных заявок.',
+
+  async function saveProject() {
+    if (!projForm.name) return
+    await createProject(projForm)
+    setShowProjectModal(false)
+    setProjForm({ name: '', clientId: '', description: '' })
+    onRefresh()
+    onToast('✓ Проект создан')
+  }
+
+  async function saveSpecProject() {
+    if (!specForm.name) return
+    await createSpecProject({
+      name: specForm.name,
+      clientId: specForm.clientId || undefined,
+      description: specForm.description,
+      items: specForm.items.filter(i => i.name).map(i => ({ name: i.name, qty: i.qty, unit: i.unit, nomenclatureId: i.nomenclatureId || undefined })),
+    })
+    setShowSpecModal(false)
+    setSpecForm({ name: '', clientId: '', description: '', items: [{ name: '', qty: 1, unit: 'шт', nomenclatureId: '' }] })
+    onRefresh()
+    onToast('✓ СпецПроект создан')
+  }
+
+  function openEditUser(u: User) {
+    setUserModal({
+      id: u.id, name: u.name, role: u.role, companyId: u.companyId || '',
+      email: u.email || '', phone: u.phone || '', password: '', slug: u.slug || '', active: u.active,
+    })
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 15, maxWidth: 1000, animation: 'ukfade .25s' }}>
-      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #e6e2dc' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 15, maxWidth: 1100, animation: 'ukfade .25s' }}>
+      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #e6e2dc', flexWrap: 'wrap' }}>
         {tabs.map(([id, label, count]) => (
-          <button key={id} onClick={() => setTab(id)} style={{ padding: '9px 14px', border: 'none', borderBottom: `2px solid ${tab === id ? '#d4613a' : 'transparent'}`, background: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: tab === id ? 700 : 500, color: tab === id ? '#26231f' : '#8a847c', marginBottom: -1 }}>
-            {label} <span style={{ opacity: .55, fontFamily: 'JetBrains Mono, monospace' }}>{count}</span>
-          </button>
+          <TabBtn key={id} active={tab === id} onClick={() => setTab(id)}>
+            {label} <span style={{ opacity: 0.55, fontFamily: 'JetBrains Mono, monospace' }}>{count}</span>
+          </TabBtn>
         ))}
       </div>
-      <div style={{ fontSize: 12.5, color: '#8a847c' }}>{hints[tab]}</div>
-      <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 11, overflow: 'hidden' }}>
-        {tab === 'clients' && (
+
+      {tab === 'users' && (
+        <>
+          <div style={{ fontSize: 12.5, color: '#8a847c' }}>
+            Клиенты — пользователи с ролью «Клиент» или «Поставщик/заказчик». Ссылки: /client/[slug] и /rsp/[slug]
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Btn variant="primary" onClick={() => setUserModal('new')}>+ Добавить пользователя</Btn>
+          </div>
+          <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 11, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+              <thead>
+                <tr style={{ background: '#faf8f6', borderBottom: '1px solid #eee8e1' }}>
+                  {['Имя', 'Роль', 'Компания', 'Доступ/ссылка', 'Статус', '', ''].map(h => (
+                    <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 10.5, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.users.map(u => {
+                  const rc = ROLE_COLORS[u.role] || ROLE_COLORS.client
+                  const company = u.companyId ? data.users.find(x => x.id === u.companyId)?.name : '—'
+                  const link = userLink(u)
+                  const canLink = link && (u.role === 'logist' || isClientRole(u.role))
+                  return (
+                    <tr key={u.id} style={{ borderBottom: '1px solid #f4f1ec', opacity: u.active ? 1 : 0.5 }}>
+                      <td style={{ padding: '12px 14px', fontWeight: 500 }}>{u.name}</td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <span style={{ background: rc.bg, color: rc.color, fontSize: 10.5, padding: '2px 9px', borderRadius: 20, fontWeight: 600 }}>{roleLabel(u.role)}</span>
+                      </td>
+                      <td style={{ padding: '12px 14px', color: '#6b655b' }}>{company}</td>
+                      <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#6b655b' }}>
+                        {u.role === 'logist' && u.slug ? `/rsp/${u.slug}` : isClientRole(u.role) && u.slug ? `/client/${u.slug}` : '—'}
+                      </td>
+                      <td style={{ padding: '12px 14px', color: u.active ? '#2e8a5e' : '#b8b1a6', fontWeight: 500 }}>{u.active ? 'Активен' : 'Неактивен'}</td>
+                      <td style={{ padding: '12px 14px' }}>
+                        {canLink && <button onClick={() => { copyText(link!); onToast('Ссылка скопирована') }} style={{ border: '1px solid #e0dcd5', background: '#fff', padding: '6px 10px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11 }}>📎</button>}
+                      </td>
+                      <td style={{ padding: '12px 14px' }}><Btn size="sm" onClick={() => openEditUser(u)}>Изменить</Btn></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {tab === 'projects' && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Btn variant="primary" onClick={() => setShowProjectModal(true)}>+ Создать проект</Btn></div>
+          <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 11, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+              <thead>
+                <tr style={{ background: '#faf8f6', borderBottom: '1px solid #eee8e1' }}>
+                  {['ID', 'Название', 'Тип', 'Заказчик', 'Карточек', 'Статус'].map(h => (
+                    <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 10.5, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.projects.map(p => {
+                  const cnt = orders.filter(o => o.projectId === p.id).length
+                  const client = clients.find(c => c.id === p.clientId)?.name || '—'
+                  return (
+                    <tr key={p.id} style={{ borderBottom: '1px solid #f4f1ec' }}>
+                      <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace' }}>{p.id}</td>
+                      <td style={{ padding: '12px 14px', fontWeight: 500 }}>{p.name}</td>
+                      <td style={{ padding: '12px 14px', color: '#6b655b' }}>Проект</td>
+                      <td style={{ padding: '12px 14px', color: '#6b655b' }}>{client}</td>
+                      <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace' }}>{cnt}</td>
+                      <td style={{ padding: '12px 14px' }}><span style={statusStyle(p.status === 'archive' ? 'Архив' : 'В работе')}>{p.status === 'archive' ? 'Архив' : 'Активен'}</span></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {tab === 'specprojects' && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Btn variant="primary" onClick={() => setShowSpecModal(true)}>+ Создать СпецПроект</Btn></div>
+          <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 11, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+              <thead>
+                <tr style={{ background: '#faf8f6', borderBottom: '1px solid #eee8e1' }}>
+                  {['ID', 'Название', 'Заказчик', 'Карточек', 'Прогресс', 'Статус'].map(h => (
+                    <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 10.5, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.specProjects.map(sp => {
+                  const cnt = orders.filter(o => o.specProjectId === sp.id).length
+                  const client = clients.find(c => c.id === sp.clientId)?.name || '—'
+                  const linked = orders.filter(o => o.specProjectId === sp.id)
+                  const pct = sp.items.length ? Math.round(sp.items.reduce((s, it) => {
+                    let got = 0
+                    linked.forEach(o => o.positions.forEach(p => { if ((p.name1c || p.oral) === it.name) got += p.qty }))
+                    return s + (it.qty > 0 ? Math.min(100, (got / it.qty) * 100) : 0)
+                  }, 0) / sp.items.length) : 0
+                  return (
+                    <tr key={sp.id} style={{ borderBottom: '1px solid #f4f1ec' }}>
+                      <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace' }}>{sp.id}</td>
+                      <td style={{ padding: '12px 14px', fontWeight: 500 }}>{sp.name}</td>
+                      <td style={{ padding: '12px 14px', color: '#6b655b' }}>{client}</td>
+                      <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace' }}>{cnt}</td>
+                      <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace', color: '#c0532a' }}>{pct}%</td>
+                      <td style={{ padding: '12px 14px' }}><span style={statusStyle(sp.status === 'archive' ? 'Архив' : 'В работе')}>{sp.status === 'archive' ? 'Архив' : 'Активен'}</span></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {tab === 'nomenclature' && (
+        <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 11, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-            <thead><tr style={{ background: '#faf8f6', borderBottom: '1px solid #eee8e1' }}>
-              {['Название', 'Slug', 'Ссылка кабинета', 'Статус', ''].map(h => <th key={h} style={{ padding: '11px 16px', textAlign: 'left', fontSize: 10.5, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase', letterSpacing: .4 }}>{h}</th>)}
-            </tr></thead>
-            <tbody>{clients.map(c => (
-              <tr key={c.id} style={{ borderBottom: '1px solid #f4f1ec', opacity: c.active ? 1 : .5 }}>
-                <td style={{ padding: '12px 16px', fontWeight: 500 }}>{c.name}</td>
-                <td style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono, monospace', color: '#6b655b' }}>{c.slug}</td>
-                <td style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono, monospace', color: '#6b655b', fontSize: 11.5 }}>/client?id={c.slug}</td>
-                <td style={{ padding: '12px 16px' }}><span style={{ color: c.active ? '#2e8a5e' : '#b8b1a6', fontWeight: 500 }}>{c.active ? 'Активен' : 'Неактивен'}</span></td>
-                <td style={{ padding: '12px 16px' }}><button onClick={() => { try { navigator.clipboard.writeText(`${window.location.origin}/client?id=${c.slug}`) } catch {} }} style={{ border: '1px solid #e0dcd5', background: '#fff', color: '#6b655b', padding: '6px 10px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 600 }}>📋 Копировать ссылку</button></td>
+            <thead>
+              <tr style={{ background: '#faf8f6', borderBottom: '1px solid #eee8e1' }}>
+                {['Наименование 1С', 'Ед.', 'Категория'].map(h => (
+                  <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 10.5, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase' }}>{h}</th>
+                ))}
               </tr>
-            ))}</tbody>
+            </thead>
+            <tbody>
+              {data.nomenclature.map(n => (
+                <tr key={n.id} style={{ borderBottom: '1px solid #f4f1ec' }}>
+                  <td style={{ padding: '12px 14px', fontWeight: 500 }}>{n.name}</td>
+                  <td style={{ padding: '12px 14px', fontFamily: 'JetBrains Mono, monospace', color: '#6b655b' }}>{n.unit}</td>
+                  <td style={{ padding: '12px 14px', color: '#8a847c' }}>{n.cat}</td>
+                </tr>
+              ))}
+            </tbody>
           </table>
-        )}
-        {tab === 'users' && (
+        </div>
+      )}
+
+      {tab === 'payment' && (
+        <div style={{ background: '#fff', border: '1px solid #e6e2dc', borderRadius: 11, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-            <thead><tr style={{ background: '#faf8f6', borderBottom: '1px solid #eee8e1' }}>
-              {['Имя', 'Email', 'Роль', 'Slug', 'Статус'].map(h => <th key={h} style={{ padding: '11px 16px', textAlign: 'left', fontSize: 10.5, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase', letterSpacing: .4 }}>{h}</th>)}
-            </tr></thead>
-            <tbody>{users.map(u => (
-              <tr key={u.id} style={{ borderBottom: '1px solid #f4f1ec', opacity: u.active ? 1 : .5 }}>
-                <td style={{ padding: '12px 16px', fontWeight: 500 }}>{u.name}</td>
-                <td style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono, monospace', color: '#6b655b', fontSize: 11.5 }}>{u.email}</td>
-                <td style={{ padding: '12px 16px', color: '#6b655b' }}>{u.role}</td>
-                <td style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono, monospace', color: '#6b655b' }}>{u.slug || '—'}</td>
-                <td style={{ padding: '12px 16px' }}><span style={{ color: u.active ? '#2e8a5e' : '#b8b1a6', fontWeight: 500 }}>{u.active ? 'Активен' : 'Неактивен'}</span></td>
+            <thead>
+              <tr style={{ background: '#faf8f6', borderBottom: '1px solid #eee8e1' }}>
+                {['Статус', 'Активен'].map(h => (
+                  <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 10.5, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase' }}>{h}</th>
+                ))}
               </tr>
-            ))}</tbody>
+            </thead>
+            <tbody>
+              {data.paymentStatuses.map(ps => (
+                <tr key={ps.id} style={{ borderBottom: '1px solid #f4f1ec' }}>
+                  <td style={{ padding: '12px 14px', fontWeight: 500 }}>{ps.name}</td>
+                  <td style={{ padding: '12px 14px', color: ps.active ? '#2e8a5e' : '#b8b1a6' }}>{ps.active ? 'Да' : 'Нет'}</td>
+                </tr>
+              ))}
+            </tbody>
           </table>
-        )}
-        {tab === 'suppliers' && (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-            <thead><tr style={{ background: '#faf8f6', borderBottom: '1px solid #eee8e1' }}>
-              {['Название', 'Тип', 'Статус'].map(h => <th key={h} style={{ padding: '11px 16px', textAlign: 'left', fontSize: 10.5, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase', letterSpacing: .4 }}>{h}</th>)}
-            </tr></thead>
-            <tbody>{suppliers.map(s => (
-              <tr key={s.id} style={{ borderBottom: '1px solid #f4f1ec', opacity: s.active ? 1 : .5 }}>
-                <td style={{ padding: '12px 16px', fontWeight: 500 }}>{s.name}</td>
-                <td style={{ padding: '12px 16px', color: '#6b655b' }}>{s.type}</td>
-                <td style={{ padding: '12px 16px' }}><span style={{ color: s.active ? '#2e8a5e' : '#b8b1a6', fontWeight: 500 }}>{s.active ? 'Активен' : 'Неактивен'}</span></td>
-              </tr>
-            ))}</tbody>
-          </table>
-        )}
-        {tab === 'nom' && (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-            <thead><tr style={{ background: '#faf8f6', borderBottom: '1px solid #eee8e1' }}>
-              {['Наименование 1С', 'Ед.', 'Категория'].map(h => <th key={h} style={{ padding: '11px 16px', textAlign: 'left', fontSize: 10.5, color: '#a39c92', fontWeight: 600, textTransform: 'uppercase', letterSpacing: .4 }}>{h}</th>)}
-            </tr></thead>
-            <tbody>{nomenclature.map(n => (
-              <tr key={n.id} style={{ borderBottom: '1px solid #f4f1ec' }}>
-                <td style={{ padding: '12px 16px', fontWeight: 500 }}>{n.name}</td>
-                <td style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono, monospace', color: '#6b655b' }}>{n.unit}</td>
-                <td style={{ padding: '12px 16px', color: '#8a847c' }}>{n.cat}</td>
-              </tr>
-            ))}</tbody>
-          </table>
-        )}
-      </div>
+        </div>
+      )}
+
+      {userModal !== null && (
+        <UserModal
+          user={userModal === 'new' ? null : userModal}
+          allUsers={data.users}
+          onClose={() => setUserModal(null)}
+          onSave={handleUserSave}
+          onToast={onToast}
+        />
+      )}
+
+      {showProjectModal && (
+        <div onClick={() => setShowProjectModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(33,31,28,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, width: 420, padding: 22, animation: 'ukpop .18s' }}>
+            <div style={{ fontWeight: 700, marginBottom: 14 }}>Создать проект</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <input placeholder="Название *" value={projForm.name} onChange={e => setProjForm(f => ({ ...f, name: e.target.value }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit' }} />
+              <select value={projForm.clientId} onChange={e => setProjForm(f => ({ ...f, clientId: e.target.value }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit' }}>
+                <option value="">Заказчик</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <textarea placeholder="Описание" value={projForm.description} onChange={e => setProjForm(f => ({ ...f, description: e.target.value }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', minHeight: 70 }} />
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
+              <Btn onClick={() => setShowProjectModal(false)}>Отмена</Btn>
+              <Btn variant="primary" onClick={saveProject}>Сохранить →</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSpecModal && (
+        <div onClick={() => setShowSpecModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(33,31,28,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, width: 520, maxHeight: '90vh', overflowY: 'auto', padding: 22, animation: 'ukpop .18s' }}>
+            <div style={{ fontWeight: 700, marginBottom: 14 }}>Создать СпецПроект</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+              <input placeholder="Название *" value={specForm.name} onChange={e => setSpecForm(f => ({ ...f, name: e.target.value }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit' }} />
+              <select value={specForm.clientId} onChange={e => setSpecForm(f => ({ ...f, clientId: e.target.value }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit' }}>
+                <option value="">Заказчик</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <textarea placeholder="Описание" value={specForm.description} onChange={e => setSpecForm(f => ({ ...f, description: e.target.value }))} style={{ padding: 8, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', minHeight: 60 }} />
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#6b655b', marginBottom: 8 }}>СМЕТА</div>
+            {specForm.items.map((it, i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 60px 32px', gap: 8, marginBottom: 8 }}>
+                <select value={it.nomenclatureId} onChange={e => {
+                  const nom = data.nomenclature.find(n => n.id === e.target.value)
+                  setSpecForm(f => ({ ...f, items: f.items.map((x, j) => j === i ? { ...x, nomenclatureId: e.target.value, name: nom?.name || x.name, unit: nom?.unit || x.unit } : x) }))
+                }} style={{ padding: 7, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit', fontSize: 12 }}>
+                  <option value="">Наименование</option>
+                  {data.nomenclature.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                </select>
+                <input type="number" value={it.qty} onChange={e => setSpecForm(f => ({ ...f, items: f.items.map((x, j) => j === i ? { ...x, qty: +e.target.value } : x) }))} style={{ padding: 7, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit' }} />
+                <input value={it.unit} onChange={e => setSpecForm(f => ({ ...f, items: f.items.map((x, j) => j === i ? { ...x, unit: e.target.value } : x) }))} style={{ padding: 7, border: '1px solid #ddd8d0', borderRadius: 7, fontFamily: 'inherit' }} />
+                <button onClick={() => setSpecForm(f => ({ ...f, items: f.items.filter((_, j) => j !== i) }))} style={{ border: '1px solid #e6dcd6', background: '#fff', borderRadius: 7, cursor: 'pointer' }}>🗑</button>
+              </div>
+            ))}
+            <button onClick={() => setSpecForm(f => ({ ...f, items: [...f.items, { name: '', qty: 1, unit: 'шт', nomenclatureId: '' }] }))} style={{ background: 'none', border: '1px dashed #d8d3cc', padding: '6px 12px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, marginBottom: 14 }}>+ Добавить позицию</button>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <Btn onClick={() => setShowSpecModal(false)}>Отмена</Btn>
+              <Btn variant="primary" onClick={saveSpecProject}>Сохранить СпецПроект →</Btn>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-// ─── Main AdminApp ─────────────────────────────────────────────────────────────
+// ─── Main AdminApp ────────────────────────────────────────────────────────────
 
 export default function AdminApp({ user }: { user: SessionUser }) {
-  const [screen, setScreen] = useState<Screen>('dashboard')
+  const [screen, setScreen] = useState<AdminScreen>('dashboard')
   const [incTab, setIncTab] = useState<IncTab>('new')
+  const [outTab, setOutTab] = useState<OutgoingTab>('inwork')
+  const [filterGroup, setFilterGroup] = useState<FilterGroup>('clients')
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('inwork')
+  const [archiveTab, setArchiveTab] = useState<ArchiveTab>('cards')
+  const [bookkeepingTab, setBookkeepingTab] = useState<BookkeepingTab>('cards')
   const [orders, setOrders] = useState<Order[]>([])
-  const [dashData, setDashData] = useState<Record<string, unknown> | null>(null)
-  const [settingsData, setSettingsData] = useState<Record<string, unknown> | null>(null)
+  const [dashData, setDashData] = useState<DashboardData | null>(null)
+  const [settingsData, setSettingsData] = useState<SettingsData | null>(null)
+  const [reports, setReports] = useState<DailyReport[]>([])
   const [detailId, setDetailId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   const showToast = useCallback((msg: string) => {
-    setToast(msg); setTimeout(() => setToast(null), 2400)
+    setToast(msg)
+    setTimeout(() => setToast(null), 2400)
   }, [])
 
   const loadOrders = useCallback(async () => {
-    try { setOrders(await fetchAllOrders()) } catch { showToast('Ошибка загрузки') }
+    try { setOrders(await fetchAllOrders()) } catch { showToast('Ошибка загрузки заказов') }
   }, [showToast])
 
   const loadDash = useCallback(async () => {
-    try { setDashData(await fetchDashboard()) } catch {}
+    try { setDashData(await fetchDashboard()) } catch { /* ignore */ }
   }, [])
 
   const loadSettings = useCallback(async () => {
-    try { setSettingsData(await fetchSettings()) } catch {}
+    try { setSettingsData(await fetchSettings()) } catch { /* ignore */ }
+  }, [])
+
+  const loadReports = useCallback(async () => {
+    try { setReports(await fetchDailyReports()) } catch { /* ignore */ }
   }, [])
 
   useEffect(() => {
-    Promise.all([loadOrders(), loadDash()]).finally(() => setLoading(false))
-  }, [loadOrders, loadDash])
+    Promise.all([loadOrders(), loadDash(), loadSettings()]).finally(() => setLoading(false))
+  }, [loadOrders, loadDash, loadSettings])
 
   useEffect(() => {
     if (screen === 'settings' && !settingsData) loadSettings()
     if (screen === 'dashboard') loadDash()
-  }, [screen, settingsData, loadSettings, loadDash])
+    if (screen === 'bookkeeping') loadReports()
+    if (screen === 'reception' && !settingsData) loadSettings()
+    if (screen === 'filter' && !settingsData) loadSettings()
+    if (screen === 'archive' && !settingsData) loadSettings()
+  }, [screen, settingsData, loadSettings, loadDash, loadReports])
 
   const handleAction = useCallback(async (id: string, action: string, payload?: Record<string, unknown>) => {
     try {
@@ -850,20 +2012,33 @@ export default function AdminApp({ user }: { user: SessionUser }) {
         accept: `✓ ${id} → Приёмка`, take: `✓ ${id} → Стол приёмки`, process: `✓ ${id} → Исходящие`,
         markAll: `✓ ${id} — все доставлены`, sendAcc: `✓ ${id} → К учёту`, postAcc: `✓ ${id} → Бухгалтерия`,
         returnOut: `${id} → Входящие`, returnToAcc: `${id} → К учёту`, cancel: `${id} отменён`,
-        restore: `${id} восстановлен`, confirmChg: `✓ Изменение принято`, postpone: `${id} — статус изменён`,
-        createDoc: `✓ Документ создан`, post1C: `✓ ${id} проведён в 1С`, sendArchive: `✓ ${id} → Архив`,
-        updatePos: `✓ Позиция обновлена`,
+        restore: `${id} восстановлен`, confirmChg: '✓ Изменение принято', postpone: `${id} — отложено`,
+        createDoc: '✓ Документ создан', post1C: `✓ ${id} проведён в 1С`, sendArchive: `✓ ${id} → Архив`,
+        updatePos: '✓ Позиция обновлена',
       }
       showToast(msgs[action] || `✓ ${action}`)
       loadDash()
+      if (action === 'sendArchive' || action === 'restore' || action === 'postAcc') loadOrders()
     } catch (e) { showToast(`Ошибка: ${(e as Error).message}`) }
-  }, [showToast, loadDash])
+  }, [showToast, loadDash, loadOrders])
 
   const handlePostAll = useCallback(async () => {
-    try { const { count } = await postAll(); await loadOrders(); await loadDash(); showToast(`✓ Проведено: ${count}`) } catch { showToast('Ошибка') }
+    try {
+      const { count } = await postAll()
+      await loadOrders()
+      await loadDash()
+      showToast(`✓ Проведено: ${count}`)
+    } catch { showToast('Ошибка') }
   }, [loadOrders, loadDash, showToast])
 
-  // Computed badges
+  const handleReportAction = useCallback(async (id: string, status: string) => {
+    try {
+      await updateDailyReport(id, status)
+      await loadReports()
+      showToast('✓ Отчёт обновлён')
+    } catch { showToast('Ошибка') }
+  }, [loadReports, showToast])
+
   const inc = orders.filter(o => o.screen === 'incoming')
   const newCards = inc.filter(o => !o.isDraft && !o.isCancelled && !o.toacc)
   const changed = orders.filter(o => o.isChanged && !o.isCancelled && !o.isDraft)
@@ -874,53 +2049,52 @@ export default function AdminApp({ user }: { user: SessionUser }) {
   const toaccCount = inc.filter(o => o.toacc).length + accounting.length
 
   const navItems = [
-    { id: 'dashboard', label: 'Дашборд', badge: 0 },
-    { id: 'reception', label: 'Приёмка', badge: reception.length },
-    { id: 'incoming', label: 'Входящие', badge: newCards.length + changed.length },
-    { id: 'outgoing', label: 'Исходящие', badge: outgoing.length },
-    { id: 'filter', label: 'Фильтр', badge: 0 },
-    { id: 'accounting', label: 'К Учёту', badge: accounting.length },
-    { id: 'warehouse', label: 'Склад', badge: 0, disabled: true },
-    { id: 'bookkeeping', label: 'Бухгалтерия', badge: bookkeeping.length },
-    { id: 'settings', label: 'Настройки', badge: 0 },
-  ] as const
+    { id: 'dashboard' as AdminScreen, label: 'Дашборд', badge: 0 },
+    { id: 'reception' as AdminScreen, label: 'Приёмка', badge: reception.length },
+    { id: 'incoming' as AdminScreen, label: 'Входящие', badge: newCards.length + changed.length },
+    { id: 'outgoing' as AdminScreen, label: 'Исходящие', badge: outgoing.length },
+    { id: 'filter' as AdminScreen, label: 'Фильтр', badge: 0 },
+    { id: 'accounting' as AdminScreen, label: 'К Учёту', badge: accounting.length },
+    { id: 'warehouse' as AdminScreen, label: 'Склад', badge: 0 },
+    { id: 'bookkeeping' as AdminScreen, label: 'Бухгалтерия', badge: bookkeeping.length },
+    { id: 'archive' as AdminScreen, label: 'Архив', badge: 0 },
+    { id: 'settings' as AdminScreen, label: 'Настройки', badge: 0 },
+  ]
 
-  const titles: Record<string, [string, string]> = {
+  const titles: Record<AdminScreen, [string, string]> = {
     dashboard: ['Дашборд', 'Сводка по системе U-Kan'],
     reception: ['Приёмка', 'Обработка и подготовка заказов'],
     incoming: ['Входящие', 'Приём и сортировка заявок'],
     outgoing: ['Исходящие', 'Активное исполнение'],
     filter: ['Фильтр', 'Канбан по заказчикам и поставщикам'],
     accounting: ['К Учёту', 'Проверка перед бухгалтерией'],
-    warehouse: ['Склад', ''],
-    bookkeeping: ['Бухгалтерия', ''],
-    settings: ['Настройки', 'Справочники, заказчики и ссылки доступа'],
-    archive: ['Архив', 'Завершённые заказы'],
+    warehouse: ['Склад', 'Центр Склад — остатки и движение'],
+    bookkeeping: ['Бухгалтерия', 'Документы и ежедневные отчёты'],
+    archive: ['Архив', 'Завершённые заказы и проекты'],
+    settings: ['Настройки', 'Справочники, пользователи и ссылки доступа'],
   }
-  const [title, subtitle] = titles[screen] || ['', '']
+
+  const [title, subtitle] = titles[screen]
   const detailOrder = orders.find(o => o.id === detailId) || null
 
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden', fontSize: 13, fontFamily: "'Golos Text', system-ui, sans-serif" }}>
-      {/* SIDEBAR */}
       <aside style={{ width: 230, flexShrink: 0, background: '#211f1c', color: '#cfc9c0', display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div style={{ padding: '20px 22px 18px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid #322f2b' }}>
           <div style={{ width: 30, height: 30, borderRadius: 7, background: '#d4613a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff', fontSize: 15 }}>U</div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 15, color: '#fff', letterSpacing: -.2 }}>U-Kan</div>
-            <div style={{ fontSize: 10.5, color: '#8c857a', letterSpacing: .3 }}>ЛОГИСТИКА · АДМИН</div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: '#fff', letterSpacing: -0.2 }}>U-Kan</div>
+            <div style={{ fontSize: 10.5, color: '#8c857a', letterSpacing: 0.3 }}>ЛОГИСТИКА · АДМИН</div>
           </div>
         </div>
         <nav style={{ flex: 1, overflowY: 'auto', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
           {navItems.map(item => {
             const active = item.id === screen
-            const disabled = 'disabled' in item && item.disabled
             return (
-              <button key={item.id} onClick={() => !disabled && setScreen(item.id as Screen)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 12px', border: 'none', borderRadius: 8, cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: active ? 600 : 500, textAlign: 'left', background: active ? '#d4613a' : 'transparent', color: active ? '#fff' : disabled ? '#6b655b' : '#cfc9c0' }}>
+              <button key={item.id} onClick={() => setScreen(item.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 12px', border: 'none', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: active ? 600 : 500, textAlign: 'left', background: active ? '#d4613a' : 'transparent', color: active ? '#fff' : '#cfc9c0' }}>
                 <span style={{ width: 3, height: 15, borderRadius: 2, background: active ? 'rgba(255,255,255,.55)' : 'transparent', flexShrink: 0 }} />
                 <span style={{ flex: 1 }}>{item.label}</span>
-                {item.badge > 0 && !disabled && <span style={{ fontSize: 10.5, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', padding: '1px 7px', borderRadius: 20, background: active ? 'rgba(255,255,255,.22)' : '#3a3631', color: active ? '#fff' : '#cfc9c0' }}>{item.badge}</span>}
-                {disabled && <span style={{ fontSize: 9, color: '#6b655b' }}>скоро</span>}
+                {item.badge > 0 && <span style={{ fontSize: 10.5, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', padding: '1px 7px', borderRadius: 20, background: active ? 'rgba(255,255,255,.22)' : '#3a3631', color: active ? '#fff' : '#cfc9c0' }}>{item.badge}</span>}
               </button>
             )
           })}
@@ -931,57 +2105,99 @@ export default function AdminApp({ user }: { user: SessionUser }) {
           </div>
           <div style={{ marginBottom: 6 }}>{user.name}</div>
           <button onClick={logout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8c857a', fontFamily: 'inherit', fontSize: 11, padding: 0, textDecoration: 'underline' }}>Выйти</button>
-          <div style={{ marginTop: 6 }}>Версия 1.0 · 18.06.2026</div>
+          <div style={{ marginTop: 6 }}>Версия 1.0 · 21.06.2026</div>
         </div>
       </aside>
 
-      {/* MAIN */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0 }}>
-        {/* TOPBAR */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0, background: '#f1efec' }}>
         <header style={{ flexShrink: 0, height: 60, background: '#fff', borderBottom: '1px solid #e6e2dc', display: 'flex', alignItems: 'center', padding: '0 24px', gap: 20 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: -.3 }}>{title}</div>
+            <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: -0.3 }}>{title}</div>
             <div style={{ fontSize: 11.5, color: '#8a847c' }}>{subtitle}</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {[
-              { label: 'Активных', value: orders.filter(o => !o.isDraft && !o.isCancelled).length, color: '#4a5aaa', bg: '#eef2ff' },
+              { label: 'Активных', value: orders.filter(o => !o.isDraft && !o.isCancelled && o.screen !== 'archive').length, color: '#4a5aaa', bg: '#eef2ff' },
               { label: 'В работе', value: outgoing.length, color: '#c0532a', bg: '#fff0ea' },
               { label: 'Просрочено', value: orders.filter(o => isOverdue(o)).length, color: '#b03020', bg: '#faeaea' },
               { label: 'К учёту', value: toaccCount, color: '#2e8a5e', bg: '#e8f5ee' },
             ].map(p => (
               <div key={p.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 62, padding: '5px 12px', borderRadius: 9, background: p.bg, color: p.color }}>
                 <span style={{ fontWeight: 700, fontSize: 15, fontFamily: 'JetBrains Mono, monospace' }}>{p.value}</span>
-                <span style={{ fontSize: 10.5, opacity: .85 }}>{p.label}</span>
+                <span style={{ fontSize: 10.5, opacity: 0.85 }}>{p.label}</span>
               </div>
             ))}
           </div>
-          <button onClick={async () => { setLoading(true); await Promise.all([loadOrders(), loadDash()]); setLoading(false); showToast('Данные обновлены') }} title="Обновить" style={{ width: 36, height: 36, flexShrink: 0, border: '1px solid #e0dcd5', background: '#fff', borderRadius: 8, cursor: 'pointer', color: '#6b655b', fontSize: 15 }}>
+          <button
+            onClick={async () => {
+              setLoading(true)
+              await Promise.all([loadOrders(), loadDash()])
+              if (screen === 'bookkeeping') await loadReports()
+              setLoading(false)
+              showToast('Данные обновлены')
+            }}
+            title="Обновить"
+            style={{ width: 36, height: 36, flexShrink: 0, border: '1px solid #e0dcd5', background: '#fff', borderRadius: 8, cursor: 'pointer', color: '#6b655b', fontSize: 15 }}
+          >
             {loading ? '…' : '⟳'}
           </button>
         </header>
 
-        {/* CONTENT */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '22px 24px 60px' }}>
           {screen === 'dashboard' && <Dashboard data={dashData} onGo={setScreen} />}
-          {screen === 'reception' && <Reception orders={orders} onAction={handleAction} onOpen={setDetailId} settings={settingsData} />}
+          {screen === 'reception' && (
+            <Reception
+              orders={orders}
+              onAction={handleAction}
+              onOpen={setDetailId}
+              settings={settingsData}
+              onCreated={loadOrders}
+            />
+          )}
           {screen === 'incoming' && <Incoming orders={orders} tab={incTab} setTab={setIncTab} onAction={handleAction} onOpen={setDetailId} />}
-          {screen === 'outgoing' && <Outgoing orders={orders} onAction={handleAction} onOpen={setDetailId} />}
-          {screen === 'filter' && <FilterKanban orders={orders} onOpen={setDetailId} />}
+          {screen === 'outgoing' && <Outgoing orders={orders} tab={outTab} setTab={setOutTab} onAction={handleAction} onOpen={setDetailId} />}
+          {screen === 'filter' && (
+            <FilterKanban
+              orders={orders}
+              group={filterGroup}
+              setGroup={setFilterGroup}
+              statusFilter={filterStatus}
+              setStatusFilter={setFilterStatus}
+              onOpen={setDetailId}
+              settings={settingsData}
+            />
+          )}
           {screen === 'accounting' && <Accounting orders={orders} onAction={handleAction} onOpen={setDetailId} onPostAll={handlePostAll} />}
-          {screen === 'bookkeeping' && <Bookkeeping orders={orders} onAction={handleAction} onOpen={setDetailId} />}
-          {screen === 'settings' && <SettingsScreen data={settingsData} />}
-          {(screen === 'warehouse' || screen === 'archive') && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', textAlign: 'center', color: '#a39c92', animation: 'ukfade .25s' }}>
-              <div style={{ width: 54, height: 54, borderRadius: 12, background: '#e6e2dc', marginBottom: 16 }} />
-              <div style={{ fontSize: 16, fontWeight: 600, color: '#6b655b' }}>{title}</div>
-              <div style={{ fontSize: 13, maxWidth: 380, marginTop: 6 }}>Экран вне текущего объёма ТЗ. Будет реализован по отдельному документу.</div>
-            </div>
+          {screen === 'warehouse' && <Warehouse />}
+          {screen === 'bookkeeping' && (
+            <BookkeepingScreen
+              orders={orders}
+              tab={bookkeepingTab}
+              setTab={setBookkeepingTab}
+              onAction={handleAction}
+              onOpen={setDetailId}
+              reports={reports}
+              onReportAction={handleReportAction}
+            />
+          )}
+          {screen === 'archive' && settingsData && (
+            <Archive
+              orders={orders}
+              tab={archiveTab}
+              setTab={setArchiveTab}
+              onOpen={setDetailId}
+              onAction={handleAction}
+              projects={settingsData.projects}
+              specProjects={settingsData.specProjects}
+            />
+          )}
+          {screen === 'settings' && settingsData && (
+            <SettingsScreen data={settingsData} orders={orders} onRefresh={loadSettings} onToast={showToast} />
           )}
         </div>
       </div>
 
-      {detailId && detailOrder && <DetailModal order={detailOrder} onClose={() => setDetailId(null)} onAction={handleAction} />}
+      {detailId && detailOrder && <CardDetailModal order={detailOrder} onClose={() => setDetailId(null)} />}
       {toast && <Toast msg={toast} />}
     </div>
   )
