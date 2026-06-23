@@ -8,7 +8,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
   try {
-    await prisma.notification.update({ where: { id: params.id }, data: { read: true } })
+    const { id } = await params
+    await prisma.notification.update({ where: { id }, data: { read: true } })
     return NextResponse.json({ ok: true })
   } catch (e) {
     console.error(e)

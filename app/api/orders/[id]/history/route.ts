@@ -8,8 +8,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
   try {
+    const { id } = await params
     const history = await prisma.history.findMany({
-      where: { cardId: params.id },
+      where: { cardId: id },
       orderBy: { createdAt: 'desc' },
     })
     return NextResponse.json(history)

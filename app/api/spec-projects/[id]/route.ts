@@ -8,8 +8,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
   try {
+    const { id } = await params
     const sp = await prisma.specProject.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         items: true,
         orders: { include: { positions: true } },
@@ -17,7 +18,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     })
     if (!sp) return NextResponse.json({ error: 'Не найден' }, { status: 404 })
 
-    // Агрегация: смета vs собрано
     const allPositions = sp.orders.flatMap((o: { positions: { name1c: string; status: string; qty: number; unit: string }[] }) => o.positions)
 
     const analysis = sp.items.map((item: { name: string; qty: number; unit: string }) => {
@@ -48,8 +48,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
   try {
+    const { id } = await params
     const { status } = await req.json()
-    const sp = await prisma.specProject.update({ where: { id: params.id }, data: { status } })
+    const sp = await prisma.specProject.update({ where: { id }, data: { status } })
     return NextResponse.json(sp)
   } catch (e) {
     console.error(e)

@@ -10,6 +10,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!session || session.role !== 'super_admin') return NextResponse.json({ error: 'Нет доступа' }, { status: 403 })
 
   try {
+    const { id } = await params
     const body = await req.json()
     const updateData: Record<string, unknown> = {}
 
@@ -22,7 +23,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (body.slug !== undefined) updateData.slug = body.slug
     if (body.active !== undefined) updateData.active = body.active
 
-    const user = await prisma.user.update({ where: { id: params.id }, data: updateData })
+    const user = await prisma.user.update({ where: { id }, data: updateData })
     return NextResponse.json(user)
   } catch (e) {
     console.error(e)
