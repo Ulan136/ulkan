@@ -2,7 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createToken, SessionUser } from '@/lib/auth'
-import { generateSlug, normalizePhone } from '@/lib/display'
+import { generateSlug } from '@/lib/ids'
+import { normalizePhone } from '@/lib/display'
 import { notifyAdmins } from '@/lib/notifications'
 
 export async function POST(req: NextRequest) {
