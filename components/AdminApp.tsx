@@ -359,6 +359,7 @@ export default function AdminApp({ user }: Props) {
   const [archiveTab, setArchiveTab] = useState<ArchiveTab>('cards')
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('users')
   const [bookTab, setBookTab] = useState<BookkeepingTab>('cards')
+  const [outgoingTab, setOutgoingTab] = useState<'inwork' | 'ready' | 'all'>('inwork')
 
   // Поиск/фильтр
   const [search, setSearch] = useState('')
@@ -724,22 +725,114 @@ export default function AdminApp({ user }: Props) {
 
       // ─── ВХОДЯЩИЕ ────────────────────────────────────────────────────────
       case 'incoming': {
-        const tabMap: Record<IncTab, Order[]> = { new: active, changed, toacc, drafts, cancelled }
-        const tabLabels: Record<IncTab, string> = { new: `Новые (${active.length})`, changed: `Изменения (${changed.length})`, toacc: `К учёту (${toacc.length})`, drafts: `Черновики (${drafts.length})`, cancelled: `Отменённые (${cancelled.length})` }
+        // Входящие НЕ включают карточки из приёмки (reception) и черновики из приёмки
+        const incActive = orders.filter(o => o.screen === 'incoming' && !o.isDraft && !o.isCancelled && !o.toacc)
+        const incChanged = orders.filter(o => o.screen === 'incoming' && o.isChanged && !o.isCancelled)
+        const incToacc = orders.filter(o => o.screen === 'incoming' && o.toacc && !o.isCancelled)
+        const incDrafts = orders.filter(o => o.screen === 'incoming' && o.isDraft)
+        const incCancelled = orders.filter(o => o.screen === 'incoming' && o.isCancelled)
+        const incTabMap: Record<IncTab, Order[]> = { new: incActive, changed: incChanged, toacc: incToacc, drafts: incDrafts, cancelled: incCancelled }
+        const incTabLabels: Record<IncTab, string> = {
+          new: `Новые (${incActive.length})`,
+          changed: `Изменения (${incChanged.length})`,
+          toacc: `К учёту (${incToacc.length})`,
+          drafts: `Черновики (${incDrafts.length})`,
+          cancelled: `Отменённые (${incCancelled.length})`,
+        }
         return (
           <div className="anim-fade">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ fontWeight: 700, fontSize: 20 }}>Входящие</div>
-              <Btn variant="primary" onClick={() => setShowCreateCard(true)}>+ Создать карточку</Btn>
-            </div>
+            <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 16 }}>Входящие</div>
             <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
-              {(Object.keys(tabLabels) as IncTab[]).map(t => (
+              {(Object.keys(incTabLabels) as IncTab[]).map(t => (
                 <button key={t} onClick={() => setIncTab(t)} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: incTab === t ? COLORS.primary : '#fff', color: incTab === t ? '#fff' : '#8a847c', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
-                  {tabLabels[t]}
+                  {incTabLabels[t]}
                 </button>
               ))}
             </div>
-            {renderOrders(tabMap[incTab], 'Нет карточек')}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {incTabMap[incTab].length === 0
+                ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c', fontSize: 14 }}>
+                    {search ? 'Ничего не найдено' : 'Нет карточек'}
+                  </div>
+                : filterOrders(incTabMap[incTab]).map(o => {
+                    const pct = cardProgress(o)
+                    return (
+                      <div key={o.id} style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
+                        {/* Строка 1: мета */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: COLORS.primary }}>{o.id}</span>
+                          <StatusBadge status={o.status} />
+                          <SourceBadge source={o.source} />
+                          {o.isChanged && <span style={{ fontSize: 10, background: '#fff0ea', color: '#c0532a', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>⚡ ИЗМЕНЕНО</span>}
+                          {o.postponed && <span style={{ fontSize: 10, background: '#eef2ff', color: '#4a5aaa', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>ОТЛОЖЕН</span>}
+                          <span style={{ marginLeft: 'auto', fontSize: 11, color: '#8a847c' }}>{fmtDate(o.createdAt)}</span>
+                          <button onClick={() => { navigator.clipboard.writeText(o.trackingLink); showToast('Ссылка скопирована!') }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: '2px 4px' }}>📎</button>
+                          <Btn size="sm" onClick={() => setSelectedOrder(o)}>Открыть</Btn>
+                        </div>
+                        {/* Строка 2: маршрут */}
+                        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
+                          {o.from} {o.to ? `→ ${o.to}` : ''}
+                        </div>
+                        {/* Строка 3: превью комментария */}
+                        {o.comment && (
+                          <div style={{ fontSize: 12, color: '#8a847c', marginBottom: 8, lineHeight: 1.5 }}>
+                            {o.comment.slice(0, 100)}{o.comment.length > 100 ? '...' : ''}
+                          </div>
+                        )}
+                        {/* Блок изменения */}
+                        {o.isChanged && (
+                          <div style={{ background: '#fff8e1', borderRadius: 8, padding: '8px 12px', marginBottom: 10, border: '1.5px solid #f5e4a0' }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: '#8a6f00', marginBottom: 2 }}>Изменение от клиента:</div>
+                            <div style={{ fontSize: 13 }}>{o.changeText}</div>
+                            {o.changePhone && <div style={{ fontSize: 12, color: '#8a847c', marginTop: 2 }}>📞 {o.changePhone}</div>}
+                          </div>
+                        )}
+                        {/* Прогресс если есть позиции */}
+                        {o.positions.length > 0 && (
+                          <div style={{ marginBottom: 8 }}>
+                            <ProgressBar pct={pct} />
+                            <div style={{ fontSize: 11, color: '#8a847c', marginTop: 3 }}>{o.positions.length} позиций · {fmtMoney(cardSum(o))}</div>
+                          </div>
+                        )}
+                        {/* Кнопки по вкладке */}
+                        <div style={{ display: 'flex', gap: 8, marginTop: 10, paddingTop: 10, borderTop: '1px solid #f1efec', flexWrap: 'wrap' }}>
+                          {incTab === 'new' && (
+                            <>
+                              <Btn size="sm" onClick={() => handleAction(o.id, 'postpone')}>{o.postponed ? 'Снять откл.' : 'Отложить'}</Btn>
+                              <Btn size="sm" variant="danger" onClick={() => handleAction(o.id, 'cancel')}>Отменить</Btn>
+                              <Btn size="sm" variant="primary" onClick={() => handleAction(o.id, 'accept')}>ПРИНЯТЬ →</Btn>
+                            </>
+                          )}
+                          {incTab === 'changed' && (
+                            <>
+                              <Btn size="sm" variant="danger" onClick={() => handleAction(o.id, 'confirmChg')}>Отклонить</Btn>
+                              <Btn size="sm" variant="primary" onClick={() => handleAction(o.id, 'confirmChg')}>✓ Принять изменение</Btn>
+                            </>
+                          )}
+                          {incTab === 'toacc' && (
+                            <>
+                              <Btn size="sm" onClick={() => handleAction(o.id, 'returnOut')}>← В Исходящие</Btn>
+                              <Btn size="sm" variant="primary" onClick={() => handleAction(o.id, 'sendAcc')}>Отправить в К Учёту →</Btn>
+                            </>
+                          )}
+                          {incTab === 'drafts' && (
+                            <>
+                              <Btn size="sm" onClick={() => setSelectedOrder(o)}>Доработать</Btn>
+                              <Btn size="sm" variant="primary" onClick={() => handleAction(o.id, 'accept')}>Отправить</Btn>
+                            </>
+                          )}
+                          {incTab === 'cancelled' && (
+                            <>
+                              {o.cancelReason && <span style={{ fontSize: 12, color: '#8a847c' }}>Причина: {o.cancelReason}</span>}
+                              <Btn size="sm" onClick={() => handleAction(o.id, 'restore')}>↺ Восстановить</Btn>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })
+              }
+            </div>
           </div>
         )
       }
@@ -1159,13 +1252,108 @@ export default function AdminApp({ user }: Props) {
       }
 
       // ─── ИСХОДЯЩИЕ ───────────────────────────────────────────────────────
-      case 'outgoing':
+      case 'outgoing': {
+        const outInwork = outgoing.filter(o => cardProgress(o) < 60)
+        const outReady = outgoing.filter(o => cardProgress(o) >= 60)
+        type OutTab = 'inwork' | 'ready' | 'all'
+        const outTabList: Array<[OutTab, string, Order[]]> = [
+          ['inwork', `В работе (${outInwork.length})`, outInwork],
+          ['ready', `Готово к доставке (${outReady.length})`, outReady],
+          ['all', `Все (${outgoing.length})`, outgoing],
+        ]
+        const [outTab, setOutTab] = [outgoingTab, setOutgoingTab]
+        const outList = outTabList.find(t => t[0] === outTab)?.[2] || outgoing
+
         return (
           <div className="anim-fade">
-            <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 16 }}>Исходящие <span style={{ fontSize: 14, color: '#8a847c', fontWeight: 400 }}>({outgoing.length})</span></div>
-            {renderOrders(outgoing, 'Нет карточек в работе')}
+            <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 16 }}>
+              Исходящие <span style={{ fontSize: 14, color: '#8a847c', fontWeight: 400 }}>({outgoing.length})</span>
+            </div>
+
+            {/* Вкладки */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+              {outTabList.map(([key, label]) => (
+                <button key={key} onClick={() => setOutgoingTab(key)} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: outTab === key ? COLORS.primary : '#fff', color: outTab === key ? '#fff' : '#8a847c', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Список карточек */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {outList.length === 0
+                ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c', fontSize: 14 }}>Нет карточек</div>
+                : filterOrders(outList).map(o => {
+                    const pct = cardProgress(o)
+                    const overdue = isOverdue(o)
+                    return (
+                      <div key={o.id} style={{ background: '#fff', borderRadius: 14, boxShadow: '0 0 0 1.5px #e6e2dc', overflow: 'hidden' }}>
+                        {/* Шапка карточки */}
+                        <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1efec' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: COLORS.primary }}>{o.id}</span>
+                            {overdue && <span style={{ fontSize: 11, background: '#faeaea', color: '#b03020', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>⚠ Просрочено</span>}
+                            {pct >= 100 && <span style={{ fontSize: 11, background: '#e8f5ee', color: '#2e8a5e', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>✓ Готово</span>}
+                            {pct < 100 && !overdue && <span style={{ fontSize: 11, background: '#fff0ea', color: '#c0532a', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>В работе</span>}
+                            {o.isChanged && <span style={{ fontSize: 11, background: '#fdf8e1', color: '#8a6f00', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>⚡ Изменено клиентом</span>}
+                            <span style={{ marginLeft: 'auto', fontWeight: 700, fontSize: 16, color: barColor(pct) }}>{pct}%</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontWeight: 600, fontSize: 14 }}>{o.from} → {o.to || '—'}</span>
+                            {o.deadline && <span style={{ fontSize: 12, color: '#8a847c' }}>срок {fmtDate(o.deadline)}</span>}
+                          </div>
+                          <div style={{ marginTop: 8 }}>
+                            <ProgressBar pct={pct} height={6} />
+                          </div>
+                        </div>
+
+                        {/* Позиции */}
+                        {o.positions.length > 0 && (
+                          <div style={{ padding: '12px 18px', borderBottom: '1px solid #f1efec' }}>
+                            {o.positions.map((pos, i) => {
+                              const posPct = ({'В работе': 10, 'Готово к отгрузке': 60, 'В пути': 80, 'Доставлено': 100} as Record<string,number>)[pos.status] || 0
+                              return (
+                                <div key={pos.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 0', borderBottom: i < o.positions.length - 1 ? '1px solid #f8f6f3' : 'none' }}>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 500 }}>{pos.name1c || pos.oral}</div>
+                                    <div style={{ fontSize: 11, color: '#8a847c' }}>{pos.qty} {pos.unit}{pos.resp ? ` · ${pos.resp}` : ''}{pos.supplier ? ` · ${pos.supplier}` : ''}</div>
+                                  </div>
+                                  <div style={{ width: 120 }}>
+                                    <ProgressBar pct={posPct} height={4} />
+                                  </div>
+                                  {pos.late && <span style={{ fontSize: 10, background: '#faeaea', color: '#b03020', padding: '1px 6px', borderRadius: 20, fontWeight: 600, flexShrink: 0 }}>ПРОСРОЧ.</span>}
+                                  <select
+                                    value={pos.status}
+                                    onChange={e => handleAction(o.id, 'updatePos', { posId: pos.id, status: e.target.value })}
+                                    onClick={e => e.stopPropagation()}
+                                    style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
+                                  >
+                                    {['В работе', 'Готово к отгрузке', 'В пути', 'Доставлено'].map(s => <option key={s} value={s}>{s}</option>)}
+                                  </select>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+
+                        {/* Футер */}
+                        <div style={{ padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          {cardSum(o) > 0 && <span style={{ fontSize: 13, fontWeight: 600, color: '#26231f' }}>Сумма: {fmtMoney(cardSum(o))}</span>}
+                          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                            <Btn size="sm" onClick={() => setSelectedOrder(o)}>Открыть</Btn>
+                            <Btn size="sm" onClick={() => { navigator.clipboard.writeText(o.trackingLink); showToast('Ссылка скопирована!') }}>📎 Ссылка клиенту</Btn>
+                            <Btn size="sm" onClick={() => handleAction(o.id, 'returnOut')}>← Вернуть</Btn>
+                            <Btn size="sm" variant="primary" onClick={() => handleAction(o.id, 'markAll')}>✓ Всё выполнено</Btn>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })
+              }
+            </div>
           </div>
         )
+      }
 
       // ─── ФИЛЬТР ──────────────────────────────────────────────────────────
       case 'filter': {
