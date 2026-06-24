@@ -62,7 +62,7 @@ export default function HomePage() {
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Кабинет заказчика</div>
             <p style={{ color: '#8a847c', fontSize: 13, marginBottom: 14 }}>Просмотр заявок, подача новых, уведомления о статусах. Вход по телефону.</p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <a href="/client/nipa-almaty" style={btnStyle('primary')}>Открыть кабинет →</a>
+              <a href="/login" style={btnStyle('primary')}>Войти в кабинет →</a>
               <button onClick={() => copy(`${base}/client/`, 'cabinet')} style={btnStyle()}>
                 {copied === 'cabinet' ? '✓' : '📋'} Ссылка
               </button>
@@ -93,7 +93,7 @@ export default function HomePage() {
             <p style={{ color: '#8a847c', fontSize: 13, margin: 0 }}>Мобильный интерфейс для логистов: обновление статусов, ежедневные отчёты.</p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <a href="/rsp/listogib" style={btnStyle('primary')}>Открыть портал →</a>
+            <a href="/login" style={btnStyle('primary')}>Войти в портал →</a>
             <button onClick={() => copy(`${base}/rsp/`, 'rsp')} style={btnStyle()}>
               {copied === 'rsp' ? '✓' : '📋'} Ссылка
             </button>
