@@ -15,6 +15,7 @@ import {
 import { cardProgress, cardSum, isOverdue, barColor, statusStyle, sourceStyle, sourceLabel, fmtMoney, fmtDate, fmtDateTime } from '@/lib/display'
 import { COLORS } from '@/lib/colors'
 import FilterScreen from '@/components/FilterScreen'
+import WarehouseScreen from '@/components/WarehouseScreen'
 
 // ─── Утилиты ─────────────────────────────────────────────────────────────────
 
@@ -1378,37 +1379,13 @@ export default function AdminApp({ user }: Props) {
       // ─── СКЛАД ───────────────────────────────────────────────────────────
       case 'warehouse':
         return (
-          <div className="anim-fade">
-            <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 20 }}>Склад</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Остатки</div>
-                {stock.length === 0 ? <div style={{ color: '#8a847c', fontSize: 13 }}>Нет данных</div>
-                  : stock.map((s: any) => (
-                    <div key={s.id} style={{ background: '#fff', borderRadius: 10, padding: '12px 16px', marginBottom: 8, boxShadow: '0 0 0 1.5px #e6e2dc' }}>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
-                      <div style={{ fontSize: 12, color: '#8a847c', marginTop: 4 }}>
-                        На складе: <b>{s.qty} {s.unit}</b> · Резерв: {s.reserved} · Доступно: {Math.max(0, s.qty - s.reserved)}
-                      </div>
-                      <div style={{ fontSize: 11, color: '#8a847c' }}>{s.supplier?.name}</div>
-                    </div>
-                  ))
-                }
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Движения</div>
-                {stockMovements.slice(0, 20).map((m: any) => (
-                  <div key={m.id} style={{ background: '#fff', borderRadius: 10, padding: '10px 14px', marginBottom: 6, boxShadow: '0 0 0 1.5px #e6e2dc', display: 'flex', justifyContent: 'space-between' }}>
-                    <div>
-                      <span style={{ fontSize: 11, fontWeight: 600, background: m.type === 'income' ? '#e8f5ee' : m.type === 'reserve' ? '#eef2ff' : '#faeaea', color: m.type === 'income' ? '#2e8a5e' : m.type === 'reserve' ? '#4a5aaa' : '#b03020', padding: '1px 7px', borderRadius: 20, marginRight: 8 }}>{m.type}</span>
-                      <span style={{ fontSize: 13 }}>{m.name}</span>
-                    </div>
-                    <span style={{ fontWeight: 600 }}>{m.qty}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <WarehouseScreen
+            onOpenCard={(cardId) => {
+              const order = orders.find(o => o.id === cardId)
+              if (order) setSelectedOrder(order)
+              else { setScreen('filter'); showToast(`Карточка ${cardId}`) }
+            }}
+          />
         )
 
       // ─── БУХГАЛТЕРИЯ ─────────────────────────────────────────────────────
