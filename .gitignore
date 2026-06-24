@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # dependencies
 /node_modules
 /.pnp
@@ -33,3 +34,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+=======
+.env
+.env.local
+.env.production
+node_modules/
+.next/
+prisma/migrations/
+>>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b

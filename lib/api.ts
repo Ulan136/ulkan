@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { Order, Project, SpecProject, Notification, DailyReport } from './types'
 
 const BASE = '/api'
@@ -31,16 +32,26 @@ export async function orderAction(id: string, action: string, payload?: Record<s
     const err = await res.json()
     throw new Error(err.error || 'Ошибка')
   }
+=======
+// lib/api.ts — API клиент для фронтенда
+
+async function fetcher<T>(url: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options })
+>>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
   const data = await res.json()
-  return data.order
+  if (!res.ok) throw new Error(data.error || 'Ошибка запроса')
+  return data as T
 }
 
-export async function postAll(): Promise<{ count: number }> {
-  const res = await fetch(`${BASE}/orders/all`, { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to post all')
-  return res.json()
-}
+// ─── Карточки ─────────────────────────────────────────────────
+export const fetchAllOrders = () => fetcher<unknown[]>('/api/orders/all')
+export const createOrder = (data: Record<string, unknown>) => fetcher<unknown>('/api/orders', { method: 'POST', body: JSON.stringify(data) })
+export const orderAction = (id: string, action: string, payload?: Record<string, unknown>) =>
+  fetcher<{ success: boolean; order: unknown }>(`/api/orders/${id}/action`, { method: 'POST', body: JSON.stringify({ action, ...payload }) })
+export const postAll = () => fetcher<{ success: boolean; count: number }>('/api/orders/postAll', { method: 'POST' })
+export const fetchHistory = (cardId: string) => fetcher<unknown[]>(`/api/orders/${cardId}/history`)
 
+<<<<<<< HEAD
 export async function fetchHistory(cardId: string) {
   const res = await fetch(`${BASE}/orders/${cardId}/history`, { cache: 'no-store' })
   if (!res.ok) throw new Error('Failed to fetch history')
@@ -192,12 +203,57 @@ export async function loginPhone(phone: string) {
   if (!res.ok) throw new Error('Not found')
   return res.json()
 }
+=======
+// ─── Дашборд ──────────────────────────────────────────────────
+export const fetchDashboard = () => fetcher<unknown>('/api/dashboard')
+>>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
 
-export async function logout() {
-  await fetch(`${BASE}/auth/logout`, { method: 'POST' })
+// ─── Справочники ──────────────────────────────────────────────
+export const fetchSettings = () => fetcher<unknown>('/api/settings')
+
+// ─── Пользователи ─────────────────────────────────────────────
+export const createUser = (data: Record<string, unknown>) => fetcher<unknown>('/api/users', { method: 'POST', body: JSON.stringify(data) })
+export const updateUser = (id: string, data: Record<string, unknown>) => fetcher<unknown>(`/api/users/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+
+// ─── Проекты ──────────────────────────────────────────────────
+export const fetchProjects = () => fetcher<unknown[]>('/api/projects')
+export const createProject = (data: Record<string, unknown>) => fetcher<unknown>('/api/projects', { method: 'POST', body: JSON.stringify(data) })
+
+// ─── СпецПроекты ──────────────────────────────────────────────
+export const fetchSpecProjects = () => fetcher<unknown[]>('/api/spec-projects')
+export const createSpecProject = (data: Record<string, unknown>) => fetcher<unknown>('/api/spec-projects', { method: 'POST', body: JSON.stringify(data) })
+export const fetchSpecProjectAnalysis = (id: string) => fetcher<unknown>(`/api/spec-projects/${id}`)
+export const updateSpecProject = (id: string, data: Record<string, unknown>) => fetcher<unknown>(`/api/spec-projects/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+
+// ─── Склад ────────────────────────────────────────────────────
+export const fetchStock = () => fetcher<unknown[]>('/api/stock')
+export const fetchStockMovements = (type?: string) => fetcher<unknown[]>(`/api/stock/movements${type ? `?type=${type}` : ''}`)
+
+// ─── Отчёты ───────────────────────────────────────────────────
+export const fetchDailyReports = () => fetcher<unknown[]>('/api/reports/daily')
+export const createDailyReport = (data: Record<string, unknown>) => fetcher<unknown>('/api/reports/daily', { method: 'POST', body: JSON.stringify(data) })
+export const updateDailyReport = (id: string, status: string) => fetcher<unknown>(`/api/reports/daily/${id}`, { method: 'PUT', body: JSON.stringify({ status }) })
+
+// ─── Кабинет заказчика ────────────────────────────────────────
+export const fetchClientOrders = () => fetcher<unknown[]>('/api/client/orders')
+export const createClientOrder = (data: Record<string, unknown>) => fetcher<unknown>('/api/client/orders', { method: 'POST', body: JSON.stringify(data) })
+
+// ─── Трекинг (публичный) ──────────────────────────────────────
+export const fetchTrack = (id: string) => fetcher<unknown>(`/api/track?id=${encodeURIComponent(id)}`)
+export const submitExternalOrder = (data: Record<string, unknown>) => fetcher<unknown>('/api/track/submit', { method: 'POST', body: JSON.stringify(data) })
+export const submitTrackChange = (cardId: string, changeText: string, changePhone: string) =>
+  fetcher<{ ok: boolean }>('/api/track/change', { method: 'POST', body: JSON.stringify({ cardId, changeText, changePhone }) })
+
+// ─── Auth ─────────────────────────────────────────────────────
+export const loginEmail = (email: string, password: string) => fetcher<unknown>('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) })
+export const loginPhone = (phone: string) => fetcher<unknown>('/api/auth/phone', { method: 'POST', body: JSON.stringify({ phone }) })
+export const registerClient = (data: Record<string, unknown>) => fetcher<unknown>('/api/auth/register', { method: 'POST', body: JSON.stringify(data) })
+export const logout = async () => {
+  await fetch('/api/auth/logout', { method: 'POST' })
   window.location.href = '/login'
 }
 
+<<<<<<< HEAD
 export async function fetchNotifications(): Promise<Notification[]> {
   const res = await fetch(`${BASE}/notifications`, { cache: 'no-store' })
   if (!res.ok) throw new Error('Failed')
@@ -256,3 +312,8 @@ export async function createPaymentStatus(data: { name: string }) {
   }
   return res.json()
 }
+=======
+// ─── Уведомления ──────────────────────────────────────────────
+export const fetchNotifications = () => fetcher<unknown[]>('/api/notifications')
+export const markNotificationRead = (id: string) => fetcher<unknown>(`/api/notifications/${id}`, { method: 'PUT' })
+>>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b

@@ -1,0 +1,244 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Пользователи ─────────────────────────────────────────────
+model User {
+  id        String  @id @default(cuid())
+  name      String
+  phone     String? @unique
+  email     String? @unique
+  password  String?
+  role      String  @default("client")
+  // super_admin | bookkeeper | logist | supplier_client | client
+  companyId String?
+  company   User?   @relation("SubUsers", fields: [companyId], references: [id])
+  subUsers  User[]  @relation("SubUsers")
+  slug      String? @unique
+  active    Boolean @default(true)
+  createdAt DateTime @default(now())
+
+  ordersAsContact Order[]        @relation("OrderContact")
+  notifications   Notification[]
+  dailyReports    DailyReport[]
+}
+
+// ─── Заказы (карточки) ────────────────────────────────────────
+model Order {
+  id            String    @id // C-xxx-DDMMYY
+  from          String
+  fromId        String?
+  to            String    @default("")
+  screen        String    @default("incoming")
+  block         String    @default("")
+  status        String    @default("В ожидании")
+  source        String    @default("cabinet")
+  projectId     String?
+  specProjectId String?
+  contactId     String?
+  comment       String    @default("")
+  phone         String?
+  deadline      DateTime?
+  delivered     DateTime?
+  isDraft       Boolean   @default(false)
+  isChanged     Boolean   @default(false)
+  changeText    String    @default("")
+  changePhone   String    @default("")
+  isCancelled   Boolean   @default(false)
+  cancelReason  String    @default("")
+  toacc         Boolean   @default(false)
+  postponed     Boolean   @default(false)
+  invoice       Boolean   @default(false)
+  fact          Boolean   @default(false)
+  posted1C      Boolean   @default(false)
+  cold          Boolean   @default(false)
+  trackingLink  String    @default("")
+  sortOrder     Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  contact     User?        @relation("OrderContact", fields: [contactId], references: [id])
+  project     Project?     @relation(fields: [projectId], references: [id])
+  specProject SpecProject? @relation(fields: [specProjectId], references: [id])
+  positions   Position[]
+  history     History[]
+}
+
+// ─── Позиции ──────────────────────────────────────────────────
+model Position {
+  id         String    @id // CardID-Pn
+  cardId     String
+  name1c     String    @default("")
+  oral       String    @default("")
+  qty        Float     @default(0)
+  unit       String    @default("шт")
+  price      Float     @default(0)
+  resp       String    @default("")
+  supplierId String?
+  supplier   String    @default("")
+  status     String    @default("В работе")
+  late       Boolean   @default(false)
+  payment    String    @default("")
+  deadline   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  order       Order     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  supplierRef Supplier? @relation(fields: [supplierId], references: [id])
+  movements   StockMovement[]
+}
+
+// ─── История ──────────────────────────────────────────────────
+model History {
+  id        String   @id @default(cuid())
+  cardId    String
+  action    String
+  detail    String   @default("")
+  userName  String   @default("Система")
+  createdAt DateTime @default(now())
+
+  order Order @relation(fields: [cardId], references: [id], onDelete: Cascade)
+}
+
+// ─── Проекты ──────────────────────────────────────────────────
+model Project {
+  id          String   @id // PRJ-xxx-DDMMYY
+  name        String
+  clientId    String?
+  description String   @default("")
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+
+  orders Order[]
+}
+
+// ─── СпецПроекты ──────────────────────────────────────────────
+model SpecProject {
+  id          String   @id // СП-xxx-DDMMYY
+  name        String
+  clientId    String?
+  description String   @default("")
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+
+  orders Order[]
+  items  SpecProjectItem[]
+}
+
+// ─── Смета СпецПроекта ────────────────────────────────────────
+model SpecProjectItem {
+  id              String  @id @default(cuid())
+  specProjectId   String
+  name            String
+  qty             Float
+  unit            String  @default("шт")
+  nomenclatureId  String?
+
+  specProject  SpecProject   @relation(fields: [specProjectId], references: [id], onDelete: Cascade)
+  nomenclature Nomenclature? @relation(fields: [nomenclatureId], references: [id])
+}
+
+// ─── Поставщики ───────────────────────────────────────────────
+model Supplier {
+  id     String  @id @default(cuid())
+  name   String  @unique
+  type   String  @default("Внешний")
+  active Boolean @default(true)
+
+  positions Position[]
+  stock     Stock[]
+}
+
+// ─── Номенклатура ─────────────────────────────────────────────
+model Nomenclature {
+  id   String @id @default(cuid())
+  name String
+  unit String @default("шт")
+  cat  String @default("")
+
+  specItems SpecProjectItem[]
+  stock     Stock[]
+}
+
+// ─── Склад (остатки) ──────────────────────────────────────────
+model Stock {
+  id             String @id @default(cuid())
+  supplierId     String
+  nomenclatureId String
+  name           String
+  unit           String @default("шт")
+  qty            Float  @default(0)
+  reserved       Float  @default(0)
+
+  supplier     Supplier     @relation(fields: [supplierId], references: [id])
+  nomenclature Nomenclature @relation(fields: [nomenclatureId], references: [id])
+}
+
+// ─── Движение склада ──────────────────────────────────────────
+model StockMovement {
+  id         String   @id @default(cuid())
+  type       String   // reserve | income | expense
+  name       String
+  qty        Float
+  unit       String   @default("шт")
+  positionId String?
+  cardId     String?
+  createdAt  DateTime @default(now())
+
+  position Position? @relation(fields: [positionId], references: [id])
+}
+
+// ─── Ежедневный отчёт логиста ─────────────────────────────────
+model DailyReport {
+  id        String   @id @default(cuid())
+  logistId  String
+  date      DateTime
+  comment   String   @default("")
+  status    String   @default("processing")
+  createdAt DateTime @default(now())
+
+  logist User             @relation(fields: [logistId], references: [id])
+  rows   DailyReportRow[]
+}
+
+// ─── Строки отчёта ────────────────────────────────────────────
+model DailyReportRow {
+  id         String @id @default(cuid())
+  reportId   String
+  fromWho    String @default("")
+  name       String @default("")
+  qtyIn      Float  @default(0)
+  commentIn  String @default("")
+  toWho      String @default("")
+  qtyOut     Float  @default(0)
+  commentOut String @default("")
+  invoiceNum String @default("")
+
+  report DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+}
+
+// ─── Уведомления ──────────────────────────────────────────────
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  text      String
+  cardId    String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// ─── Статусы оплаты ───────────────────────────────────────────
+model PaymentStatus {
+  id     String  @id @default(cuid())
+  name   String  @unique
+  active Boolean @default(true)
+}

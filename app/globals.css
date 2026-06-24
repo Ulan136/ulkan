@@ -15,4 +15,17 @@ html, body { margin: 0; padding: 0; font-family: 'Golos Text', system-ui, sans-s
 @keyframes ukpop { from { transform: scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
 
 .anim-fade { animation: ukfade .22s ease both; }
+<<<<<<< HEAD
 .anim-pop  { animation: ukpop .18s ease both; }
+=======
+.anim-pop  { animation: ukpop .18s ease both; }
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .sidebar-desktop { display: none !important; }
+  .mobile-menu-btn { display: flex !important; }
+}
+@media (min-width: 769px) {
+  .mobile-menu-btn { display: none !important; }
+}
+>>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b

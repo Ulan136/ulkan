@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { Suspense } from 'react'
 import TrackingApp from '@/components/TrackingApp'
 
@@ -11,3 +12,8 @@ export default async function TrackPage({ searchParams }: Props) {
     </Suspense>
   )
 }
+=======
+// app/track/page.tsx
+import TrackingApp from '@/components/TrackingApp'
+export default function TrackPage() { return <TrackingApp /> }
+>>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
