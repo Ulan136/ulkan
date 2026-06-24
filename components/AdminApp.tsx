@@ -14,6 +14,7 @@ import {
 } from '@/lib/types'
 import { cardProgress, cardSum, isOverdue, barColor, statusStyle, sourceStyle, sourceLabel, fmtMoney, fmtDate, fmtDateTime } from '@/lib/display'
 import { COLORS } from '@/lib/colors'
+import FilterScreen from '@/components/FilterScreen'
 
 // ─── Утилиты ─────────────────────────────────────────────────────────────────
 
@@ -1355,72 +1356,15 @@ export default function AdminApp({ user }: Props) {
         )
       }
 
-      // ─── ФИЛЬТР ──────────────────────────────────────────────────────────
-      case 'filter': {
-        const nonArchive = orders.filter(o => o.screen !== 'archive' && !o.isDraft && !o.isCancelled)
+      // ─── ФИЛЬТР (Канбан dnd-kit) ─────────────────────────────────────────
+      case 'filter':
         return (
-          <div className="anim-fade">
-            <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 16 }}>Фильтр</div>
-            <div style={{ marginBottom: 16 }}>
-              <input style={{ ...INP, maxWidth: 400 }} value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Поиск по ID, клиенту, номенклатуре..." />
-            </div>
-            {settings && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-                {/* По клиентам */}
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: '#8a847c', marginBottom: 10, textTransform: 'uppercase' }}>Клиенты</div>
-                  {[...new Set(nonArchive.map(o => o.from))].map(client => {
-                    const clientOrders = nonArchive.filter(o => o.from === client)
-                    return (
-                      <div key={client} style={{ background: '#fff', borderRadius: 10, padding: '12px 14px', marginBottom: 8, boxShadow: '0 0 0 1.5px #e6e2dc' }}>
-                        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{client}</div>
-                        <div style={{ fontSize: 12, color: '#8a847c' }}>{clientOrders.length} заявок</div>
-                        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {clientOrders.slice(0, 3).map(o => (
-                            <div key={o.id} onClick={() => setSelectedOrder(o)} style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
-                              <span style={{ fontFamily: "'JetBrains Mono', monospace", color: COLORS.primary, fontSize: 11 }}>{o.id}</span>
-                              <StatusBadge status={o.status} />
-                            </div>
-                          ))}
-                          {clientOrders.length > 3 && <div style={{ fontSize: 11, color: '#8a847c' }}>ещё {clientOrders.length - 3}...</div>}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-                {/* По поставщикам */}
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: '#8a847c', marginBottom: 10, textTransform: 'uppercase' }}>Поставщики</div>
-                  {settings.suppliers.map(sup => {
-                    const supOrders = nonArchive.filter(o => o.positions.some(p => p.supplier === sup.name))
-                    if (supOrders.length === 0) return null
-                    return (
-                      <div key={sup.id} style={{ background: '#fff', borderRadius: 10, padding: '12px 14px', marginBottom: 8, boxShadow: '0 0 0 1.5px #e6e2dc' }}>
-                        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{sup.name}</div>
-                        <div style={{ fontSize: 12, color: '#8a847c' }}>{supOrders.length} заказов · {sup.type}</div>
-                      </div>
-                    )
-                  })}
-                </div>
-                {/* По проектам */}
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: '#8a847c', marginBottom: 10, textTransform: 'uppercase' }}>Проекты</div>
-                  {settings.projects.filter(p => p.status === 'active').map(prj => {
-                    const prjOrders = nonArchive.filter(o => o.projectId === prj.id)
-                    return (
-                      <div key={prj.id} style={{ background: '#fff', borderRadius: 10, padding: '12px 14px', marginBottom: 8, boxShadow: '0 0 0 1.5px #e6e2dc' }}>
-                        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{prj.name}</div>
-                        <div style={{ fontSize: 12, color: '#8a847c' }}>{prjOrders.length} карточек</div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-            {search && <div style={{ marginTop: 16 }}>{renderOrders(filterOrders(nonArchive), 'Ничего не найдено')}</div>}
-          </div>
+          <FilterScreen
+            orders={orders}
+            settings={settings}
+            onOpen={(order) => setSelectedOrder(order)}
+          />
         )
-      }
 
       // ─── К УЧЁТУ ─────────────────────────────────────────────────────────
       case 'accounting':
