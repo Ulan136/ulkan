@@ -378,8 +378,76 @@ export default function AdminApp({ user }: Props) {
   const [stock, setStock] = useState<any[]>([])
   const [stockMovements, setStockMovements] = useState<any[]>([])
 
-  // Форма создания карточки
+  // Форма создания карточки (модалка)
   const [newCard, setNewCard] = useState({ from: '', to: '', comment: '', phone: '', deadline: '', projectId: '', specProjectId: '', contactId: '', source: 'admin_manual', isDraft: false })
+
+  // ── Приёмка: стейт формы создания ──
+  const [recFormOpen, setRecFormOpen] = useState(false)
+  const [recFrom, setRecFrom] = useState('')
+  const [recTo, setRecTo] = useState('')
+  const [recProject, setRecProject] = useState('')
+  const [recSpec, setRecSpec] = useState('')
+  const [recContact, setRecContact] = useState('')
+  const [recPhone, setRecPhone] = useState('')
+  const [recDeadline, setRecDeadline] = useState('')
+  const [recComment, setRecComment] = useState('')
+  const [recPositions, setRecPositions] = useState([
+    { name1c: '', oral: '', qty: '', unit: 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: '', payment: '' }
+  ])
+  const [recShowPayment, setRecShowPayment] = useState<number[]>([])
+  const [editingPositions, setEditingPositions] = useState<Record<string, any>>({})
+
+  function recAddPos() {
+    setRecPositions(p => [...p, { name1c: '', oral: '', qty: '', unit: 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: '', payment: '' }])
+  }
+  function recUpdatePos(i: number, field: string, val: string) {
+    setRecPositions(p => p.map((x, idx) => idx === i ? { ...x, [field]: val } : x))
+  }
+  function recRemovePos(i: number) {
+    setRecPositions(p => p.filter((_, idx) => idx !== i))
+  }
+  function recTogglePayment(i: number) {
+    setRecShowPayment(p => p.includes(i) ? p.filter(x => x !== i) : [...p, i])
+  }
+  function startEditPos(pos: any) {
+    setEditingPositions(p => ({
+      ...p,
+      [pos.id]: { name1c: pos.name1c, oral: pos.oral, qty: pos.qty, unit: pos.unit, price: pos.price, resp: pos.resp, supplier: pos.supplier, supplierId: pos.supplierId || '', payment: pos.payment, deadline: pos.deadline ? pos.deadline.slice(0, 10) : '' }
+    }))
+  }
+  async function saveEditingPosition(cardId: string, posId: string) {
+    const data = editingPositions[posId]
+    if (!data) return
+    await handleAction(cardId, 'updatePosDetail', { posId, ...data, qty: Number(data.qty), price: Number(data.price) })
+    setEditingPositions(p => { const n = { ...p }; delete n[posId]; return n })
+  }
+  async function handleRecSubmit(isDraft: boolean) {
+    if (!recFrom) { showToast('Укажите от кого'); return }
+    try {
+      const positions = recPositions.filter(p => p.name1c || p.oral).map(p => ({
+        name1c: p.name1c, oral: p.oral, qty: Number(p.qty) || 0, unit: p.unit,
+        price: Number(p.price) || 0, resp: p.resp, supplier: p.supplier,
+        supplierId: p.supplierId || undefined, status: 'В работе',
+        deadline: p.deadline || undefined, payment: p.payment,
+      }))
+      const fromUser = settings?.users.find(u => u.id === recFrom)
+      await createOrder({
+        from: fromUser?.name || recFrom, fromId: recFrom,
+        to: recTo, phone: recPhone, deadline: recDeadline || undefined,
+        comment: recComment, projectId: recProject || undefined,
+        specProjectId: recSpec || undefined, contactId: recContact || undefined,
+        source: 'admin_manual', isDraft,
+        positions,
+      })
+      setRecFormOpen(false)
+      setRecFrom(''); setRecTo(''); setRecProject(''); setRecSpec('')
+      setRecContact(''); setRecPhone(''); setRecDeadline(''); setRecComment('')
+      setRecPositions([{ name1c: '', oral: '', qty: '', unit: 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: '', payment: '' }])
+      setRecShowPayment([])
+      loadOrders()
+      showToast(isDraft ? 'Черновик сохранён' : 'Заказ создан и отправлен в исходящие')
+    } catch (e: any) { showToast(e.message) }
+  }
 
   // Форма создания пользователя
   const [newUser, setNewUser] = useState({ name: '', role: 'client', email: '', phone: '', password: '', slug: '' })
@@ -677,23 +745,418 @@ export default function AdminApp({ user }: Props) {
       }
 
       // ─── ПРИЁМКА ─────────────────────────────────────────────────────────
-      case 'reception':
+      case 'reception': {
+        const waiting = reception.filter(o => o.block === 'waiting')
+        const processing = reception.filter(o => o.block === 'processing')
+        const recDrafts = orders.filter(o => o.isDraft)
+        const recChanged = orders.filter(o => o.isChanged && !o.isCancelled)
+        const clients = settings?.users.filter(u => u.role === 'client' || u.role === 'supplier_client') || []
+        const logists = settings?.users.filter(u => u.role === 'logist') || []
+        const activeProjects = settings?.projects.filter(p => p.status === 'active') || []
+        const activeSpecs = settings?.specProjects.filter(s => s.status === 'active') || []
+        const suppliersList = settings?.suppliers || []
+
+        // Контакты (суб-пользователи выбранного клиента)
+        const selectedClient = settings?.users.find(u => u.id === recFrom)
+        const subUsers = selectedClient ? (settings?.users.filter(u => u.companyId === selectedClient.id) || []) : []
+
+        const inpSm: React.CSSProperties = { padding: '7px 10px', borderRadius: 6, fontSize: 12, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', width: '100%' }
+        const selSm: React.CSSProperties = { ...inpSm, cursor: 'pointer' }
+
         return (
           <div className="anim-fade">
-            <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 16 }}>Приёмка <span style={{ fontSize: 14, color: '#8a847c', fontWeight: 400 }}>({reception.length})</span></div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              {[
-                { title: 'Ожидают', list: reception.filter(o => o.block === 'waiting'), bg: '#fff' },
-                { title: 'В обработке', list: reception.filter(o => o.block === 'processing'), bg: '#faf8f6' },
-              ].map(({ title, list, bg }) => (
-                <div key={title}>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: '#8a847c', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '.04em' }}>{title} ({list.length})</div>
-                  {renderOrders(list, 'Пусто')}
-                </div>
-              ))}
+
+            {/* ── Блок 0: Шапка счётчики ── */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div style={{ fontWeight: 700, fontSize: 20 }}>Приёмка</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[
+                  { label: 'В ожидании', val: waiting.length, bg: '#fff0ea', color: '#c0532a' },
+                  { label: 'К приёму', val: processing.length, bg: '#fdf8e1', color: '#8a6f00' },
+                  { label: 'Изменено', val: recChanged.length, bg: '#faeaea', color: '#b03020' },
+                  { label: 'Черновики', val: recDrafts.length, bg: '#efece8', color: '#6b655b' },
+                ].map(({ label, val, bg, color }) => (
+                  <div key={label} style={{ background: bg, color, borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 700 }}>
+                    {label} {val}
+                  </div>
+                ))}
+              </div>
             </div>
+
+            {/* ── Блок 1: Форма создания ── */}
+            <div style={{ background: '#fff', borderRadius: 14, marginBottom: 20, boxShadow: '0 0 0 1.5px #e6e2dc', overflow: 'hidden' }}>
+              <div
+                onClick={() => setRecFormOpen(p => !p)}
+                style={{ padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: recFormOpen ? '1px solid #f1efec' : 'none' }}
+              >
+                <span style={{ fontWeight: 700, fontSize: 15 }}>＋ Создать новый заказ</span>
+                <span style={{ fontSize: 18, color: '#8a847c', transform: recFormOpen ? 'rotate(45deg)' : 'none', transition: 'transform .2s' }}>＋</span>
+              </div>
+
+              {recFormOpen && (
+                <div style={{ padding: 20 }}>
+                  {/* Основные поля */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
+                    <div>
+                      <label style={LBL}>ОТ КОГО *</label>
+                      <select style={INP} value={recFrom} onChange={e => { setRecFrom(e.target.value); setRecContact('') }}>
+                        <option value="">— выберите клиента —</option>
+                        {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={LBL}>К КОМУ / КУДА</label>
+                      <select style={INP} value={recTo} onChange={e => setRecTo(e.target.value)}>
+                        <option value="">— логист/направление —</option>
+                        {logists.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                        {suppliersList.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                      </select>
+                    </div>
+                    {subUsers.length > 0 && (
+                      <div>
+                        <label style={LBL}>КОНТАКТ</label>
+                        <select style={INP} value={recContact} onChange={e => setRecContact(e.target.value)}>
+                          <option value="">—</option>
+                          {subUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        </select>
+                      </div>
+                    )}
+                    <div>
+                      <label style={LBL}>ПРОЕКТ</label>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <select style={{ ...INP, flex: 1 }} value={recProject} onChange={e => setRecProject(e.target.value)}>
+                          <option value="">—</option>
+                          {activeProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                        <button onClick={() => setShowCreateProject(true)} style={{ padding: '0 10px', borderRadius: 7, border: '1.5px solid #e6e2dc', background: '#f1efec', cursor: 'pointer', fontSize: 16, flexShrink: 0 }}>＋</button>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={LBL}>СПЕЦПРОЕКТ</label>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <select style={{ ...INP, flex: 1 }} value={recSpec} onChange={e => setRecSpec(e.target.value)}>
+                          <option value="">—</option>
+                          {activeSpecs.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                        <button onClick={() => setShowCreateSpec(true)} style={{ padding: '0 10px', borderRadius: 7, border: '1.5px solid #e6e2dc', background: '#f1efec', cursor: 'pointer', fontSize: 16, flexShrink: 0 }}>＋</button>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={LBL}>ТЕЛЕФОН</label>
+                      <input style={INP} value={recPhone} onChange={e => setRecPhone(e.target.value)} placeholder="+7 700 000 00 00" />
+                    </div>
+                    <div>
+                      <label style={LBL}>СРОК</label>
+                      <input style={INP} type="date" value={recDeadline} onChange={e => setRecDeadline(e.target.value)} />
+                    </div>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <label style={LBL}>КОММЕНТАРИЙ</label>
+                      <textarea style={{ ...INP, minHeight: 60, resize: 'vertical' }} value={recComment} onChange={e => setRecComment(e.target.value)} placeholder="Дополнительные пожелания..." />
+                    </div>
+                  </div>
+
+                  {/* Таблица позиций */}
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#8a847c', marginBottom: 8, letterSpacing: '.04em' }}>ПОЗИЦИИ</div>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+                        <thead>
+                          <tr style={{ background: '#f1efec' }}>
+                            {['НАИМЕНОВАНИЕ', 'КОЛ-ВО', 'ЕД.', 'ЦЕНА (ТГ)', 'ЛОГИСТ', 'ПОСТАВЩИК', 'СРОК', ''].map(h => (
+                              <th key={h} style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {recPositions.map((pos, i) => (
+                            <tr key={i} style={{ borderBottom: '1px solid #f1efec' }}>
+                              <td style={{ padding: '6px 4px' }}>
+                                <input style={inpSm} value={pos.name1c} onChange={e => recUpdatePos(i, 'name1c', e.target.value)} placeholder="Название 1С" />
+                              </td>
+                              <td style={{ padding: '6px 4px', width: 70 }}>
+                                <input style={inpSm} type="number" value={pos.qty} onChange={e => recUpdatePos(i, 'qty', e.target.value)} placeholder="0" />
+                              </td>
+                              <td style={{ padding: '6px 4px', width: 60 }}>
+                                <input style={inpSm} value={pos.unit} onChange={e => recUpdatePos(i, 'unit', e.target.value)} placeholder="шт" />
+                              </td>
+                              <td style={{ padding: '6px 4px', width: 100 }}>
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                  <input style={inpSm} type="number" value={pos.price} onChange={e => recUpdatePos(i, 'price', e.target.value)} placeholder="0" />
+                                  <button
+                                    title="Оплата"
+                                    onClick={() => recTogglePayment(i)}
+                                    style={{ padding: '5px 7px', borderRadius: 6, border: `1.5px solid ${recShowPayment.includes(i) ? COLORS.primary : '#e6e2dc'}`, background: recShowPayment.includes(i) ? '#fff8f5' : '#fff', cursor: 'pointer', fontSize: 13, flexShrink: 0 }}
+                                  >💳</button>
+                                </div>
+                                {recShowPayment.includes(i) && (
+                                  <select style={{ ...inpSm, marginTop: 4 }} value={pos.payment} onChange={e => recUpdatePos(i, 'payment', e.target.value)}>
+                                    <option value="">— оплата —</option>
+                                    <option value="Оплачено">Оплачено</option>
+                                    <option value="Не оплачено">Не оплачено</option>
+                                    <option value="Частично">Частично</option>
+                                  </select>
+                                )}
+                              </td>
+                              <td style={{ padding: '6px 4px' }}>
+                                <select style={selSm} value={pos.resp} onChange={e => recUpdatePos(i, 'resp', e.target.value)}>
+                                  <option value="">—</option>
+                                  {logists.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                                </select>
+                              </td>
+                              <td style={{ padding: '6px 4px' }}>
+                                <select style={selSm} value={pos.supplierId} onChange={e => {
+                                  const sup = suppliersList.find(s => s.id === e.target.value)
+                                  recUpdatePos(i, 'supplierId', e.target.value)
+                                  recUpdatePos(i, 'supplier', sup?.name || '')
+                                }}>
+                                  <option value="">—</option>
+                                  {suppliersList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                </select>
+                              </td>
+                              <td style={{ padding: '6px 4px', width: 110 }}>
+                                <input style={inpSm} type="date" value={pos.deadline} onChange={e => recUpdatePos(i, 'deadline', e.target.value)} />
+                              </td>
+                              <td style={{ padding: '6px 4px', width: 32 }}>
+                                <button onClick={() => recRemovePos(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b03020', fontSize: 18, padding: '2px 4px' }}>🗑</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <button onClick={recAddPos} style={{ marginTop: 8, border: '1.5px dashed #d8d3cc', borderRadius: 7, padding: '6px 16px', background: 'none', cursor: 'pointer', fontSize: 12, color: '#8a847c', fontFamily: 'inherit' }}>
+                      ＋ Добавить позицию
+                    </button>
+                  </div>
+
+                  {/* Кнопки формы */}
+                  <div style={{ display: 'flex', gap: 10, paddingTop: 12, borderTop: '1px solid #f1efec' }}>
+                    <Btn onClick={() => handleRecSubmit(true)}>Сохранить черновик</Btn>
+                    <Btn variant="primary" onClick={() => handleRecSubmit(false)}>ОТПРАВИТЬ ЗАКАЗ →</Btn>
+                    <Btn variant="ghost" onClick={() => setRecFormOpen(false)} style={{ marginLeft: 'auto', color: '#8a847c' }}>Отмена</Btn>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Блок 2: Стол приёмки (block=processing) ── */}
+            {processing.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  Стол приёмки
+                  <span style={{ fontSize: 12, background: '#fdf8e1', color: '#8a6f00', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{processing.length}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {processing.map(order => (
+                    <div key={order.id} style={{ background: '#fff', borderRadius: 14, boxShadow: '0 0 0 1.5px #e6e2dc', overflow: 'hidden' }}>
+                      {/* Шапка карточки */}
+                      <div style={{ padding: '12px 16px', background: '#faf8f6', borderBottom: '1px solid #f1efec', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: COLORS.primary }}>{order.id}</span>
+                        <StatusBadge status={order.status} />
+                        <span style={{ fontSize: 13, fontWeight: 500 }}>{order.from} → {order.to || '—'}</span>
+                        {order.deadline && <span style={{ fontSize: 12, color: '#8a847c' }}>срок {fmtDate(order.deadline)}</span>}
+                        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                          <Btn size="sm" onClick={() => handleAction(order.id, 'returnOut')}>← Вернуть</Btn>
+                          <Btn size="sm" variant="primary" onClick={() => handleAction(order.id, 'process')}>ОТПРАВИТЬ В ИСХОДЯЩИЕ →</Btn>
+                        </div>
+                      </div>
+
+                      {/* Таблица позиций — редактирование */}
+                      <div style={{ padding: '12px 16px', overflowX: 'auto' }}>
+                        {order.positions.length === 0 && (
+                          <div style={{ background: '#fff8e1', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13, color: '#8a6f00', fontWeight: 500 }}>
+                            💬 Со слов: {order.comment}
+                          </div>
+                        )}
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
+                          <thead>
+                            <tr style={{ background: '#f1efec' }}>
+                              {['СО СЛОВ', 'НАИМ. 1С', 'КОЛ-ВО', 'ЕД.', 'ЦЕНА', 'ЛОГИСТ', 'ПОСТАВЩИК', 'СРОК', 'ОПЛАТА', ''].map(h => (
+                                <th key={h} style={{ padding: '7px 8px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {order.positions.map(pos => {
+                              const ed = editingPositions[pos.id] || {}
+                              const isEditing = !!editingPositions[pos.id]
+                              return (
+                                <tr key={pos.id} style={{ borderBottom: '1px solid #f1efec' }} onClick={() => !isEditing && startEditPos(pos)}>
+                                  {/* СО СЛОВ — жёлтый readonly */}
+                                  <td style={{ padding: '6px 8px' }}>
+                                    <div style={{ background: '#fff8e1', borderRadius: 6, padding: '4px 8px', fontSize: 12, color: '#8a6f00', minWidth: 80, cursor: 'default' }}>{pos.oral || '—'}</div>
+                                  </td>
+                                  {/* НАИМ 1С */}
+                                  <td style={{ padding: '6px 4px' }}>
+                                    {isEditing
+                                      ? <input style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 140 }} value={ed.name1c ?? pos.name1c} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], name1c: e.target.value } }))} />
+                                      : <span style={{ fontSize: 12 }}>{pos.name1c || <span style={{ color: '#b8b1a6' }}>—</span>}</span>
+                                    }
+                                  </td>
+                                  {/* КОЛ-ВО */}
+                                  <td style={{ padding: '6px 4px', width: 70 }}>
+                                    {isEditing
+                                      ? <input style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 60 }} type="number" value={ed.qty ?? pos.qty} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], qty: e.target.value } }))} />
+                                      : <span style={{ fontSize: 12 }}>{pos.qty}</span>
+                                    }
+                                  </td>
+                                  {/* ЕД. */}
+                                  <td style={{ padding: '6px 4px', width: 50 }}>
+                                    {isEditing
+                                      ? <input style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 44 }} value={ed.unit ?? pos.unit} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], unit: e.target.value } }))} />
+                                      : <span style={{ fontSize: 12 }}>{pos.unit}</span>
+                                    }
+                                  </td>
+                                  {/* ЦЕНА */}
+                                  <td style={{ padding: '6px 4px', width: 90 }}>
+                                    {isEditing
+                                      ? <input style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 80 }} type="number" value={ed.price ?? pos.price} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], price: e.target.value } }))} />
+                                      : <span style={{ fontSize: 12 }}>{pos.price > 0 ? fmtMoney(pos.price) : <span style={{ color: '#b8b1a6' }}>—</span>}</span>
+                                    }
+                                  </td>
+                                  {/* ЛОГИСТ */}
+                                  <td style={{ padding: '6px 4px' }}>
+                                    {isEditing
+                                      ? <select style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 120 }} value={ed.resp ?? pos.resp} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], resp: e.target.value } }))}>
+                                          <option value="">—</option>
+                                          {logists.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                                        </select>
+                                      : <span style={{ fontSize: 12 }}>{pos.resp || <span style={{ color: '#b8b1a6' }}>—</span>}</span>
+                                    }
+                                  </td>
+                                  {/* ПОСТАВЩИК */}
+                                  <td style={{ padding: '6px 4px' }}>
+                                    {isEditing
+                                      ? <select style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 130 }} value={ed.supplierId ?? pos.supplierId} onChange={e => {
+                                          const sup = suppliersList.find(s => s.id === e.target.value)
+                                          setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], supplierId: e.target.value, supplier: sup?.name || '' } }))
+                                        }}>
+                                          <option value="">—</option>
+                                          {suppliersList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                        </select>
+                                      : <span style={{ fontSize: 12 }}>{pos.supplier || <span style={{ color: '#b8b1a6' }}>—</span>}</span>
+                                    }
+                                  </td>
+                                  {/* СРОК */}
+                                  <td style={{ padding: '6px 4px', width: 110 }}>
+                                    {isEditing
+                                      ? <input style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 100 }} type="date" value={ed.deadline ?? (pos.deadline ? pos.deadline.slice(0, 10) : '')} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], deadline: e.target.value } }))} />
+                                      : <span style={{ fontSize: 12 }}>{fmtDate(pos.deadline)}</span>
+                                    }
+                                  </td>
+                                  {/* ОПЛАТА */}
+                                  <td style={{ padding: '6px 4px', width: 110 }}>
+                                    {isEditing
+                                      ? <select style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 100 }} value={ed.payment ?? pos.payment} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], payment: e.target.value } }))}>
+                                          <option value="">—</option>
+                                          <option value="Оплачено">Оплачено</option>
+                                          <option value="Не оплачено">Не оплачено</option>
+                                          <option value="Частично">Частично</option>
+                                        </select>
+                                      : <span style={{ fontSize: 12 }}>{pos.payment || <span style={{ color: '#b8b1a6' }}>—</span>}</span>
+                                    }
+                                  </td>
+                                  {/* Действия */}
+                                  <td style={{ padding: '6px 4px', width: 80 }}>
+                                    {isEditing ? (
+                                      <div style={{ display: 'flex', gap: 4 }}>
+                                        <button onClick={e => { e.stopPropagation(); saveEditingPosition(order.id, pos.id) }} style={{ padding: '4px 8px', borderRadius: 6, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>✓</button>
+                                        <button onClick={e => { e.stopPropagation(); setEditingPositions(p => { const n = { ...p }; delete n[pos.id]; return n }) }} style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                                      </div>
+                                    ) : (
+                                      <div style={{ display: 'flex', gap: 4 }}>
+                                        <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(`${pos.name1c || pos.oral} ${pos.qty} ${pos.unit}`); showToast('Скопировано!') }} style={{ padding: '4px 7px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 12 }}>📋</button>
+                                        <button onClick={e => { e.stopPropagation(); handleAction(order.id, 'deletePos', { posId: pos.id }) }} style={{ padding: '4px 7px', borderRadius: 6, border: '1.5px solid #faeaea', background: '#fff', cursor: 'pointer', fontSize: 12 }}>🗑</button>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                        {order.positions.length === 0 && (
+                          <div style={{ marginTop: 8, color: '#8a847c', fontSize: 12, fontStyle: 'italic' }}>
+                            Нажмите "Взять в обработку" чтобы распарсить комментарий в позиции
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Блок 3: Ожидание (block=waiting) ── */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                Ожидание
+                <span style={{ fontSize: 12, background: '#fff0ea', color: '#c0532a', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{waiting.length}</span>
+              </div>
+              {waiting.length === 0
+                ? <div style={{ color: '#8a847c', fontSize: 13, padding: '16px 0' }}>Нет карточек в ожидании</div>
+                : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 12 }}>
+                    {waiting.map(order => (
+                      <div key={order.id} style={{ background: '#fff', borderRadius: 12, padding: 16, boxShadow: '0 0 0 1.5px #e6e2dc' }}>
+                        {/* Шапка */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: COLORS.primary }}>{order.id}</span>
+                          <SourceBadge source={order.source} />
+                          <span style={{ marginLeft: 'auto', fontSize: 11, color: '#8a847c' }}>{fmtDate(order.createdAt)}</span>
+                        </div>
+                        {/* Маршрут */}
+                        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>{order.from} → {order.to || '—'}</div>
+                        {/* Комментарий превью (3 строки) */}
+                        {order.comment && (
+                          <div style={{ fontSize: 12, color: '#8a847c', marginBottom: 12, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>
+                            {order.comment}
+                          </div>
+                        )}
+                        {/* Кнопки */}
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <Btn variant="primary" size="sm" style={{ flex: 1 }} onClick={() => handleAction(order.id, 'take')}>
+                            ПРИНЯТЬ В ОБРАБОТКУ →
+                          </Btn>
+                          <Btn variant="danger" size="sm" onClick={() => handleAction(order.id, 'cancel')}>✕</Btn>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              }
+            </div>
+
+            {/* ── Блок 4: Черновики ── */}
+            {recDrafts.length > 0 && (
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  Черновики
+                  <span style={{ fontSize: 12, background: '#efece8', color: '#6b655b', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{recDrafts.length}</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
+                  {recDrafts.map(order => (
+                    <div key={order.id} style={{ background: '#faf8f6', borderRadius: 12, padding: 16, border: '1.5px dashed #d8d3cc' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: '#8a847c' }}>{order.id}</span>
+                        <StatusBadge status="Черновик" />
+                        <span style={{ marginLeft: 'auto', fontSize: 11, color: '#8a847c' }}>{fmtDate(order.createdAt)}</span>
+                      </div>
+                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{order.from}</div>
+                      {order.comment && <div style={{ fontSize: 12, color: '#8a847c', marginBottom: 10 }}>{order.comment.slice(0, 60)}...</div>}
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <Btn size="sm" onClick={() => { setSelectedOrder(order) }}>Доработать</Btn>
+                        <Btn size="sm" variant="primary" onClick={() => handleAction(order.id, 'accept')}>Отправить</Btn>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </div>
         )
+      }
 
       // ─── ИСХОДЯЩИЕ ───────────────────────────────────────────────────────
       case 'outgoing':
