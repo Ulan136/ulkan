@@ -769,6 +769,7 @@ export default function AdminApp({ user }: Props) {
             {search && <div style={{ marginTop: 16 }}>{renderOrders(filterOrders(nonArchive), 'Ничего не найдено')}</div>}
           </div>
         )
+      }
 
       // ─── К УЧЁТУ ─────────────────────────────────────────────────────────
       case 'accounting':
