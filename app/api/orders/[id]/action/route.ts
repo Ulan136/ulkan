@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma'
 import { getSessionFromRequest } from '@/lib/auth'
 import { generatePosId } from '@/lib/ids'
 import { notifyAdmins, notify } from '@/lib/notifications'
-import { releaseStock } from '@/lib/stock'
+import { releaseStock, reserveStock } from '@/lib/stock'
 
 const WITH_POS = { positions: { orderBy: { createdAt: 'asc' as const } } }
 
@@ -23,52 +23,67 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   try {
     switch (action) {
+
+      // ── Приёмка: принять → ожидание ──
       case 'accept':
         updateData = { screen: 'reception', block: 'waiting', status: 'Принят' }
         historyText = 'Принят в приёмку'
         break
 
+      // ── Приёмка: взять в обработку (парсинг comment) ──
       case 'take':
         updateData = { status: 'В обработке', block: 'processing' }
         historyText = 'Взят в обработку'
-        // Парсим comment в позиции если позиций нет
         if (order.positions.length === 0 && order.comment) {
           const lines = order.comment.split('\n').filter(l => l.trim())
-          const posCreate = lines.map((line, i) => ({
-            id: generatePosId(id, i + 1),
-            oral: line.trim(),
-            status: 'В работе',
-          }))
-          if (posCreate.length > 0) {
-            await prisma.position.createMany({ data: posCreate.map(p => ({ ...p, cardId: id })) })
+          if (lines.length > 0) {
+            await prisma.position.createMany({
+              data: lines.map((line, i) => ({
+                id: generatePosId(id, i + 1),
+                cardId: id,
+                oral: line.trim(),
+                status: 'В работе',
+              }))
+            })
           }
         }
         break
 
+      // ── Приёмка Блок 2: отправить в исходящие ──
       case 'process':
         updateData = { screen: 'outgoing', status: 'В работе', block: '' }
         historyText = 'Отправлен в Исходящие'
         break
 
+      // ── Обновить статус позиции ──
       case 'updatePos': {
         const { posId, status: posStatus } = payload
         await prisma.position.update({ where: { id: posId }, data: { status: posStatus } })
-        // Если позиция с Центр Склад и статус Доставлено — списываем со склада
+
+        // Если позиция с Центр Склад → Доставлено — списываем
         const pos = order.positions.find(p => p.id === posId)
         if (pos && pos.supplier === 'Центр Склад' && posStatus === 'Доставлено') {
           await releaseStock(posId, pos.name1c || pos.oral, pos.qty)
         }
-        // Проверяем все ли доставлено
+
+        // Сохраняем историю логиста — строка смены
+        if (session.role === 'logist' && pos) {
+          historyText = `Логист ${session.name}: ${pos.name1c || pos.oral} → ${posStatus}`
+        }
+
+        // Проверяем все ли позиции доставлены
         const updatedPositions = await prisma.position.findMany({ where: { cardId: id } })
         const allDone = updatedPositions.every(p => p.status === 'Доставлено')
         if (allDone && updatedPositions.length > 0) {
           updateData = { screen: 'incoming', status: 'Доставлено', toacc: true, delivered: new Date() }
           historyText = 'Все позиции доставлены'
           if (order.contactId) await notify(order.contactId, `Заказ ${id} доставлен!`, id)
+          await notifyAdmins(`Заказ ${id} полностью доставлен`, id)
         }
         break
       }
 
+      // ── Все позиции доставлены ──
       case 'markAll':
         await prisma.position.updateMany({ where: { cardId: id }, data: { status: 'Доставлено' } })
         updateData = { screen: 'incoming', status: 'Доставлено', toacc: true, delivered: new Date() }
@@ -140,10 +155,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         await notifyAdmins(`Клиент изменил заказ ${id}`, id)
         break
 
+      // ── Добавить позицию ──
       case 'addPos': {
         const existing = await prisma.position.findMany({ where: { cardId: id } })
         const newId = generatePosId(id, existing.length + 1)
-        await prisma.position.create({
+        const newPos = await prisma.position.create({
           data: {
             id: newId, cardId: id,
             name1c: payload.name1c || '', oral: payload.oral || '',
@@ -151,34 +167,51 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             price: payload.price || 0, resp: payload.resp || '',
             supplier: payload.supplier || '', supplierId: payload.supplierId || null,
             status: payload.status || 'В работе',
+            deadline: payload.deadline ? new Date(payload.deadline) : null,
           },
         })
+        // Если поставщик = Центр Склад → резервируем
+        if (payload.supplier === 'Центр Склад' && payload.qty > 0) {
+          await reserveStock(newPos.id, payload.name1c || payload.oral, payload.qty)
+        }
         historyText = `Добавлена позиция: ${payload.name1c || payload.oral}`
         break
       }
 
+      // ── Обновить детали позиции ──
       case 'updatePosDetail': {
         const { posId, ...posData } = payload
+        const oldPos = order.positions.find(p => p.id === posId)
         await prisma.position.update({
           where: { id: posId },
           data: {
-            name1c: posData.name1c, oral: posData.oral, qty: posData.qty,
-            unit: posData.unit, price: posData.price, resp: posData.resp,
+            name1c: posData.name1c, oral: posData.oral,
+            qty: Number(posData.qty) || 0, unit: posData.unit,
+            price: Number(posData.price) || 0, resp: posData.resp,
             supplier: posData.supplier, supplierId: posData.supplierId || null,
             status: posData.status, payment: posData.payment,
             late: posData.late, deadline: posData.deadline ? new Date(posData.deadline) : null,
           },
         })
-        historyText = `Позиция обновлена`
+        // Обновляем резерв если поставщик Центр Склад
+        if (oldPos && oldPos.supplier === 'Центр Склад' && posData.supplier === 'Центр Склад') {
+          const diff = (Number(posData.qty) || 0) - oldPos.qty
+          if (diff !== 0) {
+            const { updateReserve } = await import('@/lib/stock')
+            await updateReserve(posId, oldPos.qty, Number(posData.qty) || 0)
+          }
+        }
+        historyText = 'Позиция обновлена'
         break
       }
 
-      case 'deletePos': {
+      // ── Удалить позицию ──
+      case 'deletePos':
         await prisma.position.delete({ where: { id: payload.posId } })
         historyText = 'Позиция удалена'
         break
-      }
 
+      // ── Обновить карточку ──
       case 'updateCard':
         updateData = {
           from: payload.from, to: payload.to,

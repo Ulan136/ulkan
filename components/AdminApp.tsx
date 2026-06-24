@@ -845,7 +845,7 @@ export default function AdminApp({ user }: Props) {
         const processing = reception.filter(o => o.block === 'processing')
         const recDrafts = orders.filter(o => o.isDraft)
         const recChanged = orders.filter(o => o.isChanged && !o.isCancelled)
-        const clients = settings?.users.filter(u => u.role === 'client' || u.role === 'supplier_client') || []
+        const clients = settings?.users.filter(u => ['client', 'supplier_client', 'logist'].includes(u.role)) || []
         const logists = settings?.users.filter(u => u.role === 'logist') || []
         const activeProjects = settings?.projects.filter(p => p.status === 'active') || []
         const activeSpecs = settings?.specProjects.filter(s => s.status === 'active') || []
@@ -903,8 +903,15 @@ export default function AdminApp({ user }: Props) {
                       <label style={LBL}>К КОМУ / КУДА</label>
                       <select style={INP} value={recTo} onChange={e => setRecTo(e.target.value)}>
                         <option value="">— логист/направление —</option>
-                        {logists.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
-                        {suppliersList.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                        <optgroup label="Логисты">
+                          {logists.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                        </optgroup>
+                        <optgroup label="Поставщики">
+                          {suppliersList.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                        </optgroup>
+                        <optgroup label="Клиенты">
+                          {clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        </optgroup>
                       </select>
                     </div>
                     {subUsers.length > 0 && (
@@ -1477,9 +1484,9 @@ export default function AdminApp({ user }: Props) {
         const stabs: Array<[SettingsTab, string]> = [['users', `Пользователи`], ['projects', 'Проекты'], ['specprojects', 'СпецПроекты'], ['nomenclature', 'Номенклатура'], ['payment', 'Оплата']]
         const roleColors: Record<string, { bg: string; color: string }> = {
           super_admin: { bg: '#eef2ff', color: '#4a5aaa' }, bookkeeper: { bg: '#e8f5ee', color: '#2e8a5e' },
-          logist: { bg: '#fff0ea', color: '#c0532a' }, supplier_client: { bg: '#f3eeff', color: '#7a3aaa' }, client: { bg: '#eef8ff', color: '#2a7aaa' },
+          logist: { bg: '#fff0ea', color: '#c0532a' }, warehouse_manager: { bg: '#fdf8e1', color: '#8a6f00' }, supplier_client: { bg: '#f3eeff', color: '#7a3aaa' }, client: { bg: '#eef8ff', color: '#2a7aaa' },
         }
-        const roleLabel: Record<string, string> = { super_admin: 'Супер-Админ', bookkeeper: 'Бухгалтер', logist: 'Логист', supplier_client: 'Поставщик/заказчик', client: 'Клиент' }
+        const roleLabel: Record<string, string> = { super_admin: 'Супер-Админ', bookkeeper: 'Бухгалтер', logist: 'Логист', warehouse_manager: 'Кладовщик', supplier_client: 'Поставщик/заказчик', client: 'Клиент' }
         const base = typeof window !== 'undefined' ? window.location.origin : ''
 
         return (
@@ -1507,7 +1514,7 @@ export default function AdminApp({ user }: Props) {
                       </tr></thead>
                       <tbody>{settings.users.map((u, i) => {
                         const rc = roleColors[u.role] || roleColors.client
-                        const accessUrl = (u.role === 'client' || u.role === 'supplier_client') ? `${base}/client/${u.slug}` : u.role === 'logist' ? `${base}/rsp/${u.slug}` : ''
+                        const accessUrl = (u.role === 'client' || u.role === 'supplier_client') ? `${base}/client/${u.slug}` : u.role === 'logist' ? `${base}/rsp/${u.slug}` : u.role === 'warehouse_manager' ? `${base}/warehouse/${u.slug}` : ''
                         return (
                           <tr key={u.id} style={{ borderTop: i > 0 ? '1px solid #f1efec' : 'none' }}>
                             <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13 }}>{u.name}</td>
@@ -1773,7 +1780,7 @@ export default function AdminApp({ user }: Props) {
               <div>
                 <label style={LBL}>РОЛЬ</label>
                 <select style={INP} value={newUser.role} onChange={e => setNewUser(p => ({ ...p, role: e.target.value }))}>
-                  {[['super_admin', 'Супер-Админ'], ['bookkeeper', 'Бухгалтер'], ['logist', 'Логист'], ['supplier_client', 'Поставщик/заказчик'], ['client', 'Клиент']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  {[['super_admin', 'Супер-Админ'], ['bookkeeper', 'Бухгалтер'], ['logist', 'Логист'], ['warehouse_manager', 'Кладовщик (Склад)'], ['supplier_client', 'Поставщик/заказчик'], ['client', 'Клиент']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

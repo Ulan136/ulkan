@@ -70,3 +70,6 @@ export const logout = async () => {
 // Уведомления
 export const fetchNotifications = () => req('/notifications')
 export const markNotificationRead = (id: string) => req(`/notifications/${id}/read`, { method: 'PUT' })
+
+// Логист — свои позиции
+export const fetchLogistOrders = () => req('/logist/orders')

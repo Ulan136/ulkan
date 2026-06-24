@@ -329,6 +329,8 @@ function SortableColumn({ column, onOpen, onHide }: {
 // ─── Главный компонент ────────────────────────────────────────────────────────
 export default function FilterScreen({ orders, settings, onOpen }: Props) {
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
   // Выбранные колонки (id-шники)
   const [selPeople, setSelPeople] = useState<string[]>([])   // client:name или sup:id
@@ -356,9 +358,11 @@ export default function FilterScreen({ orders, settings, onOpen }: Props) {
 
   // Фильтрация заказов
   const filteredOrders = useMemo(() => {
-    const base = orders.filter(o => o.screen !== 'archive' && !o.isDraft && !o.isCancelled)
-    if (statusFilter === 'inwork') return base.filter(o => o.screen === 'outgoing' || o.screen === 'reception')
-    if (statusFilter === 'delivered') return base.filter(o => o.status === 'Доставлено' || o.toacc)
+    let base = orders.filter(o => o.screen !== 'archive' && !o.isDraft && !o.isCancelled)
+    if (statusFilter === 'inwork') base = base.filter(o => o.screen === 'outgoing' || o.screen === 'reception')
+    if (statusFilter === 'delivered') base = base.filter(o => o.status === 'Доставлено' || o.toacc)
+    if (dateFrom) base = base.filter(o => new Date(o.createdAt) >= new Date(dateFrom))
+    if (dateTo) base = base.filter(o => new Date(o.createdAt) <= new Date(dateTo + 'T23:59:59'))
     return base
   }, [orders, statusFilter])
 
@@ -543,6 +547,17 @@ export default function FilterScreen({ orders, settings, onOpen }: Props) {
           {([['inwork', 'В работе'], ['delivered', 'Доставлено'], ['all', 'Все']] as const).map(([k, l]) => (
             <button key={k} onClick={() => setStatusFilter(k)} style={pilBtn(statusFilter === k)}>{l}</button>
           ))}
+
+          <div style={{ width: 1, height: 20, background: '#e6e2dc' }} />
+          <span style={{ fontSize: 12, color: '#8a847c', fontWeight: 600 }}>Даты:</span>
+          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+            style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #e6e2dc', fontSize: 12, fontFamily: 'inherit', outline: 'none' }} />
+          <span style={{ fontSize: 12, color: '#8a847c' }}>—</span>
+          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+            style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #e6e2dc', fontSize: 12, fontFamily: 'inherit', outline: 'none' }} />
+          {(dateFrom || dateTo) && (
+            <button onClick={() => { setDateFrom(''); setDateTo('') }} style={{ padding: '4px 8px', borderRadius: 7, border: 'none', background: '#faeaea', color: '#b03020', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>✕ Даты</button>
+          )}
 
           {/* Восстановить скрытые */}
           {hiddenIds.length > 0 && (
