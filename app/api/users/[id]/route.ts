@@ -1,64 +1,31 @@
-<<<<<<< HEAD
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getSessionFromRequest } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
-
-type Params = { params: Promise<{ id: string }> }
-
-export async function PUT(req: NextRequest, { params }: Params) {
-  const session = await getSessionFromRequest(req)
-  if (!session || session.role !== 'super_admin') {
-    return NextResponse.json({ error: 'Нет прав' }, { status: 403 })
-  }
-
-  const { id } = await params
-  const body = await req.json()
-  const data: Record<string, unknown> = { ...body }
-
-  if (body.password) {
-    data.password = await bcrypt.hash(body.password, 10)
-  }
-  delete data.id
-
-  const user = await prisma.user.update({
-    where: { id },
-    data,
-    select: { id: true, name: true, email: true, phone: true, role: true, slug: true, active: true, companyId: true },
-  })
-  return NextResponse.json(user)
-}
-=======
-// app/api/users/[id]/route.ts
-import { NextRequest, NextResponse } from 'next/server'
+import prisma from '@/lib/prisma'
 import { getSessionFromRequest } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import bcrypt from 'bcryptjs'
-import { normalizePhone } from '@/lib/display'
+import { normalizePhone } from '@/lib/ids'
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSessionFromRequest(req)
   if (!session || session.role !== 'super_admin') return NextResponse.json({ error: 'Нет доступа' }, { status: 403 })
 
+  const { id } = await params
+  const body = await req.json()
+
+  const updateData: any = {}
+  if (body.name !== undefined) updateData.name = body.name
+  if (body.email !== undefined) updateData.email = body.email || null
+  if (body.phone !== undefined) updateData.phone = body.phone ? normalizePhone(body.phone) : null
+  if (body.role !== undefined) updateData.role = body.role
+  if (body.slug !== undefined) updateData.slug = body.slug
+  if (body.active !== undefined) updateData.active = body.active
+  if (body.companyId !== undefined) updateData.companyId = body.companyId || null
+  if (body.password) updateData.password = await bcrypt.hash(body.password, 10)
+
   try {
-    const { id } = await params
-    const body = await req.json()
-    const updateData: Record<string, unknown> = {}
-
-    if (body.name !== undefined) updateData.name = body.name
-    if (body.role !== undefined) updateData.role = body.role
-    if (body.email !== undefined) updateData.email = body.email || null
-    if (body.phone !== undefined) updateData.phone = body.phone ? normalizePhone(body.phone) : null
-    if (body.password) updateData.password = await bcrypt.hash(body.password, 10)
-    if (body.companyId !== undefined) updateData.companyId = body.companyId || null
-    if (body.slug !== undefined) updateData.slug = body.slug
-    if (body.active !== undefined) updateData.active = body.active
-
     const user = await prisma.user.update({ where: { id }, data: updateData })
     return NextResponse.json(user)
-  } catch (e) {
-    console.error(e)
-    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+  } catch (e: any) {
+    if (e.code === 'P2002') return NextResponse.json({ error: 'Email или телефон уже существует' }, { status: 409 })
+    return NextResponse.json({ error: 'Ошибка обновления' }, { status: 500 })
   }
 }
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b

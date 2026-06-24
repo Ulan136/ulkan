@@ -7,54 +7,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-<<<<<<< HEAD
-=======
-// ─── Пользователи ─────────────────────────────────────────────
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
 model User {
-  id        String  @id @default(cuid())
-  name      String
-<<<<<<< HEAD
-  phone     String?  @unique
-  email     String?  @unique
-  password  String?
-  role      String   @default("client")
-  companyId String?
-  company   User?    @relation("SubUsers", fields: [companyId], references: [id])
-  subUsers  User[]   @relation("SubUsers")
-  slug      String?  @unique
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  name        String
+  phone       String?  @unique
+  email       String?  @unique
+  password    String?
+  role        String   @default("client")
+  companyId   String?
+  company     User?    @relation("SubUsers", fields: [companyId], references: [id])
+  subUsers    User[]   @relation("SubUsers")
+  slug        String?  @unique
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
 
-  orders        Order[]       @relation("OrderContact")
+  orders        Order[]        @relation("OrderContact")
   notifications Notification[]
   dailyReports  DailyReport[]
 }
 
 model Order {
   id            String    @id
-=======
-  phone     String? @unique
-  email     String? @unique
-  password  String?
-  role      String  @default("client")
-  // super_admin | bookkeeper | logist | supplier_client | client
-  companyId String?
-  company   User?   @relation("SubUsers", fields: [companyId], references: [id])
-  subUsers  User[]  @relation("SubUsers")
-  slug      String? @unique
-  active    Boolean @default(true)
-  createdAt DateTime @default(now())
-
-  ordersAsContact Order[]        @relation("OrderContact")
-  notifications   Notification[]
-  dailyReports    DailyReport[]
-}
-
-// ─── Заказы (карточки) ────────────────────────────────────────
-model Order {
-  id            String    @id // C-xxx-DDMMYY
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
   from          String
   fromId        String?
   to            String    @default("")
@@ -93,14 +66,8 @@ model Order {
   history     History[]
 }
 
-<<<<<<< HEAD
 model Position {
   id         String    @id
-=======
-// ─── Позиции ──────────────────────────────────────────────────
-model Position {
-  id         String    @id // CardID-Pn
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
   cardId     String
   name1c     String    @default("")
   oral       String    @default("")
@@ -117,20 +84,11 @@ model Position {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-<<<<<<< HEAD
-  order       Order          @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  supplierRef Supplier?      @relation(fields: [supplierId], references: [id])
+  order       Order         @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  supplierRef Supplier?     @relation(fields: [supplierId], references: [id])
   movements   StockMovement[]
 }
 
-=======
-  order       Order     @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  supplierRef Supplier? @relation(fields: [supplierId], references: [id])
-  movements   StockMovement[]
-}
-
-// ─── История ──────────────────────────────────────────────────
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
 model History {
   id        String   @id @default(cuid())
   cardId    String
@@ -142,14 +100,8 @@ model History {
   order Order @relation(fields: [cardId], references: [id], onDelete: Cascade)
 }
 
-<<<<<<< HEAD
 model Project {
   id          String   @id
-=======
-// ─── Проекты ──────────────────────────────────────────────────
-model Project {
-  id          String   @id // PRJ-xxx-DDMMYY
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
   name        String
   clientId    String?
   description String   @default("")
@@ -159,14 +111,8 @@ model Project {
   orders Order[]
 }
 
-<<<<<<< HEAD
 model SpecProject {
   id          String   @id
-=======
-// ─── СпецПроекты ──────────────────────────────────────────────
-model SpecProject {
-  id          String   @id // СП-xxx-DDMMYY
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
   name        String
   clientId    String?
   description String   @default("")
@@ -177,7 +123,6 @@ model SpecProject {
   items  SpecProjectItem[]
 }
 
-<<<<<<< HEAD
 model SpecProjectItem {
   id             String  @id @default(cuid())
   specProjectId  String
@@ -185,33 +130,11 @@ model SpecProjectItem {
   qty            Float
   unit           String  @default("шт")
   nomenclatureId String?
-=======
-// ─── Смета СпецПроекта ────────────────────────────────────────
-model SpecProjectItem {
-  id              String  @id @default(cuid())
-  specProjectId   String
-  name            String
-  qty             Float
-  unit            String  @default("шт")
-  nomenclatureId  String?
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
 
   specProject  SpecProject   @relation(fields: [specProjectId], references: [id], onDelete: Cascade)
   nomenclature Nomenclature? @relation(fields: [nomenclatureId], references: [id])
 }
 
-<<<<<<< HEAD
-model Supplier {
-  id       String     @id @default(cuid())
-  name     String     @unique
-  type     String     @default("Внешний")
-  active   Boolean    @default(true)
-  positions Position[]
-  stock    Stock[]
-}
-
-=======
-// ─── Поставщики ───────────────────────────────────────────────
 model Supplier {
   id     String  @id @default(cuid())
   name   String  @unique
@@ -222,8 +145,6 @@ model Supplier {
   stock     Stock[]
 }
 
-// ─── Номенклатура ─────────────────────────────────────────────
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
 model Nomenclature {
   id   String @id @default(cuid())
   name String
@@ -234,10 +155,6 @@ model Nomenclature {
   stock     Stock[]
 }
 
-<<<<<<< HEAD
-=======
-// ─── Склад (остатки) ──────────────────────────────────────────
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
 model Stock {
   id             String @id @default(cuid())
   supplierId     String
@@ -251,16 +168,9 @@ model Stock {
   nomenclature Nomenclature @relation(fields: [nomenclatureId], references: [id])
 }
 
-<<<<<<< HEAD
 model StockMovement {
   id         String   @id @default(cuid())
   type       String
-=======
-// ─── Движение склада ──────────────────────────────────────────
-model StockMovement {
-  id         String   @id @default(cuid())
-  type       String   // reserve | income | expense
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
   name       String
   qty        Float
   unit       String   @default("шт")
@@ -271,10 +181,6 @@ model StockMovement {
   position Position? @relation(fields: [positionId], references: [id])
 }
 
-<<<<<<< HEAD
-=======
-// ─── Ежедневный отчёт логиста ─────────────────────────────────
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
 model DailyReport {
   id        String   @id @default(cuid())
   logistId  String
@@ -283,24 +189,10 @@ model DailyReport {
   status    String   @default("processing")
   createdAt DateTime @default(now())
 
-  logist User             @relation(fields: [logistId], references: [id])
+  logist User            @relation(fields: [logistId], references: [id])
   rows   DailyReportRow[]
 }
 
-<<<<<<< HEAD
-model DailyReportRow {
-  id          String @id @default(cuid())
-  reportId    String
-  fromWho     String @default("")
-  name        String @default("")
-  qtyIn       Float  @default(0)
-  commentIn   String @default("")
-  toWho       String @default("")
-  qtyOut      Float  @default(0)
-  commentOut  String @default("")
-  invoiceNum  String @default("")
-=======
-// ─── Строки отчёта ────────────────────────────────────────────
 model DailyReportRow {
   id         String @id @default(cuid())
   reportId   String
@@ -312,15 +204,10 @@ model DailyReportRow {
   qtyOut     Float  @default(0)
   commentOut String @default("")
   invoiceNum String @default("")
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
 
   report DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
 }
 
-<<<<<<< HEAD
-=======
-// ─── Уведомления ──────────────────────────────────────────────
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
 model Notification {
   id        String   @id @default(cuid())
   userId    String
@@ -332,16 +219,8 @@ model Notification {
   user User @relation(fields: [userId], references: [id])
 }
 
-<<<<<<< HEAD
-=======
-// ─── Статусы оплаты ───────────────────────────────────────────
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
 model PaymentStatus {
   id     String  @id @default(cuid())
   name   String  @unique
   active Boolean @default(true)
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b

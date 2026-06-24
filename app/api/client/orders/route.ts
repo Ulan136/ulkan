@@ -1,128 +1,46 @@
-<<<<<<< HEAD
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import prisma from '@/lib/prisma'
 import { getSessionFromRequest } from '@/lib/auth'
 import { generateCardId, generateTrackingLink } from '@/lib/ids'
 import { notifyAdmins } from '@/lib/notifications'
 
-function stripPrices<T extends { positions: Array<{ price?: number }> }>(orders: T[]) {
-  return orders.map(o => ({
-    ...o,
-    positions: o.positions.map(({ price, ...rest }) => rest),
-  }))
-}
-
 export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req)
   if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
-  if (!['client', 'supplier_client'].includes(session.role)) {
-    return NextResponse.json({ error: 'Нет прав' }, { status: 403 })
-  }
 
   const orders = await prisma.order.findMany({
     where: { fromId: session.id },
-    include: { positions: true },
+    include: {
+      positions: {
+        select: { id: true, cardId: true, name1c: true, oral: true, qty: true, unit: true, status: true, late: true, createdAt: true, updatedAt: true, resp: true, supplier: true, supplierId: true, payment: true, deadline: true },
+      },
+    },
     orderBy: { createdAt: 'desc' },
   })
-  return NextResponse.json(stripPrices(orders))
-=======
-// app/api/client/orders/route.ts
-import { NextRequest, NextResponse } from 'next/server'
-import { getSessionFromRequest } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { generateCardId, generateTrackingLink } from '@/lib/ids'
-import { notifyAdmins } from '@/lib/notifications'
-
-export async function GET(req: NextRequest) {
-  const session = await getSessionFromRequest(req)
-  if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
-
-  try {
-    const orders = await prisma.order.findMany({
-      where: { fromId: session.id },
-      include: {
-        positions: {
-          select: { id: true, name1c: true, oral: true, qty: true, unit: true, status: true }
-          // БЕЗ price — клиент не видит цены
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-    })
-    return NextResponse.json(orders)
-  } catch (e) {
-    console.error(e)
-    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
-  }
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
+  return NextResponse.json(orders)
 }
 
 export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req)
   if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
-<<<<<<< HEAD
-  const { to, deadline, text, comment, isDraft } = await req.json()
+  const { to, deadline, text, comment } = await req.json()
+
   const cardId = generateCardId()
   const trackingLink = generateTrackingLink(cardId)
-  const base = process.env.NEXTAUTH_URL || 'http://localhost:3000'
 
   const order = await prisma.order.create({
     data: {
-      id: cardId,
-      from: session.name,
-      fromId: session.id,
-      to: to || '',
-      comment: text || comment || '',
-      source: 'cabinet',
-      status: isDraft ? 'Черновик' : 'В ожидании',
-      isDraft: !!isDraft,
+      id: cardId, from: session.name, fromId: session.id,
+      to: to || '', comment: text || comment || '',
+      source: 'cabinet', status: 'В ожидании', trackingLink,
       deadline: deadline ? new Date(deadline) : null,
-      trackingLink,
+      contactId: session.id,
+      history: { create: { action: 'Заявка создана из кабинета', userName: session.name } },
     },
     include: { positions: true },
   })
 
-  await prisma.history.create({
-    data: { cardId, action: isDraft ? 'Черновик' : 'Заявка из кабинета', detail: '', userName: session.name },
-  })
-
-  if (!isDraft) await notifyAdmins(`Новая заявка ${cardId} от ${session.name}`, cardId)
-
-  return NextResponse.json({
-    order: stripPrices([order])[0],
-    trackingUrl: `${base}/track?id=${cardId}`,
-  }, { status: 201 })
+  await notifyAdmins(`Новая заявка ${cardId} от ${session.name}`, cardId)
+  return NextResponse.json({ order, trackingUrl: trackingLink }, { status: 201 })
 }
-=======
-  try {
-    const { to = '', deadline, comment = '', text = '', isDraft = false } = await req.json()
-
-    const cardId = generateCardId()
-    const trackingLink = generateTrackingLink(cardId)
-
-    const order = await prisma.order.create({
-      data: {
-        id: cardId, from: session.name, fromId: session.id,
-        to, screen: 'incoming', status: isDraft ? 'Черновик' : 'В ожидании',
-        source: 'cabinet', comment: text || comment,
-        deadline: deadline ? new Date(deadline) : null,
-        isDraft, trackingLink,
-      },
-      include: { positions: { select: { id: true, name1c: true, oral: true, qty: true, unit: true, status: true } } },
-    })
-
-    await prisma.history.create({
-      data: { cardId, action: 'Создана заявка', detail: session.name, userName: session.name }
-    })
-
-    if (!isDraft) {
-      await notifyAdmins(`Новая заявка ${cardId} от ${session.name}`, cardId)
-    }
-
-    return NextResponse.json({ order, trackingUrl: trackingLink }, { status: 201 })
-  } catch (e) {
-    console.error(e)
-    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
-  }
-}
->>>>>>> 4ef01474e399896ef3605f22286c063f82e84d2b
