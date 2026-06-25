@@ -395,14 +395,16 @@ export default function AdminApp({ user }: Props) {
 
   const NOM_GROUPS = ['Водосток', 'Готовая продукция', 'Материалы', 'Товары', 'Услуги', 'Доборные элементы', 'Кровля', 'Крепёж', 'Прочее']
 
-  async function loadNomList() {
+  async function loadNomList(group?: string) {
     try {
       const params = new URLSearchParams({ all: '1' })
-      if (nomGroup) params.set('group', nomGroup)
+      const g = group !== undefined ? group : nomGroup
+      if (g) params.set('group', g)
       const res = await fetch(`/api/nomenclature?${params}`)
+      if (!res.ok) { console.error('nom error', res.status); return }
       const data = await res.json()
       setNomList(Array.isArray(data) ? data : [])
-    } catch {}
+    } catch (e) { console.error('loadNomList:', e) }
   }
 
   async function handleNomCreate() {
@@ -554,7 +556,7 @@ export default function AdminApp({ user }: Props) {
 
   // Загружаем номенклатуру при открытии вкладки
   useEffect(() => {
-    if (settingsTab === 'nomenclature') loadNomList()
+    if (settingsTab === 'nomenclature') loadNomList(nomGroup)
   }, [settingsTab, nomGroup])
 
   // Обновить карточку в локальном стейте после action
