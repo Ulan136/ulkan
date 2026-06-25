@@ -1,3 +1,4 @@
+import type React from 'react'
 import { Order, Position } from './types'
 import { COLORS } from './colors'
 
