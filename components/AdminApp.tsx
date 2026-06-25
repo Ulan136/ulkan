@@ -1688,12 +1688,12 @@ export default function AdminApp({ user }: Props) {
       }
 
       case 'settings': {
-        const stabs: Array<[SettingsTab, string]> = [['users', `Пользователи`], ['projects', 'Проекты'], ['specprojects', 'СпецПроекты'], ['payment', 'Оплата']]
+        const stabs: Array<[SettingsTab, string]> = [['users', `Пользователи`], ['projects', 'Проекты'], ['specprojects', 'СпецПроекты'], ['nomenclature', 'Номенклатура'], ['payment', 'Оплата']]
         const roleColors: Record<string, { bg: string; color: string }> = {
           super_admin: { bg: '#eef2ff', color: '#4a5aaa' }, bookkeeper: { bg: '#e8f5ee', color: '#2e8a5e' },
-          logist: { bg: '#fff0ea', color: '#c0532a' }, warehouse_manager: { bg: '#fdf8e1', color: '#8a6f00' }, supplier_client: { bg: '#f3eeff', color: '#7a3aaa' }, client: { bg: '#eef8ff', color: '#2a7aaa' },
+          logist: { bg: '#fff0ea', color: '#c0532a' }, supplier_client: { bg: '#f3eeff', color: '#7a3aaa' }, client: { bg: '#eef8ff', color: '#2a7aaa' },
         }
-        const roleLabel: Record<string, string> = { super_admin: 'Супер-Админ', bookkeeper: 'Бухгалтер', logist: 'Логист', warehouse_manager: 'Кладовщик', supplier_client: 'Поставщик/заказчик', client: 'Клиент' }
+        const roleLabel: Record<string, string> = { super_admin: 'Супер-Админ', bookkeeper: 'Бухгалтер', logist: 'Логист', supplier_client: 'Поставщик/заказчик', client: 'Клиент' }
         const base = typeof window !== 'undefined' ? window.location.origin : ''
 
         return (
@@ -1707,7 +1707,7 @@ export default function AdminApp({ user }: Props) {
               ))}
             </div>
 
-            {!settings ? null : (
+            {!settings ? <div style={{ color: '#8a847c' }}>Загрузка...</div> : (
               <>
                 {/* Пользователи */}
                 {settingsTab === 'users' && (
@@ -1721,7 +1721,7 @@ export default function AdminApp({ user }: Props) {
                       </tr></thead>
                       <tbody>{settings.users.map((u, i) => {
                         const rc = roleColors[u.role] || roleColors.client
-                        const accessUrl = (u.role === 'client' || u.role === 'supplier_client') ? `${base}/client/${u.slug}` : u.role === 'logist' ? `${base}/rsp/${u.slug}` : u.role === 'warehouse_manager' ? `${base}/warehouse/${u.slug}` : ''
+                        const accessUrl = (u.role === 'client' || u.role === 'supplier_client') ? `${base}/client/${u.slug}` : u.role === 'logist' ? `${base}/rsp/${u.slug}` : ''
                         return (
                           <tr key={u.id} style={{ borderTop: i > 0 ? '1px solid #f1efec' : 'none' }}>
                             <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13 }}>{u.name}</td>
@@ -1792,6 +1792,21 @@ export default function AdminApp({ user }: Props) {
                 )}
 
                 {/* Номенклатура */}
+                {settingsTab === 'nomenclature' && (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
+                    <thead><tr style={{ background: '#f1efec' }}>
+                      {['НАИМЕНОВАНИЕ 1С', 'ЕД.', 'КАТЕГОРИЯ'].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>{h}</th>)}
+                    </tr></thead>
+                    <tbody>{settings.nomenclature.map((n, i) => (
+                      <tr key={n.id} style={{ borderTop: i > 0 ? '1px solid #f1efec' : 'none' }}>
+                        <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 500 }}>{n.name}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 12, color: '#8a847c' }}>{n.unit}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 12, color: '#8a847c' }}>{n.cat}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                )}
+
                 {/* Оплата */}
                 {settingsTab === 'payment' && (
                   <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
@@ -1812,7 +1827,7 @@ export default function AdminApp({ user }: Props) {
         )
       }
 
-      default: return null
+            default: return null
     }
   }
 
