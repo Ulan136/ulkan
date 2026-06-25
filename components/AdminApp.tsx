@@ -552,11 +552,12 @@ export default function AdminApp({ user }: Props) {
   useEffect(() => {
     if (screen === 'warehouse') { fetchStock().then(s => setStock(s as any[])).catch(() => {}); fetchStockMovements().then(m => setStockMovements(m as any[])).catch(() => {}) }
     if (screen === 'bookkeeping') { fetchDailyReports().then(r => setDailyReports(r as DailyReport[])).catch(() => {}) }
+    if (screen === 'settings' && !settings) loadSettings()
   }, [screen])
 
   // Загружаем номенклатуру при открытии экрана
   useEffect(() => {
-    if (screen === 'nomenclature') loadNomList(nomGroup)
+    if (screen === 'nomenclature') loadNomList('')
   }, [screen])
 
   // Обновить карточку в локальном стейте после action
@@ -1711,7 +1712,7 @@ export default function AdminApp({ user }: Props) {
               ))}
             </div>
 
-            {!settings ? <div style={{ color: '#8a847c' }}>Загрузка...</div> : (
+            {!settings ? <div style={{ color: '#8a847c', padding: 20 }}>Загрузка данных... <button onClick={loadSettings} style={{ marginLeft: 8, border: 'none', background: COLORS.primary, color: '#fff', padding: '4px 12px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>Обновить</button></div> : (
               <>
                 {/* Пользователи */}
                 {settingsTab === 'users' && (
