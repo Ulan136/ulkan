@@ -383,6 +383,57 @@ export default function AdminApp({ user }: Props) {
   const [showCreateUser, setShowCreateUser] = useState(false)
   const [showUserResult, setShowUserResult] = useState<{ user: any; accessUrl: string } | null>(null)
   const [showSpecAnalysis, setShowSpecAnalysis] = useState<{ sp: SpecProject; analysis: AnalysisRow[] } | null>(null)
+  const [editingSpec, setEditingSpec] = useState<SpecProject | null>(null)
+
+  // Номенклатура — управление
+  const [nomSearch, setNomSearch] = useState('')
+  const [nomGroup, setNomGroup] = useState('')
+  const [nomEditItem, setNomEditItem] = useState<any | null>(null)
+  const [nomNewItem, setNomNewItem] = useState({ name: '', unit: 'шт', cat: '', group: '' })
+  const [showNomAdd, setShowNomAdd] = useState(false)
+  const [nomList, setNomList] = useState<any[]>([])
+
+  const NOM_GROUPS = ['Водосток', 'Готовая продукция', 'Материалы', 'Товары', 'Услуги', 'Доборные элементы', 'Кровля', 'Крепёж', 'Прочее']
+
+  async function loadNomList() {
+    try {
+      const params = new URLSearchParams({ all: '1' })
+      if (nomGroup) params.set('group', nomGroup)
+      const res = await fetch(`/api/nomenclature?${params}`)
+      const data = await res.json()
+      setNomList(Array.isArray(data) ? data : [])
+    } catch {}
+  }
+
+  async function handleNomCreate() {
+    if (!nomNewItem.name) { showToast('Введите название'); return }
+    try {
+      await fetch('/api/nomenclature', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(nomNewItem) })
+      setShowNomAdd(false)
+      setNomNewItem({ name: '', unit: 'шт', cat: '', group: '' })
+      loadNomList()
+      showToast('✓ Добавлено')
+    } catch (e: any) { showToast(e.message) }
+  }
+
+  async function handleNomUpdate() {
+    if (!nomEditItem) return
+    try {
+      await fetch('/api/nomenclature', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(nomEditItem) })
+      setNomEditItem(null)
+      loadNomList()
+      showToast('✓ Обновлено')
+    } catch (e: any) { showToast(e.message) }
+  }
+
+  async function handleNomDelete(id: string) {
+    if (!confirm('Удалить позицию?')) return
+    try {
+      await fetch(`/api/nomenclature?id=${id}`, { method: 'DELETE' })
+      loadNomList()
+      showToast('✓ Удалено')
+    } catch (e: any) { showToast(e.message) }
+  }
   const [showProjectDetail, setShowProjectDetail] = useState<Project | null>(null)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [dailyReports, setDailyReports] = useState<DailyReport[]>([])
@@ -500,6 +551,11 @@ export default function AdminApp({ user }: Props) {
     if (screen === 'warehouse') { fetchStock().then(s => setStock(s as any[])).catch(() => {}); fetchStockMovements().then(m => setStockMovements(m as any[])).catch(() => {}) }
     if (screen === 'bookkeeping') { fetchDailyReports().then(r => setDailyReports(r as DailyReport[])).catch(() => {}) }
   }, [screen])
+
+  // Загружаем номенклатуру при открытии вкладки
+  useEffect(() => {
+    if (settingsTab === 'nomenclature') loadNomList()
+  }, [settingsTab, nomGroup])
 
   // Обновить карточку в локальном стейте после action
   async function handleAction(id: string, action: string, payload?: Record<string, unknown>) {
@@ -1037,8 +1093,11 @@ export default function AdminApp({ user }: Props) {
                               <td style={{ padding: '6px 4px', width: 110 }}>
                                 <input style={inpSm} type="date" value={pos.deadline} onChange={e => recUpdatePos(i, 'deadline', e.target.value)} />
                               </td>
-                              <td style={{ padding: '6px 4px', width: 32 }}>
-                                <button onClick={() => recRemovePos(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b03020', fontSize: 18, padding: '2px 4px' }}>🗑</button>
+                              <td style={{ padding: '6px 4px', width: 64 }}>
+                                <div style={{ display: 'flex', gap: 2 }}>
+                                  <button onClick={() => setRecPositions(p => { const copy = { ...p[i] }; const arr = [...p]; arr.splice(i + 1, 0, copy); return arr })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8a847c', fontSize: 15, padding: '2px 4px' }} title="Клонировать">📋</button>
+                                  <button onClick={() => recRemovePos(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b03020', fontSize: 15, padding: '2px 4px' }} title="Удалить">🗑</button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -1192,7 +1251,8 @@ export default function AdminApp({ user }: Props) {
                                       </div>
                                     ) : (
                                       <div style={{ display: 'flex', gap: 4 }}>
-                                        <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(`${pos.name1c || pos.oral} ${pos.qty} ${pos.unit}`); showToast('Скопировано!') }} style={{ padding: '4px 7px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 12 }}>📋</button>
+                                        <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(`${pos.name1c || pos.oral} ${pos.qty} ${pos.unit}`); showToast('Скопировано!') }} style={{ padding: '4px 7px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 12 }} title="Копировать текст">📋</button>
+                                        <button onClick={async e => { e.stopPropagation(); await handleAction(order.id, 'addPos', { name1c: pos.name1c, oral: pos.oral, qty: pos.qty, unit: pos.unit, price: pos.price, resp: pos.resp, supplier: pos.supplier, supplierId: pos.supplierId, status: pos.status }); showToast('Позиция клонирована') }} style={{ padding: '4px 7px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 12 }} title="Клонировать позицию">🔁</button>
                                         <button onClick={e => { e.stopPropagation(); handleAction(order.id, 'deletePos', { posId: pos.id }) }} style={{ padding: '4px 7px', borderRadius: 6, border: '1.5px solid #faeaea', background: '#fff', cursor: 'pointer', fontSize: 12 }}>🗑</button>
                                       </div>
                                     )}
@@ -1611,18 +1671,89 @@ export default function AdminApp({ user }: Props) {
 
                 {/* Номенклатура */}
                 {settingsTab === 'nomenclature' && (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
-                    <thead><tr style={{ background: '#f1efec' }}>
-                      {['НАИМЕНОВАНИЕ 1С', 'ЕД.', 'КАТЕГОРИЯ'].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>{h}</th>)}
-                    </tr></thead>
-                    <tbody>{settings.nomenclature.map((n, i) => (
-                      <tr key={n.id} style={{ borderTop: i > 0 ? '1px solid #f1efec' : 'none' }}>
-                        <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 500 }}>{n.name}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 12, color: '#8a847c' }}>{n.unit}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 12, color: '#8a847c' }}>{n.cat}</td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
+                  <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 16 }}>
+                    {/* Дерево групп */}
+                    <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 0 0 1.5px #e6e2dc', overflow: 'hidden' }}>
+                      <div style={{ padding: '10px 12px', background: '#f8f6f3', borderBottom: '1px solid #e6e2dc', fontSize: 11, fontWeight: 700, color: '#8a847c', letterSpacing: '.04em' }}>ГРУППЫ</div>
+                      <div onClick={() => setNomGroup('')} style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, fontWeight: nomGroup === '' ? 700 : 400, color: nomGroup === '' ? COLORS.primary : '#26231f', background: nomGroup === '' ? '#fff8f5' : '#fff', borderLeft: `3px solid ${nomGroup === '' ? COLORS.primary : 'transparent'}` }}>
+                        Все ({nomList.length})
+                      </div>
+                      {NOM_GROUPS.map(g => {
+                        const cnt = nomList.filter(n => n.group === g).length
+                        return (
+                          <div key={g} onClick={() => setNomGroup(g)} style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, fontWeight: nomGroup === g ? 700 : 400, color: nomGroup === g ? COLORS.primary : '#26231f', background: nomGroup === g ? '#fff8f5' : '#fff', borderLeft: `3px solid ${nomGroup === g ? COLORS.primary : 'transparent'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}><span>📁</span>{g}</span>
+                            {cnt > 0 && <span style={{ fontSize: 11, color: '#8a847c' }}>{cnt}</span>}
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Список номенклатуры */}
+                    <div>
+                      <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
+                        <input style={{ ...INP, flex: 1 }} placeholder="🔍 Поиск..." value={nomSearch} onChange={e => setNomSearch(e.target.value)} />
+                        <Btn variant="primary" onClick={() => setShowNomAdd(true)}>+ Добавить</Btn>
+                        <Btn onClick={loadNomList}>⟳</Btn>
+                      </div>
+
+                      <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 0 0 1.5px #e6e2dc', overflow: 'hidden' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <thead><tr style={{ background: '#f8f6f3' }}>
+                            {['НАИМЕНОВАНИЕ', 'ЕД.', 'ГРУППА', 'КАТЕГОРИЯ', ''].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>{h}</th>)}
+                          </tr></thead>
+                          <tbody>
+                            {(nomGroup ? nomList.filter(n => n.group === nomGroup) : nomList)
+                              .filter(n => !nomSearch || n.name.toLowerCase().includes(nomSearch.toLowerCase()))
+                              .map((n, i, arr) => (
+                              <tr key={n.id} style={{ borderTop: i > 0 ? '1px solid #f1efec' : 'none' }}>
+                                <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 500 }}>
+                                  {nomEditItem?.id === n.id
+                                    ? <input style={{ ...INP, fontSize: 12 }} value={nomEditItem.name} onChange={e => setNomEditItem((p: any) => ({ ...p, name: e.target.value }))} />
+                                    : n.name
+                                  }
+                                </td>
+                                <td style={{ padding: '9px 14px', width: 60 }}>
+                                  {nomEditItem?.id === n.id
+                                    ? <input style={{ ...INP, fontSize: 12, width: 50 }} value={nomEditItem.unit} onChange={e => setNomEditItem((p: any) => ({ ...p, unit: e.target.value }))} />
+                                    : <span style={{ fontSize: 12, color: '#8a847c' }}>{n.unit}</span>
+                                  }
+                                </td>
+                                <td style={{ padding: '9px 14px', width: 140 }}>
+                                  {nomEditItem?.id === n.id
+                                    ? <select style={{ ...INP, fontSize: 12 }} value={nomEditItem.group} onChange={e => setNomEditItem((p: any) => ({ ...p, group: e.target.value }))}>
+                                        <option value="">—</option>
+                                        {NOM_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+                                      </select>
+                                    : <span style={{ fontSize: 12, color: '#8a847c' }}>{n.group || '—'}</span>
+                                  }
+                                </td>
+                                <td style={{ padding: '9px 14px', width: 120 }}>
+                                  {nomEditItem?.id === n.id
+                                    ? <input style={{ ...INP, fontSize: 12 }} value={nomEditItem.cat} onChange={e => setNomEditItem((p: any) => ({ ...p, cat: e.target.value }))} />
+                                    : <span style={{ fontSize: 12, color: '#8a847c' }}>{n.cat || '—'}</span>
+                                  }
+                                </td>
+                                <td style={{ padding: '9px 14px', width: 100 }}>
+                                  {nomEditItem?.id === n.id
+                                    ? <div style={{ display: 'flex', gap: 4 }}>
+                                        <Btn size="sm" variant="primary" onClick={handleNomUpdate}>✓</Btn>
+                                        <Btn size="sm" onClick={() => setNomEditItem(null)}>✕</Btn>
+                                      </div>
+                                    : <div style={{ display: 'flex', gap: 4 }}>
+                                        <Btn size="sm" onClick={() => setNomEditItem({ ...n })}>✏️</Btn>
+                                        <Btn size="sm" variant="danger" onClick={() => handleNomDelete(n.id)}>🗑</Btn>
+                                      </div>
+                                  }
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {nomList.length === 0 && <div style={{ padding: '20px', textAlign: 'center', color: '#8a847c', fontSize: 13 }}>Нет данных — нажмите ⟳ для загрузки</div>}
+                      </div>
+                    </div>
+                  </div>
                 )}
 
                 {/* Оплата */}
@@ -1933,6 +2064,32 @@ export default function AdminApp({ user }: Props) {
                 <Btn variant="primary">Сохранить СпецПроект →</Btn>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Добавить номенклатуру */}
+      {showNomAdd && (
+        <div onClick={() => setShowNomAdd(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} className="anim-pop" style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 440 }}>
+            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 20 }}>Добавить в номенклатуру</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div><label style={LBL}>НАИМЕНОВАНИЕ *</label><input style={INP} value={nomNewItem.name} onChange={e => setNomNewItem(p => ({ ...p, name: e.target.value }))} placeholder="Название позиции..." /></div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div><label style={LBL}>ЕД. ИЗМЕРЕНИЯ</label><input style={INP} value={nomNewItem.unit} onChange={e => setNomNewItem(p => ({ ...p, unit: e.target.value }))} placeholder="шт" /></div>
+                <div><label style={LBL}>ГРУППА</label>
+                  <select style={INP} value={nomNewItem.group} onChange={e => setNomNewItem(p => ({ ...p, group: e.target.value }))}>
+                    <option value="">— без группы —</option>
+                    {NOM_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div><label style={LBL}>КАТЕГОРИЯ (опционально)</label><input style={INP} value={nomNewItem.cat} onChange={e => setNomNewItem(p => ({ ...p, cat: e.target.value }))} placeholder="Подкатегория..." /></div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
+              <Btn onClick={() => setShowNomAdd(false)}>Отмена</Btn>
+              <Btn variant="primary" onClick={handleNomCreate}>Добавить →</Btn>
+            </div>
           </div>
         </div>
       )}
