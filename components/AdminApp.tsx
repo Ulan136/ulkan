@@ -1845,7 +1845,7 @@ export default function AdminApp({ user }: Props) {
             const isActive = screen === key
             const count = counts[key]
             return (
-              <button key={key} onClick={() => setScreen(key)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', border: 'none', background: isActive ? 'rgba(212,97,58,.15)' : 'transparent', color: isActive ? COLORS.sidebar.active : COLORS.sidebar.text, cursor: 'pointer', fontFamily: 'inherit', fontWeight: isActive ? 700 : 400, fontSize: 13, textAlign: 'left', borderLeft: `3px solid ${isActive ? COLORS.sidebar.active : 'transparent'}` }}>
+              <button key={key} onClick={() => setScreen(key as AdminScreen)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', border: 'none', background: isActive ? 'rgba(212,97,58,.15)' : 'transparent', color: isActive ? COLORS.sidebar.active : COLORS.sidebar.text, cursor: 'pointer', fontFamily: 'inherit', fontWeight: isActive ? 700 : 400, fontSize: 13, textAlign: 'left', borderLeft: `3px solid ${isActive ? COLORS.sidebar.active : 'transparent'}` }}>
                 <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{icon}</span>
                 <span style={{ flex: 1 }}>{label}</span>
                 {count > 0 && <span style={{ background: isActive ? COLORS.primary : COLORS.sidebar.badge, color: isActive ? '#fff' : COLORS.sidebar.text, fontSize: 10, padding: '1px 6px', borderRadius: 10, fontWeight: 700 }}>{count}</span>}
