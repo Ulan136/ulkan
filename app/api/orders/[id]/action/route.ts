@@ -71,13 +71,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           historyText = `Логист ${session.name}: ${pos.name1c || pos.oral} → ${posStatus}`
         }
 
+        // Уведомляем клиента о каждом изменении статуса позиции
+        if (order.contactId && pos) {
+          const statusMsg: Record<string, string> = {
+            'Готово к отгрузке': `Позиция "${pos.name1c || pos.oral}" готова к отгрузке`,
+            'В пути': `Позиция "${pos.name1c || pos.oral}" в пути`,
+            'Доставлено': `Позиция "${pos.name1c || pos.oral}" доставлена`,
+          }
+          if (statusMsg[posStatus]) {
+            await notify(order.contactId, statusMsg[posStatus], id)
+          }
+        }
+
         // Проверяем все ли позиции доставлены
         const updatedPositions = await prisma.position.findMany({ where: { cardId: id } })
         const allDone = updatedPositions.every(p => p.status === 'Доставлено')
         if (allDone && updatedPositions.length > 0) {
           updateData = { screen: 'incoming', status: 'Доставлено', toacc: true, delivered: new Date() }
           historyText = 'Все позиции доставлены'
-          if (order.contactId) await notify(order.contactId, `Заказ ${id} доставлен!`, id)
+          if (order.contactId) await notify(order.contactId, `✅ Заказ ${id} полностью доставлен!`, id)
           await notifyAdmins(`Заказ ${id} полностью доставлен`, id)
         }
         break
@@ -175,6 +187,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           await reserveStock(newPos.id, payload.name1c || payload.oral, payload.qty)
         }
         historyText = `Добавлена позиция: ${payload.name1c || payload.oral}`
+        // Уведомляем логиста если назначен
+        if (payload.resp) {
+          const logist = await prisma.user.findFirst({ where: { name: payload.resp, role: 'logist' } })
+          if (logist) await notify(logist.id, `Вам назначена позиция: ${payload.name1c || payload.oral} по заказу ${id}`, id)
+        }
         break
       }
 

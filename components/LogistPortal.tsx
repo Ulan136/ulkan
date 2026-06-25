@@ -68,6 +68,12 @@ export default function LogistPortal({ user, logistUser }: Props) {
 
   useEffect(() => { load() }, [load])
 
+  // Автообновление каждые 30 секунд
+  useEffect(() => {
+    const interval = setInterval(() => { load() }, 30000)
+    return () => clearInterval(interval)
+  }, [load])
+
   // ── Позиции КО МНЕ (resp = мой slug/имя, статус не Доставлено) ──
   const posIn = orders.flatMap(o =>
     o.positions

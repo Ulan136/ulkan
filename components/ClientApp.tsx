@@ -70,6 +70,12 @@ export default function ClientApp({ user, clientUser }: Props) {
 
   useEffect(() => { load() }, [load])
 
+  // Автообновление каждые 30 секунд
+  useEffect(() => {
+    const interval = setInterval(() => { load() }, 30000)
+    return () => clearInterval(interval)
+  }, [load])
+
   const unread = notifications.filter(n => !n.read).length
   const base = typeof window !== 'undefined' ? window.location.origin : 'https://ulkan.vercel.app'
 
