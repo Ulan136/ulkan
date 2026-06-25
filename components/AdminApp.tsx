@@ -554,10 +554,10 @@ export default function AdminApp({ user }: Props) {
     if (screen === 'bookkeeping') { fetchDailyReports().then(r => setDailyReports(r as DailyReport[])).catch(() => {}) }
   }, [screen])
 
-  // Загружаем номенклатуру при открытии вкладки
+  // Загружаем номенклатуру при открытии экрана
   useEffect(() => {
-    if (settingsTab === 'nomenclature') loadNomList(nomGroup)
-  }, [settingsTab, nomGroup])
+    if (screen === 'nomenclature') loadNomList(nomGroup)
+  }, [screen])
 
   // Обновить карточку в локальном стейте после action
   async function handleAction(id: string, action: string, payload?: Record<string, unknown>) {
@@ -662,7 +662,7 @@ export default function AdminApp({ user }: Props) {
 
   // ─── Навигация ────────────────────────────────────────────────────────────
 
-  const NAV: Array<{ key: AdminScreen; label: string; icon: string }> = [
+  const NAV: Array<{ key: string; label: string; icon: string }> = [
     { key: 'dashboard', label: 'Дашборд', icon: '📊' },
     { key: 'incoming', label: 'Входящие', icon: '📥' },
     { key: 'reception', label: 'Приёмка', icon: '🔄' },
@@ -672,6 +672,7 @@ export default function AdminApp({ user }: Props) {
     { key: 'warehouse', label: 'Склад', icon: '🏭' },
     { key: 'bookkeeping', label: 'Бухгалтерия', icon: '📒' },
     { key: 'archive', label: 'Архив', icon: '🗂' },
+    { key: 'nomenclature', label: 'Номенклатура', icon: '📦' },
     { key: 'settings', label: 'Настройки', icon: '⚙️' },
   ]
 
@@ -1567,8 +1568,130 @@ export default function AdminApp({ user }: Props) {
       }
 
       // ─── НАСТРОЙКИ ───────────────────────────────────────────────────────
+      // ─── НОМЕНКЛАТУРА ────────────────────────────────────────────────────
+      case 'nomenclature': {
+        const NOM_GROUPS = ['Водосток', 'Готовая продукция', 'Материалы', 'Товары', 'Услуги', 'Доборные элементы', 'Кровля', 'Крепёж', 'Прочее']
+        const filtered = (nomGroup ? nomList.filter(n => n.group === nomGroup) : nomList)
+          .filter(n => !nomSearch || n.name.toLowerCase().includes(nomSearch.toLowerCase()))
+
+        return (
+          <div className="anim-fade" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)', overflow: 'hidden' }}>
+            {/* Шапка */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexShrink: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 20 }}>📦 Номенклатура</div>
+              <span style={{ fontSize: 13, color: '#8a847c' }}>{nomList.length} позиций</span>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                <input style={{ ...INP, width: 260 }} placeholder="🔍 Поиск..." value={nomSearch} onChange={e => setNomSearch(e.target.value)} />
+                <Btn onClick={() => loadNomList(nomGroup)}>⟳</Btn>
+                <Btn variant="primary" onClick={() => setShowNomAdd(true)}>+ Добавить</Btn>
+              </div>
+            </div>
+
+            {/* Основа: дерево групп + таблица */}
+            <div style={{ display: 'flex', gap: 16, flex: 1, overflow: 'hidden' }}>
+
+              {/* Дерево групп */}
+              <div style={{ width: 200, flexShrink: 0, background: '#fff', borderRadius: 12, boxShadow: '0 0 0 1.5px #e6e2dc', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ padding: '10px 14px', background: '#f8f6f3', borderBottom: '1px solid #e6e2dc', fontSize: 11, fontWeight: 700, color: '#8a847c', letterSpacing: '.04em' }}>ГРУППЫ</div>
+                <div style={{ overflowY: 'auto', flex: 1 }}>
+                  <div
+                    onClick={() => { setNomGroup(''); loadNomList('') }}
+                    style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 13, fontWeight: nomGroup === '' ? 700 : 400, color: nomGroup === '' ? COLORS.primary : '#26231f', background: nomGroup === '' ? '#fff8f5' : '#fff', borderLeft: `3px solid ${nomGroup === '' ? COLORS.primary : 'transparent'}`, display: 'flex', justifyContent: 'space-between' }}
+                  >
+                    <span>Все</span>
+                    <span style={{ fontSize: 11, color: '#8a847c' }}>{nomList.length}</span>
+                  </div>
+                  {NOM_GROUPS.map(g => {
+                    const cnt = nomList.filter((n: any) => n.group === g).length
+                    return (
+                      <div key={g}
+                        onClick={() => { setNomGroup(g); loadNomList(g) }}
+                        style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 13, fontWeight: nomGroup === g ? 700 : 400, color: nomGroup === g ? COLORS.primary : '#26231f', background: nomGroup === g ? '#fff8f5' : '#fff', borderLeft: `3px solid ${nomGroup === g ? COLORS.primary : 'transparent'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                      >
+                        <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}><span style={{ fontSize: 14 }}>📁</span>{g}</span>
+                        {cnt > 0 && <span style={{ fontSize: 11, color: '#8a847c', background: '#f1efec', padding: '1px 6px', borderRadius: 20 }}>{cnt}</span>}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Таблица */}
+              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 0 0 1.5px #e6e2dc', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#f8f6f3', position: 'sticky', top: 0 }}>
+                        {['НАИМЕНОВАНИЕ', 'ЕД.', 'ГРУППА', 'КАТЕГОРИЯ', ''].map(h => (
+                          <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                  </table>
+                  <div style={{ overflowY: 'auto', flex: 1 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <tbody>
+                        {filtered.length === 0
+                          ? <tr><td colSpan={5} style={{ padding: '30px', textAlign: 'center', color: '#8a847c', fontSize: 13 }}>
+                              {nomList.length === 0 ? 'Нажмите ⟳ для загрузки' : 'Ничего не найдено'}
+                            </td></tr>
+                          : filtered.map((n: any, i: number) => (
+                            <tr key={n.id} style={{ borderTop: '1px solid #f1efec' }}>
+                              <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 500 }}>
+                                {nomEditItem?.id === n.id
+                                  ? <input style={{ ...INP, fontSize: 12 }} value={nomEditItem.name} onChange={e => setNomEditItem((p: any) => ({ ...p, name: e.target.value }))} autoFocus />
+                                  : n.name
+                                }
+                              </td>
+                              <td style={{ padding: '9px 14px', width: 70 }}>
+                                {nomEditItem?.id === n.id
+                                  ? <input style={{ ...INP, fontSize: 12, width: 55 }} value={nomEditItem.unit} onChange={e => setNomEditItem((p: any) => ({ ...p, unit: e.target.value }))} />
+                                  : <span style={{ fontSize: 12, color: '#8a847c' }}>{n.unit}</span>
+                                }
+                              </td>
+                              <td style={{ padding: '9px 14px', width: 160 }}>
+                                {nomEditItem?.id === n.id
+                                  ? <select style={{ ...INP, fontSize: 12 }} value={nomEditItem.group} onChange={e => setNomEditItem((p: any) => ({ ...p, group: e.target.value }))}>
+                                      <option value="">— без группы —</option>
+                                      {NOM_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+                                    </select>
+                                  : <span style={{ fontSize: 12, color: '#8a847c' }}>{n.group || '—'}</span>
+                                }
+                              </td>
+                              <td style={{ padding: '9px 14px', width: 140 }}>
+                                {nomEditItem?.id === n.id
+                                  ? <input style={{ ...INP, fontSize: 12 }} value={nomEditItem.cat} onChange={e => setNomEditItem((p: any) => ({ ...p, cat: e.target.value }))} placeholder="Категория..." />
+                                  : <span style={{ fontSize: 12, color: '#8a847c' }}>{n.cat || '—'}</span>
+                                }
+                              </td>
+                              <td style={{ padding: '9px 14px', width: 110 }}>
+                                {nomEditItem?.id === n.id
+                                  ? <div style={{ display: 'flex', gap: 4 }}>
+                                      <Btn size="sm" variant="primary" onClick={handleNomUpdate}>✓ Сохранить</Btn>
+                                      <Btn size="sm" onClick={() => setNomEditItem(null)}>✕</Btn>
+                                    </div>
+                                  : <div style={{ display: 'flex', gap: 4 }}>
+                                      <Btn size="sm" onClick={() => setNomEditItem({ ...n })}>✏️</Btn>
+                                      <Btn size="sm" variant="danger" onClick={() => handleNomDelete(n.id)}>🗑</Btn>
+                                    </div>
+                                }
+                              </td>
+                            </tr>
+                          ))
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                {filtered.length > 0 && <div style={{ fontSize: 12, color: '#8a847c', padding: '8px 0' }}>Показано {filtered.length} из {nomList.length}</div>}
+              </div>
+            </div>
+          </div>
+        )
+      }
+
       case 'settings': {
-        const stabs: Array<[SettingsTab, string]> = [['users', `Пользователи`], ['projects', 'Проекты'], ['specprojects', 'СпецПроекты'], ['nomenclature', 'Номенклатура'], ['payment', 'Оплата']]
+        const stabs: Array<[SettingsTab, string]> = [['users', `Пользователи`], ['projects', 'Проекты'], ['specprojects', 'СпецПроекты'], ['payment', 'Оплата']]
         const roleColors: Record<string, { bg: string; color: string }> = {
           super_admin: { bg: '#eef2ff', color: '#4a5aaa' }, bookkeeper: { bg: '#e8f5ee', color: '#2e8a5e' },
           logist: { bg: '#fff0ea', color: '#c0532a' }, warehouse_manager: { bg: '#fdf8e1', color: '#8a6f00' }, supplier_client: { bg: '#f3eeff', color: '#7a3aaa' }, client: { bg: '#eef8ff', color: '#2a7aaa' },
@@ -1672,92 +1795,6 @@ export default function AdminApp({ user }: Props) {
                 )}
 
                 {/* Номенклатура */}
-                {settingsTab === 'nomenclature' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 16 }}>
-                    {/* Дерево групп */}
-                    <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 0 0 1.5px #e6e2dc', overflow: 'hidden' }}>
-                      <div style={{ padding: '10px 12px', background: '#f8f6f3', borderBottom: '1px solid #e6e2dc', fontSize: 11, fontWeight: 700, color: '#8a847c', letterSpacing: '.04em' }}>ГРУППЫ</div>
-                      <div onClick={() => setNomGroup('')} style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, fontWeight: nomGroup === '' ? 700 : 400, color: nomGroup === '' ? COLORS.primary : '#26231f', background: nomGroup === '' ? '#fff8f5' : '#fff', borderLeft: `3px solid ${nomGroup === '' ? COLORS.primary : 'transparent'}` }}>
-                        Все ({nomList.length})
-                      </div>
-                      {NOM_GROUPS.map(g => {
-                        const cnt = nomList.filter(n => n.group === g).length
-                        return (
-                          <div key={g} onClick={() => setNomGroup(g)} style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, fontWeight: nomGroup === g ? 700 : 400, color: nomGroup === g ? COLORS.primary : '#26231f', background: nomGroup === g ? '#fff8f5' : '#fff', borderLeft: `3px solid ${nomGroup === g ? COLORS.primary : 'transparent'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}><span>📁</span>{g}</span>
-                            {cnt > 0 && <span style={{ fontSize: 11, color: '#8a847c' }}>{cnt}</span>}
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                    {/* Список номенклатуры */}
-                    <div>
-                      <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
-                        <input style={{ ...INP, flex: 1 }} placeholder="🔍 Поиск..." value={nomSearch} onChange={e => setNomSearch(e.target.value)} />
-                        <Btn variant="primary" onClick={() => setShowNomAdd(true)}>+ Добавить</Btn>
-                        <Btn onClick={loadNomList}>⟳</Btn>
-                      </div>
-
-                      <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 0 0 1.5px #e6e2dc', overflow: 'hidden' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                          <thead><tr style={{ background: '#f8f6f3' }}>
-                            {['НАИМЕНОВАНИЕ', 'ЕД.', 'ГРУППА', 'КАТЕГОРИЯ', ''].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>{h}</th>)}
-                          </tr></thead>
-                          <tbody>
-                            {(nomGroup ? nomList.filter(n => n.group === nomGroup) : nomList)
-                              .filter(n => !nomSearch || n.name.toLowerCase().includes(nomSearch.toLowerCase()))
-                              .map((n, i, arr) => (
-                              <tr key={n.id} style={{ borderTop: i > 0 ? '1px solid #f1efec' : 'none' }}>
-                                <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 500 }}>
-                                  {nomEditItem?.id === n.id
-                                    ? <input style={{ ...INP, fontSize: 12 }} value={nomEditItem.name} onChange={e => setNomEditItem((p: any) => ({ ...p, name: e.target.value }))} />
-                                    : n.name
-                                  }
-                                </td>
-                                <td style={{ padding: '9px 14px', width: 60 }}>
-                                  {nomEditItem?.id === n.id
-                                    ? <input style={{ ...INP, fontSize: 12, width: 50 }} value={nomEditItem.unit} onChange={e => setNomEditItem((p: any) => ({ ...p, unit: e.target.value }))} />
-                                    : <span style={{ fontSize: 12, color: '#8a847c' }}>{n.unit}</span>
-                                  }
-                                </td>
-                                <td style={{ padding: '9px 14px', width: 140 }}>
-                                  {nomEditItem?.id === n.id
-                                    ? <select style={{ ...INP, fontSize: 12 }} value={nomEditItem.group} onChange={e => setNomEditItem((p: any) => ({ ...p, group: e.target.value }))}>
-                                        <option value="">—</option>
-                                        {NOM_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
-                                      </select>
-                                    : <span style={{ fontSize: 12, color: '#8a847c' }}>{n.group || '—'}</span>
-                                  }
-                                </td>
-                                <td style={{ padding: '9px 14px', width: 120 }}>
-                                  {nomEditItem?.id === n.id
-                                    ? <input style={{ ...INP, fontSize: 12 }} value={nomEditItem.cat} onChange={e => setNomEditItem((p: any) => ({ ...p, cat: e.target.value }))} />
-                                    : <span style={{ fontSize: 12, color: '#8a847c' }}>{n.cat || '—'}</span>
-                                  }
-                                </td>
-                                <td style={{ padding: '9px 14px', width: 100 }}>
-                                  {nomEditItem?.id === n.id
-                                    ? <div style={{ display: 'flex', gap: 4 }}>
-                                        <Btn size="sm" variant="primary" onClick={handleNomUpdate}>✓</Btn>
-                                        <Btn size="sm" onClick={() => setNomEditItem(null)}>✕</Btn>
-                                      </div>
-                                    : <div style={{ display: 'flex', gap: 4 }}>
-                                        <Btn size="sm" onClick={() => setNomEditItem({ ...n })}>✏️</Btn>
-                                        <Btn size="sm" variant="danger" onClick={() => handleNomDelete(n.id)}>🗑</Btn>
-                                      </div>
-                                  }
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        {nomList.length === 0 && <div style={{ padding: '20px', textAlign: 'center', color: '#8a847c', fontSize: 13 }}>Нет данных — нажмите ⟳ для загрузки</div>}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* Оплата */}
                 {settingsTab === 'payment' && (
                   <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
