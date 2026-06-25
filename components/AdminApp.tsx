@@ -246,8 +246,6 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast }: {
                 <div style={{ border: '1.5px dashed #d4613a', borderRadius: 10, padding: 14, marginBottom: 10 }}>
                   <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Новая позиция</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-                    {[
-                    ].map(() => null)}
                     {/* НАИМ. 1С — поиск по номенклатуре */}
                     <div>
                       <label style={LBL}>НАИМ. 1С</label>
@@ -265,8 +263,6 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast }: {
                       <div key={f}>
                         <label style={LBL}>{l}</label>
                         <input style={INP} type={t || 'text'} value={(newPos as any)[f]} onChange={e => setNewPos(prev => ({ ...prev, [f]: e.target.value }))} />
-                      </div>
-                    ))} />
                       </div>
                     ))}
                     <div>
