@@ -440,6 +440,7 @@ export default function AdminApp({ user }: Props) {
         comment: recComment, projectId: recProject || undefined,
         specProjectId: recSpec || undefined, contactId: recContact || undefined,
         source: 'admin_manual', isDraft,
+        screen: isDraft ? 'incoming' : 'outgoing',
         positions,
       })
       setRecFormOpen(false)
