@@ -18,7 +18,7 @@ import FilterScreen from '@/components/FilterScreen'
 import WarehouseScreen from '@/components/WarehouseScreen'
 import NomSearch from '@/components/NomSearch'
 
-// ─── Утилиты ─────────────────────────────────────────────────────────────────
+// ─── Утилиты v2.1 ───────────────────────────────────────────────────────────
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   useEffect(() => { const t = setTimeout(onClose, 2300); return () => clearTimeout(t) }, [onClose])
