@@ -552,7 +552,6 @@ export default function AdminApp({ user }: Props) {
   useEffect(() => {
     if (screen === 'warehouse') { fetchStock().then(s => setStock(s as any[])).catch(() => {}); fetchStockMovements().then(m => setStockMovements(m as any[])).catch(() => {}) }
     if (screen === 'bookkeeping') { fetchDailyReports().then(r => setDailyReports(r as DailyReport[])).catch(() => {}) }
-    if (screen === 'settings' && !settings) loadSettings()
   }, [screen])
 
   // Загружаем номенклатуру при открытии экрана
@@ -1712,7 +1711,12 @@ export default function AdminApp({ user }: Props) {
               ))}
             </div>
 
-            {!settings ? <div style={{ color: '#8a847c', padding: 20 }}>Загрузка данных... <button onClick={loadSettings} style={{ marginLeft: 8, border: 'none', background: COLORS.primary, color: '#fff', padding: '4px 12px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>Обновить</button></div> : (
+            {!settings ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 20, color: '#8a847c' }}>
+              Загрузка...
+              <button onClick={loadSettings} style={{ border: 'none', background: COLORS.primary, color: '#fff', padding: '6px 14px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600 }}>⟳ Загрузить</button>
+            </div>
+          ) : (
               <>
                 {/* Пользователи */}
                 {settingsTab === 'users' && (
