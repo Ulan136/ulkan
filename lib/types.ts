@@ -245,11 +245,11 @@ export interface TrackData {
 export type AdminScreen =
   | 'dashboard' | 'reception' | 'incoming' | 'outgoing'
   | 'filter' | 'accounting' | 'warehouse' | 'bookkeeping'
-  | 'archive' | 'settings'
+  | 'archive' | 'nomenclature' | 'settings'
 
 export type IncTab = 'new' | 'changed' | 'toacc' | 'drafts' | 'cancelled'
 export type FilterGroup = 'clients' | 'suppliers' | 'projects' | 'specprojects'
 export type FilterStatus = 'inwork' | 'delivered' | 'all'
 export type ArchiveTab = 'cards' | 'projects' | 'specprojects'
-export type SettingsTab = 'users' | 'projects' | 'specprojects' | 'nomenclature' | 'payment'
+export type SettingsTab = 'users' | 'projects' | 'specprojects' | 'payment'
 export type BookkeepingTab = 'cards' | 'reports'

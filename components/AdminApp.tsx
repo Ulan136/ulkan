@@ -657,6 +657,7 @@ export default function AdminApp({ user }: Props) {
     warehouse: 0,
     bookkeeping: bookkeeping.length,
     archive: archived.length,
+    nomenclature: 0,
     settings: 0,
   }
 
