@@ -50,7 +50,7 @@ export default function NomSearch({ value, onChange, placeholder = 'Поиск �
     timer.current = setTimeout(async () => {
       setLoading(true)
       try {
-        const res = await fetch(`/api/nomenclature?q=${encodeURIComponent(val)}&limit=12`)
+        const res = await fetch(`/api/nomenclature?q=${encodeURIComponent(val)}&limit=12`, { credentials: 'include' })
         const data = await res.json()
         setResults(Array.isArray(data) ? data : [])
       } catch { setResults([]) }
