@@ -55,22 +55,28 @@ export default function LogistPortal({ user, logistUser }: Props) {
 
   const myName = logistUser.name
 
-  const showMsg = (msg: string) => setToast(msg)
+  const showMsg = useCallback((msg: string) => setToast(msg), [])
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const data = await fetchLogistOrders() as Order[]
       setOrders(data)
-    } catch (e: any) { showMsg(e.message || 'Ошибка загрузки') }
+    } catch (e: any) {
+      // Тихая ошибка при polling — не показываем toast
+      console.error('load error:', e.message)
+    }
     finally { setLoading(false) }
   }, [])
 
+  // Загрузка при монтировании
   useEffect(() => { load() }, [load])
 
   // Автообновление каждые 30 секунд
   useEffect(() => {
-    const interval = setInterval(() => { load() }, 30000)
+    const interval = setInterval(() => {
+      load()
+    }, 5000)
     return () => clearInterval(interval)
   }, [load])
 
@@ -265,7 +271,9 @@ export default function LogistPortal({ user, logistUser }: Props) {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={load} style={{ background: DARK2, border: 'none', borderRadius: 7, padding: '6px 10px', color: '#cfc9c0', cursor: 'pointer', fontSize: 14 }}>⟳</button>
+            <button onClick={load} style={{ background: DARK2, border: 'none', borderRadius: 7, padding: '6px 10px', color: loading ? '#d4613a' : '#cfc9c0', cursor: 'pointer', fontSize: 14, transition: 'color .3s' }}>
+                {loading ? '⟳' : '⟳'}
+              </button>
             <button onClick={logout} style={{ background: DARK2, border: 'none', borderRadius: 7, padding: '6px 12px', color: '#cfc9c0', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>Выйти</button>
           </div>
         </div>

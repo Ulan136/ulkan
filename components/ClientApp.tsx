@@ -72,7 +72,7 @@ export default function ClientApp({ user, clientUser }: Props) {
 
   // Автообновление каждые 30 секунд
   useEffect(() => {
-    const interval = setInterval(() => { load() }, 30000)
+    const interval = setInterval(() => { load() }, 5000)
     return () => clearInterval(interval)
   }, [load])
 
