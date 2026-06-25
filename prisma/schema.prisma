@@ -146,11 +146,12 @@ model Supplier {
 }
 
 model Nomenclature {
-  id    String @id @default(cuid())
-  name  String
-  unit  String @default("шт")
-  cat   String @default("")
-  group String @default("")
+  id       String @id @default(cuid())
+  name     String
+  unit     String @default("шт")
+  group    String @default("")
+  cat      String @default("")
+  subgroup String @default("")
 
   specItems SpecProjectItem[]
   stock     Stock[]
