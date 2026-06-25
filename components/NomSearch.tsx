@@ -158,15 +158,33 @@ export default function NomSearch({ value, onChange, placeholder = 'Поиск..
 
 function highlightMatch(text: string, query: string): React.ReactNode {
   if (!query) return text
-  const idx = text.toLowerCase().indexOf(query.toLowerCase())
-  if (idx === -1) return text
+  const words = query.trim().split(/\s+/).filter(w => w.length >= 1)
+  if (words.length === 0) return text
+
+  // Подсвечиваем каждое слово
+  let result = text
+  const parts: Array<{ text: string; highlight: boolean }> = [{ text, highlight: false }]
+
+  words.forEach(word => {
+    const newParts: Array<{ text: string; highlight: boolean }> = []
+    parts.forEach(part => {
+      if (part.highlight) { newParts.push(part); return }
+      const idx = part.text.toLowerCase().indexOf(word.toLowerCase())
+      if (idx === -1) { newParts.push(part); return }
+      if (idx > 0) newParts.push({ text: part.text.slice(0, idx), highlight: false })
+      newParts.push({ text: part.text.slice(idx, idx + word.length), highlight: true })
+      if (idx + word.length < part.text.length) newParts.push({ text: part.text.slice(idx + word.length), highlight: false })
+    })
+    parts.length = 0
+    parts.push(...newParts)
+  })
+
   return (
     <>
-      {text.slice(0, idx)}
-      <span style={{ background: '#fff0ea', color: '#d4613a', borderRadius: 2, padding: '0 1px' }}>
-        {text.slice(idx, idx + query.length)}
-      </span>
-      {text.slice(idx + query.length)}
+      {parts.map((p, i) => p.highlight
+        ? <span key={i} style={{ background: '#fff0ea', color: '#d4613a', borderRadius: 2, padding: '0 1px' }}>{p.text}</span>
+        : <span key={i}>{p.text}</span>
+      )}
     </>
   )
 }
