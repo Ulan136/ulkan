@@ -16,6 +16,7 @@ import { cardProgress, cardSum, isOverdue, barColor, statusStyle, sourceStyle, s
 import { COLORS } from '@/lib/colors'
 import FilterScreen from '@/components/FilterScreen'
 import WarehouseScreen from '@/components/WarehouseScreen'
+import NomSearch from '@/components/NomSearch'
 
 // ─── Утилиты ─────────────────────────────────────────────────────────────────
 
@@ -246,13 +247,26 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast }: {
                   <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Новая позиция</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
                     {[
-                      { f: 'name1c', l: 'НАИМ. 1С' }, { f: 'oral', l: 'УСТНОЕ НАЗВАНИЕ' },
+                    ].map(() => null)}
+                    {/* НАИМ. 1С — поиск по номенклатуре */}
+                    <div>
+                      <label style={LBL}>НАИМ. 1С</label>
+                      <NomSearch
+                        value={newPos.name1c}
+                        onChange={(name, unit) => setNewPos(prev => ({ ...prev, name1c: name, ...(unit && !prev.unit ? { unit } : {}) }))}
+                        placeholder="Поиск по номенклатуре..."
+                      />
+                    </div>
+                    {[
+                      { f: 'oral', l: 'УСТНОЕ НАЗВАНИЕ' },
                       { f: 'qty', l: 'КОЛ-ВО', t: 'number' }, { f: 'unit', l: 'ЕД.' },
                       { f: 'price', l: 'ЦЕНА', t: 'number' }, { f: 'resp', l: 'ОТВЕТСТВЕННЫЙ' },
                     ].map(({ f, l, t }) => (
                       <div key={f}>
                         <label style={LBL}>{l}</label>
                         <input style={INP} type={t || 'text'} value={(newPos as any)[f]} onChange={e => setNewPos(prev => ({ ...prev, [f]: e.target.value }))} />
+                      </div>
+                    ))} />
                       </div>
                     ))}
                     <div>
@@ -974,7 +988,15 @@ export default function AdminApp({ user }: Props) {
                           {recPositions.map((pos, i) => (
                             <tr key={i} style={{ borderBottom: '1px solid #f1efec' }}>
                               <td style={{ padding: '6px 4px' }}>
-                                <input style={inpSm} value={pos.name1c} onChange={e => recUpdatePos(i, 'name1c', e.target.value)} placeholder="Название 1С" />
+                                <NomSearch
+                                  value={pos.name1c}
+                                  onChange={(name, unit) => {
+                                    recUpdatePos(i, 'name1c', name)
+                                    if (unit && !pos.unit) recUpdatePos(i, 'unit', unit)
+                                  }}
+                                  placeholder="Поиск 1С..."
+                                  style={{ fontSize: 12, padding: '6px 8px' }}
+                                />
                               </td>
                               <td style={{ padding: '6px 4px', width: 70 }}>
                                 <input style={inpSm} type="number" value={pos.qty} onChange={e => recUpdatePos(i, 'qty', e.target.value)} placeholder="0" />
@@ -1092,7 +1114,13 @@ export default function AdminApp({ user }: Props) {
                                   {/* НАИМ 1С */}
                                   <td style={{ padding: '6px 4px' }}>
                                     {isEditing
-                                      ? <input style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 140 }} value={ed.name1c ?? pos.name1c} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], name1c: e.target.value } }))} />
+                                      ? <NomSearch
+                                          value={ed.name1c ?? pos.name1c}
+                                          onChange={(name, unit) => {
+                                            setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], name1c: name, ...(unit ? { unit } : {}) } }))
+                                          }}
+                                          style={{ fontSize: 12, padding: '5px 8px', width: 160 }}
+                                        />
                                       : <span style={{ fontSize: 12 }}>{pos.name1c || <span style={{ color: '#b8b1a6' }}>—</span>}</span>
                                     }
                                   </td>
@@ -1890,7 +1918,14 @@ export default function AdminApp({ user }: Props) {
               <div style={{ fontWeight: 700, fontSize: 14, marginTop: 8 }}>СМЕТА</div>
               {newSpec.items.map((item, i) => (
                 <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto', gap: 8, alignItems: 'end' }}>
-                  <div><label style={LBL}>НАИМ.</label><input style={INP} value={item.name} onChange={e => setNewSpec(p => ({ ...p, items: p.items.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x) }))} /></div>
+                  <div>
+                    <label style={LBL}>НАИМ.</label>
+                    <NomSearch
+                      value={item.name}
+                      onChange={(name, unit) => setNewSpec(p => ({ ...p, items: p.items.map((x, idx) => idx === i ? { ...x, name, ...(unit && !x.unit ? { unit } : {}) } : x) }))}
+                      placeholder="Поиск..."
+                    />
+                  </div>
                   <div><label style={LBL}>КОЛ-ВО</label><input style={{ ...INP, width: 80 }} type="number" value={item.qty} onChange={e => setNewSpec(p => ({ ...p, items: p.items.map((x, idx) => idx === i ? { ...x, qty: e.target.value } : x) }))} /></div>
                   <div><label style={LBL}>ЕД.</label><input style={{ ...INP, width: 60 }} value={item.unit} onChange={e => setNewSpec(p => ({ ...p, items: p.items.map((x, idx) => idx === i ? { ...x, unit: e.target.value } : x) }))} /></div>
                   <button type="button" onClick={() => setNewSpec(p => ({ ...p, items: p.items.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b03020', fontSize: 20, padding: '8px 4px', alignSelf: 'flex-end' }}>×</button>

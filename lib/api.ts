@@ -73,3 +73,6 @@ export const markNotificationRead = (id: string) => req(`/notifications/${id}/re
 
 // Логист — свои позиции
 export const fetchLogistOrders = () => req('/logist/orders')
+
+// Поиск номенклатуры
+export const searchNomenclature = (q: string) => req(`/nomenclature?q=${encodeURIComponent(q)}&limit=10`)
