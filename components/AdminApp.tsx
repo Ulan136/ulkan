@@ -458,6 +458,9 @@ export default function AdminApp({ user }: Props) {
   const [showProjectDetail, setShowProjectDetail] = useState<Project | null>(null)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [dailyReports, setDailyReports] = useState<DailyReport[]>([])
+  const [reportFilter, setReportFilter] = useState<'active' | 'done' | 'archive'>('active')
+  const [reportDateFrom, setReportDateFrom] = useState('')
+  const [reportDateTo, setReportDateTo] = useState('')
 
   // Склад
   const [stock, setStock] = useState<any[]>([])
@@ -1491,44 +1494,85 @@ export default function AdminApp({ user }: Props) {
               ))}
             </div>
             {bookTab === 'cards' && renderOrders(bookkeeping, 'Нет карточек')}
-            {bookTab === 'reports' && (
-              <div>
-                {dailyReports.length === 0 ? <div style={{ color: '#8a847c', fontSize: 13, padding: '20px 0' }}>Нет отчётов</div>
-                  : dailyReports.map(r => (
-                    <div key={r.id} style={{ background: '#fff', borderRadius: 12, padding: 18, marginBottom: 10, boxShadow: '0 0 0 1.5px #e6e2dc' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 14 }}>{r.logist?.name} · {fmtDate(r.date)}</div>
-                          {r.comment && <div style={{ fontSize: 12, color: '#8a847c' }}>{r.comment}</div>}
+            {bookTab === 'reports' && (() => {
+              // Фильтрация отчётов
+              const filtered = dailyReports.filter(r => {
+                if (reportFilter === 'active' && r.status !== 'processing') return false
+                if (reportFilter === 'done' && r.status !== 'done') return false
+                if (reportFilter === 'archive' && r.status !== 'archive') return false
+                if (reportDateFrom && new Date(r.date) < new Date(reportDateFrom)) return false
+                if (reportDateTo && new Date(r.date) > new Date(reportDateTo + 'T23:59:59')) return false
+                return true
+              })
+
+              return (
+                <div>
+                  {/* Фильтры */}
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {([['active', 'Новые'], ['done', 'Принятые'], ['archive', 'Архив']] as const).map(([k, l]) => (
+                      <button key={k} onClick={() => setReportFilter(k)} style={{ padding: '5px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: reportFilter === k ? COLORS.primary : '#fff', color: reportFilter === k ? '#fff' : '#8a847c', boxShadow: '0 0 0 1.5px #e6e2dc' }}>{l} ({dailyReports.filter(r => r.status === (k === 'active' ? 'processing' : k)).length})</button>
+                    ))}
+                    <div style={{ width: 1, height: 20, background: '#e6e2dc' }} />
+                    <input type="date" value={reportDateFrom} onChange={e => setReportDateFrom(e.target.value)} style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #e6e2dc', fontSize: 12, fontFamily: 'inherit' }} />
+                    <span style={{ fontSize: 12, color: '#8a847c' }}>—</span>
+                    <input type="date" value={reportDateTo} onChange={e => setReportDateTo(e.target.value)} style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #e6e2dc', fontSize: 12, fontFamily: 'inherit' }} />
+                    {(reportDateFrom || reportDateTo) && <button onClick={() => { setReportDateFrom(''); setReportDateTo('') }} style={{ padding: '4px 8px', borderRadius: 7, border: 'none', background: '#faeaea', color: '#b03020', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>✕ Даты</button>}
+                    <button onClick={() => fetchDailyReports().then(r => setDailyReports(r as DailyReport[]))} style={{ marginLeft: 'auto', padding: '5px 12px', borderRadius: 7, border: '1.5px solid #e6e2dc', background: '#fff', fontSize: 13, cursor: 'pointer' }}>⟳</button>
+                  </div>
+
+                  {filtered.length === 0
+                    ? <div style={{ color: '#8a847c', fontSize: 13, padding: '20px 0' }}>Нет отчётов</div>
+                    : filtered.map(r => (
+                      <div key={r.id} style={{ background: '#fff', borderRadius: 12, padding: 18, marginBottom: 12, boxShadow: '0 0 0 1.5px #e6e2dc' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 15 }}>{r.logist?.name} · {fmtDate(r.date)}</div>
+                            {r.comment && <div style={{ fontSize: 12, color: '#8a847c', marginTop: 2 }}>{r.comment}</div>}
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <StatusBadge status={r.status === 'processing' ? 'Новый' : r.status === 'done' ? 'Принят' : 'Архив'} />
+                            {r.status === 'processing' && (
+                              <Btn size="sm" variant="primary" onClick={async () => {
+                                await updateDailyReport(r.id, 'done')
+                                fetchDailyReports().then(rep => setDailyReports(rep as DailyReport[]))
+                                showToast('✓ Отчёт принят')
+                              }}>✓ Принять</Btn>
+                            )}
+                            {r.status === 'done' && (
+                              <Btn size="sm" onClick={async () => {
+                                await updateDailyReport(r.id, 'archive')
+                                fetchDailyReports().then(rep => setDailyReports(rep as DailyReport[]))
+                                showToast('✓ Отправлен в архив')
+                              }}>→ Архив</Btn>
+                            )}
+                          </div>
                         </div>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <StatusBadge status={r.status === 'processing' ? 'В обработке' : r.status === 'done' ? 'Доставлено' : 'Архив'} />
-                          {r.status === 'processing' && user.role !== 'logist' && (
-                            <Btn size="sm" variant="primary" onClick={async () => { await updateDailyReport(r.id, 'done'); fetchDailyReports().then(rep => setDailyReports(rep as DailyReport[])); showToast('Отчёт принят') }}>Принять</Btn>
-                          )}
+                        <div style={{ overflowX: 'auto' }}>
+                          <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', minWidth: 600 }}>
+                            <thead>
+                              <tr style={{ background: '#f8f6f3' }}>
+                                {['ОТ КОГО', 'НАИМ.', 'ПРИХОД', 'КОММ.', 'КОМУ', 'РАСХОД', 'КОММ.', '№ НАКЛ.'].map(h => (
+                                  <th key={h} style={{ padding: '6px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {r.rows.map((row, i) => (
+                                <tr key={row.id} style={{ borderTop: '1px solid #f1efec' }}>
+                                  {[row.fromWho, row.name, row.qtyIn, row.commentIn, row.toWho, row.qtyOut, row.commentOut, row.invoiceNum].map((v, j) => (
+                                    <td key={j} style={{ padding: '6px 10px', color: v ? '#26231f' : '#b8b1a6' }}>{v || '—'}</td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
-                      <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr style={{ color: '#8a847c', textAlign: 'left' }}>
-                            {['От', 'Наим.', 'Приход', 'Коммент.', 'Кому', 'Расход', 'Коммент.', '№ накл.'].map(h => <th key={h} style={{ padding: '4px 8px', borderBottom: '1px solid #f1efec' }}>{h}</th>)}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {r.rows.map(row => (
-                            <tr key={row.id}>
-                              {[row.fromWho, row.name, row.qtyIn, row.commentIn, row.toWho, row.qtyOut, row.commentOut, row.invoiceNum].map((v, i) => (
-                                <td key={i} style={{ padding: '4px 8px', borderBottom: '1px solid #f1efec' }}>{v || '—'}</td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ))
-                }
-              </div>
-            )}
+                    ))
+                  }
+                </div>
+              )
+            })()}
           </div>
         )
 
