@@ -1487,9 +1487,9 @@ export default function AdminApp({ user }: Props) {
               )}
             </div>
             <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
-              {(['cards', 'reports'] as BookkeepingTab[]).map(t => (
-                <button key={t} onClick={() => setBookTab(t)} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: bookTab === t ? COLORS.primary : '#fff', color: bookTab === t ? '#fff' : '#8a847c', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
-                  {t === 'cards' ? `Карточки (${bookkeeping.length})` : 'Отчёты логистов'}
+              {(['cards', 'reports', 'shifts'] as BookkeepingTab[]).map(t => (
+                <button key={t} onClick={() => { setBookTab(t); if (t !== 'cards') fetchDailyReports().then(r => setDailyReports(r as DailyReport[])) }} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: bookTab === t ? COLORS.primary : '#fff', color: bookTab === t ? '#fff' : '#8a847c', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
+                  {t === 'cards' ? `Карточки (${bookkeeping.length})` : t === 'reports' ? 'Отчёты логистов' : 'Смены'}
                 </button>
               ))}
             </div>
@@ -1518,6 +1518,7 @@ export default function AdminApp({ user }: Props) {
                     <input type="date" value={reportDateTo} onChange={e => setReportDateTo(e.target.value)} style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #e6e2dc', fontSize: 12, fontFamily: 'inherit' }} />
                     {(reportDateFrom || reportDateTo) && <button onClick={() => { setReportDateFrom(''); setReportDateTo('') }} style={{ padding: '4px 8px', borderRadius: 7, border: 'none', background: '#faeaea', color: '#b03020', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>✕ Даты</button>}
                     <button onClick={() => fetchDailyReports().then(r => setDailyReports(r as DailyReport[]))} style={{ marginLeft: 'auto', padding: '5px 12px', borderRadius: 7, border: '1.5px solid #e6e2dc', background: '#fff', fontSize: 13, cursor: 'pointer' }}>⟳</button>
+
                   </div>
 
                   {filtered.length === 0
@@ -1569,6 +1570,75 @@ export default function AdminApp({ user }: Props) {
                         </div>
                       </div>
                     ))
+                  }
+                </div>
+              )
+            })()}
+          {/* ── СМЕНЫ ── */}
+            {bookTab === 'shifts' && (() => {
+              const doneReports = dailyReports.filter(r => r.status !== 'archive')
+              const byDate: Record<string, typeof doneReports> = {}
+              doneReports.forEach(r => {
+                const d = r.date ? r.date.slice(0, 10) : 'unknown'
+                if (!byDate[d]) byDate[d] = []
+                byDate[d].push(r)
+              })
+              const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a))
+              return (
+                <div>
+                  {dates.length === 0
+                    ? <div style={{ color: '#8a847c', fontSize: 13, padding: '20px 0' }}>Нет смен — сначала примите отчёты логистов во вкладке "Отчёты логистов"</div>
+                    : dates.map(date => {
+                        const reps = byDate[date]
+                        const allDone = reps.every(r => r.status === 'done')
+                        const totalRows = reps.reduce((sum, r) => sum + r.rows.length, 0)
+                        return (
+                          <div key={date} style={{ background: '#fff', borderRadius: 12, padding: 20, marginBottom: 14, boxShadow: '0 0 0 1.5px #e6e2dc' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                              <div>
+                                <div style={{ fontWeight: 700, fontSize: 16 }}>📅 {new Date(date).toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+                                <div style={{ fontSize: 12, color: '#8a847c', marginTop: 2 }}>{reps.length} логистов · {totalRows} позиций</div>
+                              </div>
+                              {allDone
+                                ? <button onClick={async () => {
+                                    await Promise.all(reps.map(r => updateDailyReport(r.id, 'archive')))
+                                    fetchDailyReports().then(r => setDailyReports(r as DailyReport[]))
+                                    showToast('✓ Смена закрыта')
+                                  }} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: COLORS.primary, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                    ✓ Закрыть смену
+                                  </button>
+                                : <span style={{ fontSize: 12, color: '#8a847c' }}>Не все отчёты приняты</span>
+                              }
+                            </div>
+                            <div style={{ overflowX: 'auto' }}>
+                              <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', minWidth: 650 }}>
+                                <thead><tr style={{ background: '#f8f6f3' }}>
+                                  {['ЛОГИСТ', 'ОТ КОГО', 'НАИМ.', 'ПРИХОД', 'КОМУ', 'РАСХОД', 'СТАТУС'].map(h => (
+                                    <th key={h} style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>{h}</th>
+                                  ))}
+                                </tr></thead>
+                                <tbody>
+                                  {reps.map(r => r.rows.map((row, i) => (
+                                    <tr key={row.id} style={{ borderTop: '1px solid #f1efec' }}>
+                                      <td style={{ padding: '6px 10px', fontWeight: 600, color: COLORS.primary }}>{i === 0 ? r.logist?.name : ''}</td>
+                                      <td style={{ padding: '6px 10px' }}>{row.fromWho || '—'}</td>
+                                      <td style={{ padding: '6px 10px', fontWeight: 500 }}>{row.name || '—'}</td>
+                                      <td style={{ padding: '6px 10px' }}>{row.qtyIn || '—'}</td>
+                                      <td style={{ padding: '6px 10px' }}>{row.toWho || '—'}</td>
+                                      <td style={{ padding: '6px 10px' }}>{row.qtyOut || '—'}</td>
+                                      <td style={{ padding: '6px 10px' }}>
+                                        {i === 0 && <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: r.status === 'done' ? '#e8f5ee' : '#fff0ea', color: r.status === 'done' ? '#2e8a5e' : '#c0532a' }}>
+                                          {r.status === 'done' ? '✓ Принят' : '⏳ Ожидает'}
+                                        </span>}
+                                      </td>
+                                    </tr>
+                                  )))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )
+                      })
                   }
                 </div>
               )
