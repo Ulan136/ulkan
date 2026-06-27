@@ -21,31 +21,50 @@ export async function GET(req: NextRequest) {
 
   if (!q || q.length < 1) return NextResponse.json([])
 
-  const words = q.trim().split(/\s+/).filter(w => w.length >= 1)
+  // Нормализация: заменяем , на . и наоборот для поиска
+  // Ищем оба варианта чтобы "0,45" нашёл "0.45" и наоборот
+  const qNorm = q.trim()
+  const qAlt = qNorm.includes(',') ? qNorm.replace(/,/g, '.') : qNorm.replace(/\./g, ',')
+  const words = qNorm.split(/\s+/).filter(w => w.length >= 1)
+  const wordsAlt = qAlt.split(/\s+/).filter(w => w.length >= 1)
   const groupFilter = group ? { group } : {}
 
-  const exact = await prisma.nomenclature.findMany({
-    where: { ...groupFilter, name: { contains: q, mode: 'insensitive' } },
-    orderBy: { name: 'asc' }, take: limit,
-  })
-  if (exact.length >= 3) return NextResponse.json(exact)
+  // Поиск с нормализацией запятая/точка
+  async function search(searchWords: string[], take: number) {
+    return prisma.nomenclature.findMany({
+      where: { ...groupFilter, AND: searchWords.map(w => ({ name: { contains: w, mode: 'insensitive' as const } })) },
+      orderBy: { name: 'asc' }, take,
+    })
+  }
 
-  const byWords = await prisma.nomenclature.findMany({
-    where: { ...groupFilter, AND: words.map(w => ({ name: { contains: w, mode: 'insensitive' as const } })) },
-    orderBy: { name: 'asc' }, take: limit,
-  })
+  // Точное вхождение (оригинал и альтернатива)
+  const [exact1, exact2] = await Promise.all([
+    prisma.nomenclature.findMany({ where: { ...groupFilter, name: { contains: qNorm, mode: 'insensitive' } }, orderBy: { name: 'asc' }, take: limit }),
+    qAlt !== qNorm ? prisma.nomenclature.findMany({ where: { ...groupFilter, name: { contains: qAlt, mode: 'insensitive' } }, orderBy: { name: 'asc' }, take: limit }) : Promise.resolve([]),
+  ])
+  const exact = [...exact1, ...exact2.filter(i => !exact1.find(e => e.id === i.id))]
+  if (exact.length >= 3) return NextResponse.json(exact.slice(0, limit))
+
+  // По словам AND (оригинал + альтернатива)
+  const [byWords1, byWords2] = await Promise.all([
+    search(words, limit),
+    wordsAlt.join('') !== words.join('') ? search(wordsAlt, limit) : Promise.resolve([]),
+  ])
+  const byWords = [...byWords1, ...byWords2.filter(i => !byWords1.find(e => e.id === i.id))]
   if (byWords.length > 0) {
     const all = [...exact]
     byWords.forEach(i => { if (!all.find(e => e.id === i.id)) all.push(i) })
     return NextResponse.json(all.slice(0, limit))
   }
 
+  // OR поиск
+  const allWords = [...new Set([...words, ...wordsAlt])]
   const byAny = await prisma.nomenclature.findMany({
-    where: { ...groupFilter, OR: words.map(w => ({ name: { contains: w, mode: 'insensitive' as const } })) },
+    where: { ...groupFilter, OR: allWords.map(w => ({ name: { contains: w, mode: 'insensitive' as const } })) },
     orderBy: { name: 'asc' }, take: limit,
   })
   const scored = byAny
-    .map(item => ({ ...item, score: words.filter(w => item.name.toLowerCase().includes(w.toLowerCase())).length }))
+    .map(item => ({ ...item, score: allWords.filter(w => item.name.toLowerCase().includes(w.toLowerCase())).length }))
     .sort((a, b) => b.score - a.score)
   return NextResponse.json(scored.map(({ score, ...item }) => item))
 }
