@@ -373,6 +373,7 @@ export default function AdminApp({ user }: Props) {
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('users')
   const [bookTab, setBookTab] = useState<BookkeepingTab>('cards')
   const [outgoingTab, setOutgoingTab] = useState<'inwork' | 'ready' | 'all'>('inwork')
+  const [sideOpen, setSideOpen] = useState(false)
 
   // Поиск/фильтр
   const [search, setSearch] = useState('')
@@ -1720,16 +1721,22 @@ export default function AdminApp({ user }: Props) {
     <div style={{ display: 'flex', height: '100vh', background: COLORS.bg, fontFamily: "'Golos Text', system-ui, sans-serif", overflow: 'hidden' }}>
       {toast && <Toast msg={toast} onClose={() => setToast('')} />}
 
+      {/* Overlay для мобильного */}
+      {sideOpen && (
+        <div onClick={() => setSideOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 99, display: 'none' }} className="mobile-overlay" />
+      )}
+
       {/* Сайдбар */}
-      <div style={{ width: 220, background: COLORS.sidebar.bg, display: 'flex', flexDirection: 'column', flexShrink: 0, borderRight: `1px solid ${COLORS.sidebar.border}` }}>
+      <div style={{ width: 220, background: COLORS.sidebar.bg, display: 'flex', flexDirection: 'column', flexShrink: 0, borderRight: `1px solid ${COLORS.sidebar.border}`, transition: 'transform .25s', zIndex: 100 }} className={sideOpen ? 'sidebar sidebar-open' : 'sidebar'}>
         {/* Лого */}
         <div style={{ padding: '20px 16px 16px', borderBottom: `1px solid ${COLORS.sidebar.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 34, height: 34, background: COLORS.primary, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16 }}>U</div>
-            <div>
+            <div style={{ flex: 1 }}>
               <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>U-Kan</div>
               <div style={{ color: COLORS.sidebar.muted, fontSize: 10 }}>v1.0</div>
             </div>
+            <button onClick={() => setSideOpen(false)} className="sidebar-close" style={{ background: 'none', border: 'none', color: COLORS.sidebar.muted, cursor: 'pointer', fontSize: 20, padding: '4px', display: 'none' }}>✕</button>
           </div>
         </div>
 
@@ -1763,6 +1770,7 @@ export default function AdminApp({ user }: Props) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Topbar */}
         <div style={{ background: '#fff', borderBottom: '1px solid #e6e2dc', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          <button onClick={() => setSideOpen(p => !p)} className="hamburger" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, padding: '2px 6px', color: '#26231f', display: 'none', flexShrink: 0 }}>☰</button>
           <div>
             <div style={{ fontWeight: 700, fontSize: 16 }}>{NAV.find(n => n.key === screen)?.label}</div>
             <div style={{ fontSize: 11, color: '#8a847c' }}>{new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</div>

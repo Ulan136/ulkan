@@ -26,3 +26,24 @@ html, body {
 input, textarea, select {
   font-family: 'Golos Text', system-ui, sans-serif;
 }
+
+/* ── Мобильный сайдбар ────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .hamburger { display: block !important; }
+  .sidebar-close { display: block !important; }
+
+  .sidebar {
+    position: fixed !important;
+    left: 0; top: 0; bottom: 0;
+    z-index: 200;
+    transform: translateX(-100%);
+    width: 260px !important;
+  }
+  .sidebar-open {
+    transform: translateX(0) !important;
+  }
+  .mobile-overlay {
+    display: block !important;
+    z-index: 199;
+  }
+}
