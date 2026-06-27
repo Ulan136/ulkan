@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 
-interface NomItem { id: string; name: string; unit: string; cat: string; group: string }
+interface NomItem { id: string; name: string; unit: string; cat: string; group: string; subgroup: string }
 interface Props {
   value: string
   onChange: (name: string, unit: string) => void
@@ -11,15 +11,12 @@ interface Props {
   disabled?: boolean
 }
 
-const GROUPS = ['Водосток', 'Готовая продукция', 'Материалы', 'Товары', 'Услуги', 'Доборные элементы', 'Кровля', 'Крепёж', 'Прочее']
-
 export default function NomSearch({ value, onChange, placeholder = 'Поиск...', style, disabled }: Props) {
   const [query, setQuery] = useState(value)
   const [results, setResults] = useState<NomItem[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState(false)
-  const [selGroup, setSelGroup] = useState('')
   const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 })
   const [mounted, setMounted] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -45,15 +42,11 @@ export default function NomSearch({ value, onChange, placeholder = 'Поиск..
     setDropPos({ top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX, width: rect.width })
   }
 
-  const doSearch = useCallback(async (q: string, group: string) => {
-    if (!q.trim() && !group) { setResults([]); return }
+  const doSearch = useCallback(async (q: string) => {
+    if (!q.trim()) { setResults([]); return }
     setLoading(true)
     try {
-      const params = new URLSearchParams()
-      if (q) params.set('q', q)
-      if (group) params.set('group', group)
-      params.set('limit', '20')
-      const res = await fetch(`/api/nomenclature?${params}`)
+      const res = await fetch(`/api/nomenclature?q=${encodeURIComponent(q)}&limit=15`)
       const data = await res.json()
       setResults(Array.isArray(data) ? data : [])
     } catch { setResults([]) }
@@ -63,21 +56,15 @@ export default function NomSearch({ value, onChange, placeholder = 'Поиск..
   function handleInput(val: string) {
     setQuery(val); setSelected(false); onChange(val, ''); calcPos(); setOpen(true)
     if (timer.current) clearTimeout(timer.current)
-    timer.current = setTimeout(() => doSearch(val, selGroup), 250)
+    timer.current = setTimeout(() => doSearch(val), 250)
   }
 
-  function handleGroupClick(group: string) {
-    const next = selGroup === group ? '' : group
-    setSelGroup(next)
-    doSearch(query, next)
-  }
+  function handleFocus() { calcPos(); if (!open) { setOpen(true); if (query) doSearch(query) } }
 
   function handleSelect(item: NomItem) {
     setQuery(item.name); setSelected(true); setOpen(false)
     onChange(item.name, item.unit)
   }
-
-  function handleFocus() { calcPos(); if (!open) { setOpen(true); doSearch(query, selGroup) } }
 
   const inpStyle: React.CSSProperties = {
     width: '100%', padding: '7px 28px 7px 10px', borderRadius: 7, fontSize: 13,
@@ -86,53 +73,33 @@ export default function NomSearch({ value, onChange, placeholder = 'Поиск..
     outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', ...style,
   }
 
-  const dropdown = open && mounted ? createPortal(
-    <div id="nom-drop" style={{ position: 'absolute', top: dropPos.top, left: dropPos.left, width: Math.max(dropPos.width + 200, 480), zIndex: 99999, background: '#fff', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,.18)', border: '1.5px solid #e6e2dc', display: 'flex', overflow: 'hidden', maxHeight: 340 }}>
+  const showDrop = open && mounted
 
-      {/* Левая — дерево групп */}
-      <div style={{ width: 160, background: '#f8f6f3', borderRight: '1px solid #e6e2dc', overflowY: 'auto', flexShrink: 0 }}>
-        <div style={{ padding: '8px 10px 4px', fontSize: 10, fontWeight: 700, color: '#8a847c', letterSpacing: '.05em' }}>ГРУППЫ</div>
-        <div
-          onMouseDown={() => handleGroupClick('')}
-          style={{ padding: '7px 12px', cursor: 'pointer', fontSize: 12, fontWeight: selGroup === '' ? 700 : 400, color: selGroup === '' ? '#d4613a' : '#26231f', background: selGroup === '' ? '#fff0ea' : 'transparent', borderLeft: `3px solid ${selGroup === '' ? '#d4613a' : 'transparent'}` }}
+  const dropdown = showDrop ? createPortal(
+    <div id="nom-drop" style={{ position: 'absolute', top: dropPos.top, left: dropPos.left, width: Math.max(dropPos.width, 320), zIndex: 99999, background: '#fff', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,.18)', border: '1.5px solid #e6e2dc', maxHeight: 320, overflowY: 'auto' }}>
+      {loading && <div style={{ padding: '12px 14px', fontSize: 13, color: '#8a847c' }}>Поиск...</div>}
+      {!loading && !query && <div style={{ padding: '12px 14px', fontSize: 13, color: '#8a847c' }}>Начните вводить название...</div>}
+      {!loading && query && results.length === 0 && <div style={{ padding: '12px 14px', fontSize: 13, color: '#8a847c' }}>Не найдено — можно ввести своё</div>}
+      {results.map((item, i) => (
+        <div key={item.id}
+          onMouseDown={e => { e.preventDefault(); handleSelect(item) }}
+          style={{ padding: '9px 14px', cursor: 'pointer', borderBottom: i < results.length - 1 ? '1px solid #f1efec' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
+          onMouseEnter={e => (e.currentTarget.style.background = '#fff8f5')}
+          onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
         >
-          Все группы
-        </div>
-        {GROUPS.map(g => (
-          <div key={g}
-            onMouseDown={() => handleGroupClick(g)}
-            style={{ padding: '7px 12px', cursor: 'pointer', fontSize: 12, fontWeight: selGroup === g ? 700 : 400, color: selGroup === g ? '#d4613a' : '#26231f', background: selGroup === g ? '#fff0ea' : 'transparent', borderLeft: `3px solid ${selGroup === g ? '#d4613a' : 'transparent'}`, display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            <span style={{ fontSize: 13 }}>📁</span> {g}
-          </div>
-        ))}
-      </div>
-
-      {/* Правая — список результатов */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {loading && <div style={{ padding: '14px', fontSize: 13, color: '#8a847c' }}>Поиск...</div>}
-        {!loading && results.length === 0 && (
-          <div style={{ padding: '14px', fontSize: 13, color: '#8a847c' }}>
-            {query ? 'Не найдено — введите своё название' : 'Начните вводить или выберите группу'}
-          </div>
-        )}
-        {results.map((item, i) => (
-          <div key={item.id}
-            onMouseDown={() => handleSelect(item)}
-            style={{ padding: '9px 14px', cursor: 'pointer', borderBottom: i < results.length - 1 ? '1px solid #f1efec' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#fff8f5')}
-            onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
-          >
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {highlightMatch(item.name, query)}
-              </div>
-              {item.group && <div style={{ fontSize: 10, color: '#8a847c', marginTop: 1 }}>{item.group}{item.cat ? ` / ${item.cat}` : ''}</div>}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {highlightMatch(item.name, query)}
             </div>
-            <span style={{ fontSize: 11, color: '#8a847c', background: '#f1efec', padding: '1px 7px', borderRadius: 20, flexShrink: 0 }}>{item.unit}</span>
+            {(item.group || item.cat) && (
+              <div style={{ fontSize: 10, color: '#8a847c', marginTop: 1 }}>
+                {[item.group, item.cat, item.subgroup].filter(Boolean).join(' › ')}
+              </div>
+            )}
           </div>
-        ))}
-      </div>
+          <span style={{ fontSize: 11, color: '#8a847c', background: '#f1efec', padding: '1px 7px', borderRadius: 20, flexShrink: 0 }}>{item.unit}</span>
+        </div>
+      ))}
     </div>,
     document.body
   ) : null
@@ -140,8 +107,9 @@ export default function NomSearch({ value, onChange, placeholder = 'Поиск..
   return (
     <>
       <div style={{ position: 'relative', width: '100%' }}>
-        <input ref={inputRef} style={inpStyle} value={query} onChange={e => handleInput(e.target.value)} onFocus={handleFocus} placeholder={placeholder} disabled={disabled} autoComplete="off" />
-        <span onClick={() => { if (selected) { setQuery(''); setSelected(false); onChange('', '') } else { handleFocus() } }}
+        <input ref={inputRef} style={inpStyle} value={query} onChange={e => handleInput(e.target.value)}
+          onFocus={handleFocus} placeholder={placeholder} disabled={disabled} autoComplete="off" />
+        <span onClick={() => { if (selected) { setQuery(''); setSelected(false); onChange('', '') } else { calcPos(); setOpen(true); if (query) doSearch(query) } }}
           style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: selected ? '#d4613a' : '#b8b1a6', cursor: 'pointer' }}>
           {loading ? '⟳' : selected ? '✓' : '🔍'}
         </span>
@@ -154,7 +122,6 @@ export default function NomSearch({ value, onChange, placeholder = 'Поиск..
 function highlightMatch(text: string, query: string): React.ReactNode {
   if (!query) return text
   const words = query.trim().split(/\s+/).filter(w => w.length >= 1)
-  if (words.length === 0) return text
   const parts: Array<{ text: string; hl: boolean }> = [{ text, hl: false }]
   words.forEach(word => {
     const next: typeof parts = []
