@@ -42,6 +42,23 @@ function ProgressBar({ pct, height = 5 }: { pct: number; height?: number }) {
   )
 }
 
+function UnifiedSelect({ value, onChange, placeholder = '— выберите —', style: st, settings: s }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; style?: React.CSSProperties; settings: any
+}) {
+  const lg = s?.users?.filter((u: any) => u.role === 'logist') || []
+  const sp = s?.suppliers || []
+  const cl = s?.users?.filter((u: any) => ['client', 'supplier_client'].includes(u.role)) || []
+  const INP2: React.CSSProperties = { padding: '9px 12px', borderRadius: 8, fontSize: 13, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', width: '100%' }
+  return (
+    <select style={{ ...INP2, ...st }} value={value} onChange={e => onChange(e.target.value)}>
+      <option value="">{placeholder}</option>
+      {lg.length > 0 && <optgroup label="Логисты">{lg.map((l: any) => <option key={l.id} value={l.name}>{l.name}</option>)}</optgroup>}
+      {sp.length > 0 && <optgroup label="Поставщики">{sp.map((s2: any) => <option key={s2.id} value={s2.name}>{s2.name}</option>)}</optgroup>}
+      {cl.length > 0 && <optgroup label="Клиенты">{cl.map((c: any) => <option key={c.id} value={c.name}>{c.name}</option>)}</optgroup>}
+    </select>
+  )
+}
+
 function Btn({ children, onClick, variant = 'default', size = 'md', disabled = false, style: extraStyle }: {
   children: React.ReactNode; onClick?: () => void; variant?: 'primary' | 'default' | 'danger' | 'ghost'
   size?: 'sm' | 'md'; disabled?: boolean; style?: React.CSSProperties
@@ -268,12 +285,12 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast }: {
                     ))}
                     <div>
                       <label style={LBL}>ПОСТАВЩИК</label>
-                      <select style={INP} value={newPos.supplierId} onChange={e => {
-                        const sup = suppliers.find(s => s.id === e.target.value)
-                        setNewPos(prev => ({ ...prev, supplierId: e.target.value, supplier: sup?.name || '' }))
+                      <select style={INP} value={newPos.supplier} onChange={e => {
+                        const sup = suppliers.find(s => s.name === e.target.value)
+                        setNewPos(prev => ({ ...prev, supplier: e.target.value, supplierId: sup?.id || '' }))
                       }}>
                         <option value="">—</option>
-                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        <optgroup label="Поставщики">{suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}</optgroup>
                       </select>
                     </div>
                     <div>
@@ -963,25 +980,11 @@ export default function AdminApp({ user }: Props) {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
                     <div>
                       <label style={LBL}>ОТ КОГО *</label>
-                      <select style={INP} value={recFrom} onChange={e => { setRecFrom(e.target.value); setRecContact('') }}>
-                        <option value="">— выберите клиента —</option>
-                        {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
+                      <UnifiedSelect value={recFrom} onChange={v => { setRecFrom(v); setRecContact('') }} placeholder="— выберите клиента —" settings={settings} />
                     </div>
                     <div>
                       <label style={LBL}>К КОМУ / КУДА</label>
-                      <select style={INP} value={recTo} onChange={e => setRecTo(e.target.value)}>
-                        <option value="">— логист/направление —</option>
-                        <optgroup label="Логисты">
-                          {logists.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
-                        </optgroup>
-                        <optgroup label="Поставщики">
-                          {suppliersList.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                        </optgroup>
-                        <optgroup label="Клиенты">
-                          {clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                        </optgroup>
-                      </select>
+                      <UnifiedSelect value={recTo} onChange={setRecTo} placeholder="— логист/направление —" settings={settings} />
                     </div>
                     {subUsers.length > 0 && (
                       <div>
@@ -1077,20 +1080,14 @@ export default function AdminApp({ user }: Props) {
                                 )}
                               </td>
                               <td style={{ padding: '6px 4px' }}>
-                                <select style={selSm} value={pos.resp} onChange={e => recUpdatePos(i, 'resp', e.target.value)}>
-                                  <option value="">—</option>
-                                  {logists.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
-                                </select>
+                                <UnifiedSelect value={pos.resp} onChange={v => recUpdatePos(i, 'resp', v)} placeholder="—" style={selSm} settings={settings} />
                               </td>
                               <td style={{ padding: '6px 4px' }}>
-                                <select style={selSm} value={pos.supplierId} onChange={e => {
-                                  const sup = suppliersList.find(s => s.id === e.target.value)
-                                  recUpdatePos(i, 'supplierId', e.target.value)
-                                  recUpdatePos(i, 'supplier', sup?.name || '')
-                                }}>
-                                  <option value="">—</option>
-                                  {suppliersList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                </select>
+                                <UnifiedSelect value={pos.supplier} onChange={v => {
+                                  const sup2 = suppliersList.find(s => s.name === v)
+                                  recUpdatePos(i, 'supplier', v)
+                                  recUpdatePos(i, 'supplierId', sup2?.id || '')
+                                }} placeholder="—" style={selSm} settings={settings} />
                               </td>
                               <td style={{ padding: '6px 4px', width: 110 }}>
                                 <input style={inpSm} type="date" value={pos.deadline} onChange={e => recUpdatePos(i, 'deadline', e.target.value)} />
@@ -1205,23 +1202,17 @@ export default function AdminApp({ user }: Props) {
                                   {/* ЛОГИСТ */}
                                   <td style={{ padding: '6px 4px' }}>
                                     {isEditing
-                                      ? <select style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 120 }} value={ed.resp ?? pos.resp} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], resp: e.target.value } }))}>
-                                          <option value="">—</option>
-                                          {logists.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
-                                        </select>
+                                      ? <UnifiedSelect value={ed.resp ?? pos.resp} onChange={v => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], resp: v } }))} placeholder="—" style={{ fontSize: 12, padding: '5px 8px', width: 160 }} settings={settings} />
                                       : <span style={{ fontSize: 12 }}>{pos.resp || <span style={{ color: '#b8b1a6' }}>—</span>}</span>
                                     }
                                   </td>
                                   {/* ПОСТАВЩИК */}
                                   <td style={{ padding: '6px 4px' }}>
                                     {isEditing
-                                      ? <select style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 130 }} value={ed.supplierId ?? pos.supplierId} onChange={e => {
-                                          const sup = suppliersList.find(s => s.id === e.target.value)
-                                          setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], supplierId: e.target.value, supplier: sup?.name || '' } }))
-                                        }}>
-                                          <option value="">—</option>
-                                          {suppliersList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                        </select>
+                                      ? <UnifiedSelect value={ed.supplier ?? pos.supplier} onChange={v => {
+                                          const sup2 = suppliersList.find(s => s.name === v)
+                                          setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], supplier: v, supplierId: sup2?.id || '' } }))
+                                        }} placeholder="—" style={{ fontSize: 12, padding: '5px 8px', width: 160 }} settings={settings} />
                                       : <span style={{ fontSize: 12 }}>{pos.supplier || <span style={{ color: '#b8b1a6' }}>—</span>}</span>
                                     }
                                   </td>
