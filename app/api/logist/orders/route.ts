@@ -7,18 +7,21 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
   const myName = session.name
+  const myId   = session.id
 
-  // Берём ВСЕ активные карточки из outgoing и incoming
-  // где есть позиции с resp = моё имя
+  // Ищем карточки где:
+  // 1. Есть позиции с resp = имя логиста (КО МНЕ)
+  // 2. Карточка создана логистом from = имя логиста (ОТ МЕНЯ)
+  // 3. Карточка где fromId = id логиста
   const orders = await prisma.order.findMany({
     where: {
       isCancelled: false,
-      screen: { in: ['outgoing', 'incoming'] },
-      positions: {
-        some: {
-          resp: myName
-        }
-      }
+      screen: { in: ['outgoing', 'incoming', 'reception'] },
+      OR: [
+        { positions: { some: { resp: myName } } },
+        { from: myName },
+        { fromId: myId },
+      ]
     },
     include: {
       positions: { orderBy: { createdAt: 'asc' } }

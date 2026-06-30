@@ -1151,13 +1151,7 @@ export default function AdminApp({ user }: Props) {
                         {order.deadline && <span style={{ fontSize: 12, color: '#8a847c' }}>срок {fmtDate(order.deadline)}</span>}
                         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                           <Btn size="sm" onClick={() => handleAction(order.id, 'returnOut')}>← Вернуть</Btn>
-                          <Btn size="sm" variant="primary" onClick={() => {
-                            const noResp = order.positions.filter(p => !p.resp)
-                            if (noResp.length > 0) {
-                              if (!confirm(`⚠️ У ${noResp.length} позиций не назначен логист. Они будут "невидимы" в портале логиста. Всё равно отправить?`)) return
-                            }
-                            handleAction(order.id, 'process')
-                          }}>ОТПРАВИТЬ В ИСХОДЯЩИЕ →</Btn>
+                          <Btn size="sm" variant="primary" onClick={() => handleAction(order.id, 'process')}>ОТПРАВИТЬ В ИСХОДЯЩИЕ →</Btn>
                         </div>
                       </div>
 
@@ -1181,7 +1175,7 @@ export default function AdminApp({ user }: Props) {
                               const ed = editingPositions[pos.id] || {}
                               const isEditing = !!editingPositions[pos.id]
                               return (
-                                <tr key={pos.id} style={{ borderBottom: '1px solid #f1efec', background: !pos.resp ? '#fff5f0' : 'transparent' }} onClick={() => !isEditing && startEditPos(pos)}>
+                                <tr key={pos.id} style={{ borderBottom: '1px solid #f1efec', background: !(ed.resp !== undefined ? ed.resp : pos.resp) ? '#fff5f0' : 'transparent' }} onClick={() => !isEditing && startEditPos(pos)}>
                                   {/* СО СЛОВ — жёлтый readonly */}
                                   <td style={{ padding: '6px 8px' }}>
                                     <div style={{ background: '#fff8e1', borderRadius: 6, padding: '4px 8px', fontSize: 12, color: '#8a6f00', minWidth: 80, cursor: 'default' }}>{pos.oral || '—'}</div>
