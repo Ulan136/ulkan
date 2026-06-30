@@ -38,12 +38,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           const lines = order.comment.split('\n').filter(l => l.trim())
           if (lines.length > 0) {
             await prisma.position.createMany({
-              data: lines.map((line, i) => ({
-                id: generatePosId(id, i + 1),
-                cardId: id,
-                oral: line.trim(),
-                status: 'В работе',
-              }))
+              data: lines.map((line, i) => {
+                const trimmed = line.trim()
+                const qtyMatch = trimmed.match(/(\d+(?:[.,]\d+)?)\s*(шт|м2|м\u00b2|кв\.?м|кг|рулон|усл)\b/i)
+                const qty = qtyMatch ? parseFloat(qtyMatch[1].replace(',', '.')) : 0
+                const unit = qtyMatch ? qtyMatch[2].toLowerCase().replace('кв.м', 'м2').replace('м\u00b2', 'м2') : 'шт'
+                return {
+                  id: generatePosId(id, i + 1),
+                  cardId: id,
+                  oral: trimmed,
+                  qty,
+                  unit,
+                  status: 'В работе',
+                }
+              })
             })
           }
         }
