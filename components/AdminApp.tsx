@@ -232,36 +232,16 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings 
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name1c || p.oral || '—'}</div>
                       {p.oral && p.name1c && <div style={{ fontSize: 12, color: '#8a847c' }}>{p.oral}</div>}
+                      <div style={{ fontSize: 12, color: '#8a847c', marginTop: 2 }}>
+                        {p.qty} {p.unit} · {p.supplier || '—'}
+                        {p.price > 0 && ` · ${fmtMoney(p.qty * p.price)}`}
+                      </div>
                     </div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       <StatusBadge status={p.status} />
                       {p.late && <span style={{ fontSize: 10, background: '#faeaea', color: '#b03020', padding: '1px 6px', borderRadius: 20, fontWeight: 600 }}>ПРОСРОЧ.</span>}
                     </div>
                   </div>
-                  {/* Кол-во / Ед. / Поставщик */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gap: 8, marginBottom: 8 }}>
-                    <div>
-                      <label style={{ fontSize: 10, fontWeight: 700, color: '#8a847c', letterSpacing: '.04em', display: 'block', marginBottom: 3 }}>КОЛ-ВО</label>
-                      <input type="number" inputMode="decimal" style={{ ...INP, fontSize: 12, padding: '6px 10px' }} value={p.qty || ''} placeholder="0"
-                        onChange={e => handleStatusChange(order.id, 'updatePosDetail', { posId: p.id, name1c: p.name1c, oral: p.oral, qty: Number(e.target.value) || 0, unit: p.unit, price: p.price, resp: p.resp, supplier: p.supplier, supplierId: p.supplierId, status: p.status, payment: p.payment, late: p.late, deadline: p.deadline })} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 10, fontWeight: 700, color: '#8a847c', letterSpacing: '.04em', display: 'block', marginBottom: 3 }}>ЕД.</label>
-                      <input style={{ ...INP, fontSize: 12, padding: '6px 10px' }} value={p.unit || ''} placeholder="шт"
-                        onChange={e => handleStatusChange(order.id, 'updatePosDetail', { posId: p.id, name1c: p.name1c, oral: p.oral, qty: p.qty, unit: e.target.value, price: p.price, resp: p.resp, supplier: p.supplier, supplierId: p.supplierId, status: p.status, payment: p.payment, late: p.late, deadline: p.deadline })} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 10, fontWeight: 700, color: '#8a847c', letterSpacing: '.04em', display: 'block', marginBottom: 3 }}>ПОСТАВЩИК</label>
-                      <UnifiedSelect
-                        value={p.supplier}
-                        onChange={v => handleStatusChange(order.id, 'updatePosDetail', { posId: p.id, name1c: p.name1c, oral: p.oral, qty: p.qty, unit: p.unit, price: p.price, resp: p.resp, supplier: v, supplierId: p.supplierId, status: p.status, payment: p.payment, late: p.late, deadline: p.deadline })}
-                        placeholder="—"
-                        style={{ fontSize: 12, padding: '6px 10px' }}
-                        settings={settings}
-                      />
-                    </div>
-                  </div>
-                  {p.price > 0 && <div style={{ fontSize: 12, color: '#8a847c', marginBottom: 8 }}>Сумма: {fmtMoney(p.qty * p.price)}</div>}
                   {/* Назначить логиста */}
                   <div style={{ marginBottom: 8 }}>
                     <label style={{ fontSize: 10, fontWeight: 700, color: '#8a847c', letterSpacing: '.04em', display: 'block', marginBottom: 3 }}>ЛОГИСТ</label>
