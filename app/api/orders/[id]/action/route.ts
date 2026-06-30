@@ -226,7 +226,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             await updateReserve(posId, oldPos.qty, Number(posData.qty) || 0)
           }
         }
-        historyText = 'Позиция обновлена'
+        // Не пишем в историю — слишком частые мелкие изменения засоряют ленту
         break
       }
 
