@@ -80,10 +80,11 @@ const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: '#8a847
 
 // ─── Модалка деталей карточки ────────────────────────────────────────────────
 
-function CardDetailModal({ order, onClose, onAction, suppliers, toast }: {
+function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings }: {
   order: Order; onClose: () => void
   onAction: (id: string, action: string, payload?: Record<string, unknown>) => Promise<void>
   suppliers: { id: string; name: string }[]; toast: (m: string) => void
+  settings: SettingsData | null
 }) {
   const [history, setHistory] = useState<any[]>([])
   const [tab, setTab] = useState<'positions' | 'history'>('positions')
@@ -231,7 +232,7 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast }: {
                       <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name1c || p.oral || '—'}</div>
                       {p.oral && p.name1c && <div style={{ fontSize: 12, color: '#8a847c' }}>{p.oral}</div>}
                       <div style={{ fontSize: 12, color: '#8a847c', marginTop: 2 }}>
-                        {p.qty} {p.unit} · {p.supplier || '—'} · {p.resp || '—'}
+                        {p.qty} {p.unit} · {p.supplier || '—'}
                         {p.price > 0 && ` · ${fmtMoney(p.qty * p.price)}`}
                       </div>
                     </div>
@@ -239,6 +240,17 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast }: {
                       <StatusBadge status={p.status} />
                       {p.late && <span style={{ fontSize: 10, background: '#faeaea', color: '#b03020', padding: '1px 6px', borderRadius: 20, fontWeight: 600 }}>ПРОСРОЧ.</span>}
                     </div>
+                  </div>
+                  {/* Назначить логиста */}
+                  <div style={{ marginBottom: 8 }}>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: '#8a847c', letterSpacing: '.04em', display: 'block', marginBottom: 3 }}>ЛОГИСТ</label>
+                    <UnifiedSelect
+                      value={p.resp}
+                      onChange={v => handleStatusChange(order.id, 'updatePosDetail', { posId: p.id, name1c: p.name1c, oral: p.oral, qty: p.qty, unit: p.unit, price: p.price, resp: v, supplier: p.supplier, supplierId: p.supplierId, status: p.status, payment: p.payment, late: p.late, deadline: p.deadline })}
+                      placeholder="— не назначен —"
+                      style={{ fontSize: 12, padding: '6px 10px' }}
+                      settings={settings}
+                    />
                   </div>
                   {/* Быстрая смена статуса позиции */}
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -1139,7 +1151,13 @@ export default function AdminApp({ user }: Props) {
                         {order.deadline && <span style={{ fontSize: 12, color: '#8a847c' }}>срок {fmtDate(order.deadline)}</span>}
                         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                           <Btn size="sm" onClick={() => handleAction(order.id, 'returnOut')}>← Вернуть</Btn>
-                          <Btn size="sm" variant="primary" onClick={() => handleAction(order.id, 'process')}>ОТПРАВИТЬ В ИСХОДЯЩИЕ →</Btn>
+                          <Btn size="sm" variant="primary" onClick={() => {
+                            const noResp = order.positions.filter(p => !p.resp)
+                            if (noResp.length > 0) {
+                              if (!confirm(`⚠️ У ${noResp.length} позиций не назначен логист. Они будут "невидимы" в портале логиста. Всё равно отправить?`)) return
+                            }
+                            handleAction(order.id, 'process')
+                          }}>ОТПРАВИТЬ В ИСХОДЯЩИЕ →</Btn>
                         </div>
                       </div>
 
@@ -1163,7 +1181,7 @@ export default function AdminApp({ user }: Props) {
                               const ed = editingPositions[pos.id] || {}
                               const isEditing = !!editingPositions[pos.id]
                               return (
-                                <tr key={pos.id} style={{ borderBottom: '1px solid #f1efec' }} onClick={() => !isEditing && startEditPos(pos)}>
+                                <tr key={pos.id} style={{ borderBottom: '1px solid #f1efec', background: !pos.resp ? '#fff5f0' : 'transparent' }} onClick={() => !isEditing && startEditPos(pos)}>
                                   {/* СО СЛОВ — жёлтый readonly */}
                                   <td style={{ padding: '6px 8px' }}>
                                     <div style={{ background: '#fff8e1', borderRadius: 6, padding: '4px 8px', fontSize: 12, color: '#8a6f00', minWidth: 80, cursor: 'default' }}>{pos.oral || '—'}</div>
@@ -1576,44 +1594,53 @@ export default function AdminApp({ user }: Props) {
             })()}
           {/* ── СМЕНЫ ── */}
             {bookTab === 'shifts' && (() => {
-              const doneReports = dailyReports.filter(r => r.status !== 'archive')
-              const byDate: Record<string, typeof doneReports> = {}
-              doneReports.forEach(r => {
+              // Архив закрытых смен
+              const archivedReports = dailyReports.filter(r => r.status === 'archive')
+              const byDate: Record<string, typeof archivedReports> = {}
+              archivedReports.forEach(r => {
                 const d = r.date ? r.date.slice(0, 10) : 'unknown'
                 if (!byDate[d]) byDate[d] = []
                 byDate[d].push(r)
               })
               const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a))
+
               return (
                 <div>
+                  {/* Кнопка закрыть смену */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <div style={{ fontSize: 13, color: '#8a847c' }}>
+                      Принятых отчётов: <strong style={{ color: '#26231f' }}>{dailyReports.filter(r => r.status === 'done').length}</strong>
+                    </div>
+                    <button onClick={async () => {
+                      const toClose = dailyReports.filter(r => r.status === 'done')
+                      if (toClose.length === 0) { showToast('Нет принятых отчётов для закрытия'); return }
+                      await Promise.all(toClose.map(r => updateDailyReport(r.id, 'archive')))
+                      fetchDailyReports().then(r => setDailyReports(r as DailyReport[]))
+                      showToast(`✓ Смена закрыта — ${toClose.length} отчётов`)
+                    }} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: COLORS.primary, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      ✓ Закрыть смену
+                    </button>
+                  </div>
+
+                  {/* Архив закрытых смен по датам */}
                   {dates.length === 0
-                    ? <div style={{ color: '#8a847c', fontSize: 13, padding: '20px 0' }}>Нет смен — сначала примите отчёты логистов во вкладке "Отчёты логистов"</div>
+                    ? <div style={{ color: '#8a847c', fontSize: 13, padding: '20px 0' }}>Нет закрытых смен</div>
                     : dates.map(date => {
                         const reps = byDate[date]
-                        const allDone = reps.every(r => r.status === 'done')
                         const totalRows = reps.reduce((sum, r) => sum + r.rows.length, 0)
                         return (
                           <div key={date} style={{ background: '#fff', borderRadius: 12, padding: 20, marginBottom: 14, boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                               <div>
-                                <div style={{ fontWeight: 700, fontSize: 16 }}>📅 {new Date(date).toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+                                <div style={{ fontWeight: 700, fontSize: 15 }}>📅 {new Date(date).toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
                                 <div style={{ fontSize: 12, color: '#8a847c', marginTop: 2 }}>{reps.length} логистов · {totalRows} позиций</div>
                               </div>
-                              {allDone
-                                ? <button onClick={async () => {
-                                    await Promise.all(reps.map(r => updateDailyReport(r.id, 'archive')))
-                                    fetchDailyReports().then(r => setDailyReports(r as DailyReport[]))
-                                    showToast('✓ Смена закрыта')
-                                  }} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: COLORS.primary, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                                    ✓ Закрыть смену
-                                  </button>
-                                : <span style={{ fontSize: 12, color: '#8a847c' }}>Не все отчёты приняты</span>
-                              }
+                              <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: '#e8f5ee', color: '#2e8a5e', fontWeight: 600 }}>✓ Закрыта</span>
                             </div>
                             <div style={{ overflowX: 'auto' }}>
-                              <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', minWidth: 650 }}>
+                              <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', minWidth: 600 }}>
                                 <thead><tr style={{ background: '#f8f6f3' }}>
-                                  {['ЛОГИСТ', 'ОТ КОГО', 'НАИМ.', 'ПРИХОД', 'КОМУ', 'РАСХОД', 'СТАТУС'].map(h => (
+                                  {['ЛОГИСТ', 'ОТ КОГО', 'НАИМ.', 'ПРИХОД', 'КОМУ', 'РАСХОД'].map(h => (
                                     <th key={h} style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>{h}</th>
                                   ))}
                                 </tr></thead>
@@ -1626,11 +1653,6 @@ export default function AdminApp({ user }: Props) {
                                       <td style={{ padding: '6px 10px' }}>{row.qtyIn || '—'}</td>
                                       <td style={{ padding: '6px 10px' }}>{row.toWho || '—'}</td>
                                       <td style={{ padding: '6px 10px' }}>{row.qtyOut || '—'}</td>
-                                      <td style={{ padding: '6px 10px' }}>
-                                        {i === 0 && <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: r.status === 'done' ? '#e8f5ee' : '#fff0ea', color: r.status === 'done' ? '#2e8a5e' : '#c0532a' }}>
-                                          {r.status === 'done' ? '✓ Принят' : '⏳ Ожидает'}
-                                        </span>}
-                                      </td>
                                     </tr>
                                   )))}
                                 </tbody>
@@ -1934,6 +1956,7 @@ export default function AdminApp({ user }: Props) {
           onAction={handleAction}
           suppliers={settings?.suppliers || []}
           toast={showToast}
+          settings={settings}
         />
       )}
 
