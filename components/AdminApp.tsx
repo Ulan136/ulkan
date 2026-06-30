@@ -1738,7 +1738,19 @@ export default function AdminApp({ user }: Props) {
                             </td>
                             <td style={{ padding: '10px 14px' }}><span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 20, fontWeight: 600, background: u.active ? '#e8f5ee' : '#faeaea', color: u.active ? '#2e8a5e' : '#b03020' }}>{u.active ? 'Активен' : 'Отключён'}</span></td>
                             <td style={{ padding: '10px 14px' }}>
-                              {user.role === 'super_admin' && <Btn size="sm" onClick={() => setEditingUser(u)}>Изменить</Btn>}
+                              {user.role === 'super_admin' && (
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  <Btn size="sm" onClick={() => setEditingUser(u)}>Изменить</Btn>
+                                  <Btn size="sm" variant="danger" onClick={async () => {
+                                    if (!confirm(`Удалить пользователя "${u.name}"? Это действие нельзя отменить.`)) return
+                                    try {
+                                      await fetch(`/api/users/${u.id}`, { method: 'DELETE' })
+                                      loadSettings()
+                                      showToast(`✓ Пользователь "${u.name}" удалён`)
+                                    } catch (e: any) { showToast(e.message || 'Ошибка удаления') }
+                                  }}>Удалить</Btn>
+                                </div>
+                              )}
                             </td>
                           </tr>
                         )

@@ -54,3 +54,25 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Ошибка обновления' }, { status: 500 })
   }
 }
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSessionFromRequest(req)
+  if (!session || session.role !== 'super_admin') return NextResponse.json({ error: 'Нет доступа' }, { status: 403 })
+
+  const { id } = await params
+
+  try {
+    // Проверяем что не удаляем самого себя
+    if (id === session.id) {
+      return NextResponse.json({ error: 'Нельзя удалить самого себя' }, { status: 400 })
+    }
+
+    await prisma.user.delete({ where: { id } })
+    return NextResponse.json({ ok: true })
+  } catch (e: any) {
+    if (e.code === 'P2003') {
+      return NextResponse.json({ error: 'Нельзя удалить — есть связанные данные (карточки, уведомления). Сначала отключите пользователя.' }, { status: 409 })
+    }
+    return NextResponse.json({ error: 'Ошибка удаления' }, { status: 500 })
+  }
+}
