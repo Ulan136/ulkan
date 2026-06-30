@@ -45,15 +45,16 @@ function ProgressBar({ pct, height = 5 }: { pct: number; height?: number }) {
 function UnifiedSelect({ value, onChange, placeholder = '— выберите —', style: st, settings: s }: {
   value: string; onChange: (v: string) => void; placeholder?: string; style?: React.CSSProperties; settings: any
 }) {
-  const lg = s?.users?.filter((u: any) => u.role === 'logist') || []
-  const sp = s?.suppliers || []
-  const cl = s?.users?.filter((u: any) => ['client', 'supplier_client'].includes(u.role)) || []
+  const allUsers = s?.users || []
+  const lg = allUsers.filter((u: any) => u.role === 'logist' && u.active !== false)
+  const sp = allUsers.filter((u: any) => u.role === 'supplier_client' && u.active !== false)
+  const cl = allUsers.filter((u: any) => u.role === 'client' && u.active !== false)
   const INP2: React.CSSProperties = { padding: '9px 12px', borderRadius: 8, fontSize: 13, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', width: '100%' }
   return (
     <select style={{ ...INP2, ...st }} value={value} onChange={e => onChange(e.target.value)}>
       <option value="">{placeholder}</option>
       {lg.length > 0 && <optgroup label="Логисты">{lg.map((l: any) => <option key={l.id} value={l.name}>{l.name}</option>)}</optgroup>}
-      {sp.length > 0 && <optgroup label="Поставщики">{sp.map((s2: any) => <option key={s2.id} value={s2.name}>{s2.name}</option>)}</optgroup>}
+      {sp.length > 0 && <optgroup label="Поставщики/заказчики">{sp.map((s2: any) => <option key={s2.id} value={s2.name}>{s2.name}</option>)}</optgroup>}
       {cl.length > 0 && <optgroup label="Клиенты">{cl.map((c: any) => <option key={c.id} value={c.name}>{c.name}</option>)}</optgroup>}
     </select>
   )
@@ -1071,14 +1072,14 @@ export default function AdminApp({ user }: Props) {
                                 />
                               </td>
                               <td style={{ padding: '6px 4px', width: 70 }}>
-                                <input style={inpSm} type="number" value={pos.qty} onChange={e => recUpdatePos(i, 'qty', e.target.value)} placeholder="0" />
+                                <input style={inpSm} type="number" inputMode="decimal" value={pos.qty || ''} onChange={e => recUpdatePos(i, 'qty', e.target.value)} placeholder="0" />
                               </td>
                               <td style={{ padding: '6px 4px', width: 60 }}>
                                 <input style={inpSm} value={pos.unit} onChange={e => recUpdatePos(i, 'unit', e.target.value)} placeholder="шт" />
                               </td>
                               <td style={{ padding: '6px 4px', width: 100 }}>
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                                  <input style={inpSm} type="number" value={pos.price} onChange={e => recUpdatePos(i, 'price', e.target.value)} placeholder="0" />
+                                  <input style={inpSm} type="number" inputMode="decimal" value={pos.price || ''} onChange={e => recUpdatePos(i, 'price', e.target.value)} placeholder="0" />
                                   <button
                                     title="Оплата"
                                     onClick={() => recTogglePayment(i)}
@@ -1196,7 +1197,7 @@ export default function AdminApp({ user }: Props) {
                                   {/* КОЛ-ВО */}
                                   <td style={{ padding: '6px 4px', width: 70 }}>
                                     {isEditing
-                                      ? <input style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 60 }} type="number" value={ed.qty ?? pos.qty} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], qty: e.target.value } }))} />
+                                      ? <input style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 60 }} type="number" inputMode="decimal" value={(ed.qty ?? pos.qty) || ''} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], qty: e.target.value } }))} />
                                       : <span style={{ fontSize: 12 }}>{pos.qty}</span>
                                     }
                                   </td>
@@ -1210,7 +1211,7 @@ export default function AdminApp({ user }: Props) {
                                   {/* ЦЕНА */}
                                   <td style={{ padding: '6px 4px', width: 90 }}>
                                     {isEditing
-                                      ? <input style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 80 }} type="number" value={ed.price ?? pos.price} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], price: e.target.value } }))} />
+                                      ? <input style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 80 }} type="number" inputMode="decimal" value={(ed.price ?? pos.price) || ''} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], price: e.target.value } }))} />
                                       : <span style={{ fontSize: 12 }}>{pos.price > 0 ? fmtMoney(pos.price) : <span style={{ color: '#b8b1a6' }}>—</span>}</span>
                                     }
                                   </td>
@@ -1744,10 +1745,15 @@ export default function AdminApp({ user }: Props) {
                                   <Btn size="sm" variant="danger" onClick={async () => {
                                     if (!confirm(`Удалить пользователя "${u.name}"? Это действие нельзя отменить.`)) return
                                     try {
-                                      await fetch(`/api/users/${u.id}`, { method: 'DELETE' })
+                                      const res = await fetch(`/api/users/${u.id}`, { method: 'DELETE' })
+                                      const data = await res.json()
+                                      if (!res.ok) {
+                                        showToast(data.error || 'Ошибка удаления')
+                                        return
+                                      }
                                       loadSettings()
                                       showToast(`✓ Пользователь "${u.name}" удалён`)
-                                    } catch (e: any) { showToast(e.message || 'Ошибка удаления') }
+                                    } catch (e: any) { showToast(e.message || 'Ошибка сети') }
                                   }}>Удалить</Btn>
                                 </div>
                               )}
@@ -2129,7 +2135,7 @@ export default function AdminApp({ user }: Props) {
                       placeholder="Поиск..."
                     />
                   </div>
-                  <div><label style={LBL}>КОЛ-ВО</label><input style={{ ...INP, width: 80 }} type="number" value={item.qty} onChange={e => setNewSpec(p => ({ ...p, items: p.items.map((x, idx) => idx === i ? { ...x, qty: e.target.value } : x) }))} /></div>
+                  <div><label style={LBL}>КОЛ-ВО</label><input style={{ ...INP, width: 80 }} type="number" inputMode="decimal" value={item.qty || ''} onChange={e => setNewSpec(p => ({ ...p, items: p.items.map((x, idx) => idx === i ? { ...x, qty: e.target.value } : x) }))} /></div>
                   <div><label style={LBL}>ЕД.</label><input style={{ ...INP, width: 60 }} value={item.unit} onChange={e => setNewSpec(p => ({ ...p, items: p.items.map((x, idx) => idx === i ? { ...x, unit: e.target.value } : x) }))} /></div>
                   <button type="button" onClick={() => setNewSpec(p => ({ ...p, items: p.items.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b03020', fontSize: 20, padding: '8px 4px', alignSelf: 'flex-end' }}>×</button>
                 </div>
