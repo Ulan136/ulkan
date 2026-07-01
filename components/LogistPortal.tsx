@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchLogistOrders, orderAction, createOrder, createDailyReport, logout } from '@/lib/api'
+import InstallPrompt from '@/components/InstallPrompt'
 import { Order, SessionUser } from '@/lib/types'
 
 const PRIMARY = '#d4613a'
@@ -494,6 +495,8 @@ export default function LogistPortal({ user, logistUser }: Props) {
           ))}
         </div>
       </div>
+
+      <InstallPrompt />
     </div>
   )
 }
