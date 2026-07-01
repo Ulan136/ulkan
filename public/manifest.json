@@ -1,37 +1,15 @@
 {
-  "name": "U-Kan — Логистика",
+  "name": "U-Kan",
   "short_name": "U-Kan",
-  "description": "Система управления заказами U-Kan",
+  "description": "Система управления заказами",
   "start_url": "/login",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#211f1c",
   "theme_color": "#d4613a",
   "orientation": "portrait-primary",
   "icons": [
-    {
-      "src": "/icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icons/icon-maskable-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "/icons/icon-maskable-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
-  ],
-  "scope": "/"
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
 }
