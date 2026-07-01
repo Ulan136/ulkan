@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import Head from 'next/head'
 
 function LoginForm() {
   const [mode, setMode] = useState<'email' | 'phone'>('email')
@@ -58,17 +59,12 @@ function LoginForm() {
   return (
     <div style={{ minHeight: '100vh', background: '#f1efec', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ width: 380, background: '#fff', borderRadius: 16, padding: 32, boxShadow: '0 2px 16px rgba(0,0,0,0.08)' }}>
-
-        {/* Лого */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
           <div style={{ width: 36, height: 36, background: '#d4613a', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16 }}>U</div>
           <span style={{ fontWeight: 700, fontSize: 18 }}>U-Kan</span>
         </div>
-
         <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 4 }}>Вход в систему</div>
         <div style={{ color: '#8a847c', fontSize: 13, marginBottom: 20 }}>Выберите способ входа</div>
-
-        {/* Переключатель */}
         <div style={{ display: 'flex', background: '#f1efec', borderRadius: 10, padding: 4, marginBottom: 20 }}>
           {[['email', '📧 Email + пароль'], ['phone', '📱 По телефону']].map(([m, l]) => (
             <button key={m} onClick={() => { setMode(m as any); setError('') }} style={{ flex: 1, padding: '8px', borderRadius: 7, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: mode === m ? '#fff' : 'transparent', color: mode === m ? '#26231f' : '#8a847c', boxShadow: mode === m ? '0 1px 4px rgba(0,0,0,.1)' : 'none' }}>
@@ -76,10 +72,7 @@ function LoginForm() {
             </button>
           ))}
         </div>
-
         {error && <div style={{ background: '#faeaea', color: '#b03020', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>{error}</div>}
-
-        {/* Email форма */}
         {mode === 'email' && (
           <form onSubmit={handleEmail} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div><label style={lbl}>EMAIL</label><input style={inp} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@u-kan.kz" required /></div>
@@ -89,8 +82,6 @@ function LoginForm() {
             </button>
           </form>
         )}
-
-        {/* Телефон форма */}
         {mode === 'phone' && (
           <form onSubmit={handlePhone} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
@@ -103,15 +94,12 @@ function LoginForm() {
             </button>
           </form>
         )}
-
-        {/* Демо */}
         <div style={{ marginTop: 20, padding: 12, background: '#f1efec', borderRadius: 8, fontSize: 12, color: '#8a847c' }}>
           <div style={{ fontWeight: 600, marginBottom: 4 }}>Демо доступ:</div>
           <div>admin@u-kan.kz / admin123</div>
           <div>buh@u-kan.kz / buh123</div>
           <div style={{ marginTop: 4, borderTop: '1px solid #e6e2dc', paddingTop: 4 }}>Логист: телефон из настроек</div>
         </div>
-
         <div style={{ textAlign: 'center', marginTop: 16 }}>
           <a href="/register" style={{ color: '#8a847c', fontSize: 13 }}>Новый клиент? Зарегистрироваться →</a>
         </div>
@@ -122,8 +110,15 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#f1efec' }} />}>
-      <LoginForm />
-    </Suspense>
+    <>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#d4613a" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+      </head>
+      <Suspense fallback={<div style={{ minHeight: '100vh', background: '#f1efec' }} />}>
+        <LoginForm />
+      </Suspense>
+    </>
   )
 }
