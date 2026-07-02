@@ -58,10 +58,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         break
 
       // ── Приёмка Блок 2: отправить в исходящие ──
-      case 'process':
+      case 'process': {
         updateData = { screen: 'outgoing', status: 'В работе', block: '' }
         historyText = 'Отправлен в Исходящие'
+        // Резервируем позиции с Центр Склад
+        const posToReserve = order.positions.filter(p => p.supplier === 'Центр Склад' && p.qty > 0 && p.name1c)
+        for (const pos of posToReserve) {
+          await reserveStock(pos.id, pos.name1c, pos.qty)
+        }
+        if (posToReserve.length > 0) {
+          historyText = `Отправлен в Исходящие (зарезервировано ${posToReserve.length} позиций на складе)`
+        }
         break
+      }
 
       // ── Обновить статус позиции ──
       case 'updatePos': {
@@ -99,17 +108,47 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           historyText = 'Все позиции доставлены'
           if (order.contactId) await notify(order.contactId, `✅ Заказ ${id} полностью доставлен!`, id)
           await notifyAdmins(`Заказ ${id} полностью доставлен`, id)
+
+          // Если получатель = Центр Склад → автоматический приход на склад
+          if (order.to === 'Центр Склад') {
+            const { incomeStock } = await import('@/lib/stock')
+            const centerSklad = await prisma.supplier.findFirst({ where: { name: 'Центр Склад' } })
+            if (centerSklad) {
+              for (const pos of updatedPositions) {
+                if (pos.name1c && pos.qty > 0) {
+                  await incomeStock(pos.name1c, pos.qty, centerSklad.id)
+                }
+              }
+              historyText = `Все позиции доставлены → приход на склад (${updatedPositions.length} позиций)`
+            }
+          }
         }
         break
       }
 
       // ── Все позиции доставлены ──
-      case 'markAll':
+      case 'markAll': {
+        const allPositions = await prisma.position.findMany({ where: { cardId: id } })
         await prisma.position.updateMany({ where: { cardId: id }, data: { status: 'Доставлено' } })
         updateData = { screen: 'incoming', status: 'Доставлено', toacc: true, delivered: new Date() }
         historyText = 'Все позиции доставлены'
         if (order.contactId) await notify(order.contactId, `Заказ ${id} доставлен!`, id)
+
+        // Если получатель = Центр Склад → автоматический приход на склад
+        if (order.to === 'Центр Склад') {
+          const { incomeStock } = await import('@/lib/stock')
+          const centerSklad = await prisma.supplier.findFirst({ where: { name: 'Центр Склад' } })
+          if (centerSklad) {
+            for (const pos of allPositions) {
+              if (pos.name1c && pos.qty > 0) {
+                await incomeStock(pos.name1c, pos.qty, centerSklad.id)
+              }
+            }
+            historyText = `Все позиции доставлены → приход на склад (${allPositions.length} позиций)`
+          }
+        }
         break
+      }
 
       case 'sendAcc':
         updateData = { screen: 'accounting', status: 'К учёту' }
