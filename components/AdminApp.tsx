@@ -1151,7 +1151,14 @@ export default function AdminApp({ user }: Props) {
                       <div style={{ padding: '12px 16px', background: '#faf8f6', borderBottom: '1px solid #f1efec', display: 'flex', alignItems: 'center', gap: 10 }}>
                         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: COLORS.primary }}>{order.id}</span>
                         <StatusBadge status={order.status} />
-                        <span style={{ fontSize: 13, fontWeight: 500 }}>{order.from} → {order.to || '—'}</span>
+                        <span style={{ fontSize: 13, fontWeight: 500 }}>{order.from} →</span>
+                        <UnifiedSelect
+                          value={order.to || ''}
+                          onChange={v => handleAction(order.id, 'updateOrder', { to: v })}
+                          placeholder="К кому / куда"
+                          style={{ fontSize: 12, padding: '4px 8px', minWidth: 140 }}
+                          settings={settings}
+                        />
                         {order.deadline && <span style={{ fontSize: 12, color: '#8a847c' }}>срок {fmtDate(order.deadline)}</span>}
                         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                           <Btn size="sm" onClick={() => handleAction(order.id, 'returnOut')}>← Вернуть</Btn>

@@ -180,6 +180,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         historyText = 'Восстановлен из отменённых'
         break
 
+      case 'updateOrder':
+        if (payload.to !== undefined) updateData.to = payload.to
+        if (payload.deadline !== undefined) updateData.deadline = payload.deadline ? new Date(payload.deadline) : null
+        historyText = ''
+        break
+
       case 'confirmChg':
         updateData = { isChanged: false }
         historyText = 'Изменение подтверждено'
