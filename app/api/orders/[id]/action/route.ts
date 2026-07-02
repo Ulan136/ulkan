@@ -186,6 +186,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         historyText = ''
         break
 
+      // ── Филиал: передать дальше через логиста (плечо 2) ──
+      case 'branchForward': {
+        // Сбрасываем статусы позиций на "В работе" для второго плеча
+        await prisma.position.updateMany({
+          where: { cardId: id },
+          data: { status: 'В работе' }
+        })
+        // Меняем from на филиал, карточка снова идёт в исходящие
+        updateData = {
+          from: payload.branchName || order.to,
+          screen: 'outgoing',
+          status: 'В работе',
+          toacc: false,
+          delivered: null,
+        }
+        historyText = `Передано филиалом ${payload.branchName || order.to} → второе плечо доставки`
+        break
+      }
+
+      // ── Филиал: принял товар ──
+      case 'branchAccept':
+        updateData = { status: 'Принято филиалом' }
+        historyText = `Товар принят филиалом ${payload.branchName || order.to}`
+        break
+
       case 'confirmChg':
         updateData = { isChanged: false }
         historyText = 'Изменение подтверждено'

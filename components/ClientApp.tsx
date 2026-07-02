@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { fetchClientOrders, createClientOrder, fetchNotifications, markNotificationRead, logout } from '@/lib/api'
+import { fetchClientOrders, createClientOrder, fetchNotifications, markNotificationRead, logout, orderAction } from '@/lib/api'
 import { Order, SessionUser, Notification } from '@/lib/types'
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
@@ -203,6 +203,36 @@ export default function ClientApp({ user, clientUser }: Props) {
                                 ))}
                               </div>
                             )}
+                            {/* Кнопки для филиала */}
+                            {user.role === 'branch' && o.screen === 'outgoing' && (
+                              <div style={{ marginTop: 14, padding: '12px 14px', background: '#f8f6f3', borderRadius: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                                <span style={{ fontSize: 12, color: '#8a847c', fontWeight: 600 }}>ДЕЙСТВИЯ ФИЛИАЛА:</span>
+                                {o.status !== 'Принято филиалом' && (
+                                  <button onClick={async e => {
+                                    e.stopPropagation()
+                                    await orderAction(o.id, 'branchAccept', { branchName: clientUser.name })
+                                    load()
+                                    setToast('✓ Товар принят филиалом')
+                                  }} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#d4613a', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13, fontFamily: 'inherit' }}>
+                                    ✓ Принял
+                                  </button>
+                                )}
+                                {o.status === 'Принято филиалом' && (
+                                  <>
+                                    <span style={{ fontSize: 12, padding: '4px 10px', borderRadius: 20, background: '#e8f5ee', color: '#2e8a5e', fontWeight: 600 }}>✓ Принято</span>
+                                    <button onClick={async e => {
+                                      e.stopPropagation()
+                                      await orderAction(o.id, 'branchForward', { branchName: clientUser.name })
+                                      load()
+                                      setToast('✓ Передано логисту для доставки клиенту')
+                                    }} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#d4613a', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13, fontFamily: 'inherit' }}>
+                                      К доставке →
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            )}
+
                             <div style={{ marginTop: 12 }}>
                               <a href={o.trackingLink} target="_blank" rel="noreferrer" style={{ color: '#d4613a', fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>
                                 Открыть трекинг →
