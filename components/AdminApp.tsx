@@ -1055,7 +1055,7 @@ export default function AdminApp({ user }: Props) {
                       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
                         <thead>
                           <tr style={{ background: '#f1efec' }}>
-                            {['НАИМЕНОВАНИЕ', 'КОЛ-ВО', 'ЕД.', 'ЦЕНА (ТГ)', 'ЛОГИСТ', 'ПОСТАВЩИК', 'СРОК', ''].map(h => (
+                            {['НАИМЕНОВАНИЕ', 'КОЛ-ВО', 'ЕД.', 'ЦЕНА (ТГ)', 'ЛОГИСТ', 'ПОСТАВЩИК', 'СРОК', 'ОПЛАТА', ''].map(h => (
                               <th key={h} style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
                           </tr>
@@ -1110,6 +1110,14 @@ export default function AdminApp({ user }: Props) {
                               </td>
                               <td style={{ padding: '6px 4px', width: 110 }}>
                                 <input style={inpSm} type="date" value={pos.deadline} onChange={e => recUpdatePos(i, 'deadline', e.target.value)} />
+                              </td>
+                              <td style={{ padding: '6px 4px', width: 110 }}>
+                                <select style={selSm} value={pos.payment} onChange={e => recUpdatePos(i, 'payment', e.target.value)}>
+                                  <option value="">—</option>
+                                  <option value="Оплачено">Оплачено</option>
+                                  <option value="Не оплачено">Не оплачено</option>
+                                  <option value="Частично">Частично</option>
+                                </select>
                               </td>
                               <td style={{ padding: '6px 4px', width: 64 }}>
                                 <div style={{ display: 'flex', gap: 2 }}>
