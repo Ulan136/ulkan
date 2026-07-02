@@ -1155,7 +1155,43 @@ export default function AdminApp({ user }: Props) {
                         {order.deadline && <span style={{ fontSize: 12, color: '#8a847c' }}>срок {fmtDate(order.deadline)}</span>}
                         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                           <Btn size="sm" onClick={() => handleAction(order.id, 'returnOut')}>← Вернуть</Btn>
-                          <Btn size="sm" variant="primary" onClick={() => handleAction(order.id, 'process')}>ОТПРАВИТЬ В ИСХОДЯЩИЕ →</Btn>
+                          <Btn size="sm" variant="primary" onClick={async () => {
+                            // 1. Сначала сохраняем все несохранённые изменения позиций
+                            const drafts = Object.entries(editingPositions)
+                            for (const [posId, ed] of drafts) {
+                              const pos = order.positions.find(p => p.id === posId)
+                              if (!pos) continue
+                              await handleAction(order.id, 'updatePosDetail', {
+                                posId,
+                                name1c: ed.name1c ?? pos.name1c,
+                                oral: pos.oral,
+                                qty: Number(ed.qty ?? pos.qty) || 0,
+                                unit: ed.unit ?? pos.unit,
+                                price: Number(ed.price ?? pos.price) || 0,
+                                resp: ed.resp ?? pos.resp,
+                                supplier: ed.supplier ?? pos.supplier,
+                                supplierId: ed.supplierId ?? pos.supplierId,
+                                status: ed.status ?? pos.status,
+                                payment: ed.payment ?? pos.payment,
+                                deadline: ed.deadline ?? pos.deadline,
+                                late: pos.late,
+                              })
+                            }
+                            setEditingPositions({})
+                            // 2. Проверяем name1c у всех позиций
+                            const latest = orders.find(o => o.id === order.id)
+                            const positions = latest?.positions || order.positions
+                            const noName = positions.filter(p => {
+                              const ed = editingPositions[p.id]
+                              return !(ed?.name1c ?? p.name1c)
+                            })
+                            if (noName.length > 0) {
+                              showToast(`⚠️ Заполните НАИМ. 1С у ${noName.length} позиций`)
+                              return
+                            }
+                            // 3. Отправляем в исходящие
+                            handleAction(order.id, 'process')
+                          }}>ОТПРАВИТЬ В ИСХОДЯЩИЕ →</Btn>
                         </div>
                       </div>
 
@@ -1179,7 +1215,7 @@ export default function AdminApp({ user }: Props) {
                               const ed = editingPositions[pos.id] || {}
                               const isEditing = !!editingPositions[pos.id]
                               return (
-                                <tr key={pos.id} style={{ borderBottom: '1px solid #f1efec', background: !(ed.resp !== undefined ? ed.resp : pos.resp) ? '#fff5f0' : 'transparent' }} onClick={() => !isEditing && startEditPos(pos)}>
+                                <tr key={pos.id} style={{ borderBottom: '1px solid #f1efec', background: !(ed.name1c !== undefined ? ed.name1c : pos.name1c) ? '#fff5f0' : 'transparent', cursor: isEditing ? 'default' : 'pointer' }} onClick={() => !isEditing && startEditPos(pos)}>
                                   {/* СО СЛОВ — жёлтый readonly */}
                                   <td style={{ padding: '6px 8px' }}>
                                     <div style={{ background: '#fff8e1', borderRadius: 6, padding: '4px 8px', fontSize: 12, color: '#8a6f00', minWidth: 80, cursor: 'default' }}>{pos.oral || '—'}</div>
