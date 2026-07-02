@@ -47,7 +47,8 @@ export default function ClientApp({ user, clientUser }: Props) {
   const [orders, setOrders] = useState<Order[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'orders' | 'new' | 'notifications'>('orders')
+  const isBranch = user.role === 'branch'
+  const [tab, setTab] = useState<'orders' | 'incoming' | 'new' | 'notifications'>('orders')
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [toast, setToast] = useState('')
   const [copied, setCopied] = useState('')
@@ -77,6 +78,9 @@ export default function ClientApp({ user, clientUser }: Props) {
   }, [load])
 
   const unread = notifications.filter(n => !n.read).length
+  // Для филиала — входящие карточки (адресованные мне)
+  const incomingOrders = orders.filter(o => o.to === clientUser.name && o.fromId !== user.id)
+  const myOrders = orders.filter(o => o.fromId === user.id)
   const base = typeof window !== 'undefined' ? window.location.origin : 'https://ulkan.vercel.app'
 
   function copy(text: string, key: string) {
@@ -138,7 +142,8 @@ export default function ClientApp({ user, clientUser }: Props) {
         {/* Табы */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
           {[
-            { key: 'orders', label: `Мои заявки (${orders.length})` },
+            ...(isBranch ? [{ key: 'incoming', label: `📥 Входящие (${incomingOrders.length})` }] : []),
+            { key: 'orders', label: `Мои заявки (${myOrders.length})` },
             { key: 'new', label: '+ Новая заявка' },
             { key: 'notifications', label: `Уведомления${unread > 0 ? ` (${unread})` : ''}` },
           ].map(t => (
@@ -151,11 +156,105 @@ export default function ClientApp({ user, clientUser }: Props) {
           </div>
         </div>
 
+        {/* === ВХОДЯЩИЕ (для Филиала) === */}
+        {tab === 'incoming' && (
+          <div className="anim-fade">
+            {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
+              : incomingOrders.length === 0 ? (
+                <div style={{ background: '#fff', borderRadius: 14, padding: 40, textAlign: 'center', boxShadow: '0 0 0 1px #e6e2dc' }}>
+                  <div style={{ fontSize: 32, marginBottom: 12 }}>📥</div>
+                  <div style={{ fontWeight: 600, marginBottom: 8 }}>Нет входящих карточек</div>
+                  <div style={{ color: '#8a847c', fontSize: 13 }}>Карточки появятся когда вас назначат получателем</div>
+                </div>
+              ) : incomingOrders.map(o => {
+                const pct = cardProgress(o)
+                const allDelivered = o.positions.length > 0 && o.positions.every(p => p.status === 'Доставлено')
+                const accepted = o.status === 'Принято филиалом'
+                return (
+                  <div key={o.id} style={{ background: '#fff', borderRadius: 14, marginBottom: 12, boxShadow: '0 0 0 1px #e6e2dc', overflow: 'hidden' }}>
+                    {/* Шапка */}
+                    <div style={{ padding: '14px 16px', cursor: 'pointer' }} onClick={() => setSelectedOrder(selectedOrder?.id === o.id ? null : o)}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: '#d4613a' }}>{o.id}</span>
+                          <StatusBadge status={o.status} />
+                        </div>
+                        <span style={{ fontSize: 12, color: '#8a847c' }}>{fmtDate(o.createdAt)}</span>
+                      </div>
+                      <div style={{ fontSize: 13, color: '#26231f', marginBottom: 6 }}>
+                        {o.from} → <strong>{o.to}</strong>
+                        {o.deadline && <span style={{ color: '#8a847c', marginLeft: 8 }}>до {fmtDate(o.deadline)}</span>}
+                      </div>
+                      {/* Прогресс */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ flex: 1, height: 5, background: '#f1efec', borderRadius: 3, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${pct}%`, background: barColor(pct), borderRadius: 3, transition: 'width .3s' }} />
+                        </div>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: barColor(pct), minWidth: 36, textAlign: 'right' }}>{pct}%</span>
+                      </div>
+                    </div>
+
+                    {/* Детали */}
+                    {selectedOrder?.id === o.id && (
+                      <div style={{ padding: '0 16px 16px' }}>
+                        {/* Позиции */}
+                        {o.positions.length > 0 && (
+                          <div style={{ marginBottom: 14 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#8a847c', marginBottom: 8, letterSpacing: '.04em' }}>ПОЗИЦИИ</div>
+                            {o.positions.map((p, i) => (
+                              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid #f1efec' }}>
+                                <div>
+                                  <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name1c || p.oral}</div>
+                                  {p.resp && <div style={{ fontSize: 11, color: '#8a847c' }}>Логист: {p.resp}</div>}
+                                </div>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                  <span style={{ fontSize: 12, color: '#8a847c' }}>{p.qty > 0 ? `${p.qty} ${p.unit}` : '—'}</span>
+                                  <StatusBadge status={p.status} />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Кнопки действий филиала */}
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                          {allDelivered && !accepted && (
+                            <button onClick={async () => {
+                              await orderAction(o.id, 'branchAccept', { branchName: clientUser.name })
+                              load(); setToast('✓ Товар принят')
+                            }} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#d4613a', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit' }}>
+                              ✓ Принял товар
+                            </button>
+                          )}
+                          {accepted && (
+                            <button onClick={async () => {
+                              await orderAction(o.id, 'branchForward', { branchName: clientUser.name })
+                              load(); setToast('✓ Передано логисту')
+                            }} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#d4613a', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit' }}>
+                              К доставке →
+                            </button>
+                          )}
+                          {!allDelivered && (
+                            <span style={{ fontSize: 12, color: '#8a847c', padding: '9px 0' }}>⏳ Ожидаем доставку от логиста...</span>
+                          )}
+                        </div>
+
+                        <a href={o.trackingLink} target="_blank" rel="noreferrer" style={{ color: '#d4613a', fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>
+                          Трекинг →
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+          </div>
+        )}
+
         {/* === МОИ ЗАЯВКИ === */}
         {tab === 'orders' && (
           <div className="anim-fade">
             {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
-              : orders.length === 0 ? (
+              : myOrders.length === 0 ? (
                 <div style={{ background: '#fff', borderRadius: 14, padding: 40, textAlign: 'center', boxShadow: '0 0 0 1px #e6e2dc' }}>
                   <div style={{ fontSize: 32, marginBottom: 12 }}>📦</div>
                   <div style={{ fontWeight: 600, marginBottom: 8 }}>Заявок пока нет</div>

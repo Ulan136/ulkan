@@ -8,14 +8,26 @@ export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req)
   if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
+  // Для филиала — показываем и свои заявки и карточки адресованные филиалу
+  const isBranch = session.role === 'branch'
+
   const orders = await prisma.order.findMany({
-    where: { fromId: session.id },
+    where: isBranch
+      ? {
+          isCancelled: false,
+          OR: [
+            { fromId: session.id },
+            { to: session.name, screen: { in: ['outgoing', 'incoming'] } },
+          ]
+        }
+      : { fromId: session.id },
     include: {
       positions: {
         select: { id: true, cardId: true, name1c: true, oral: true, qty: true, unit: true, status: true, late: true, createdAt: true, updatedAt: true, resp: true, supplier: true, supplierId: true, payment: true, deadline: true },
       },
+      history: { orderBy: { createdAt: 'desc' }, take: 10 },
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { updatedAt: 'desc' },
   })
   return NextResponse.json(orders)
 }
