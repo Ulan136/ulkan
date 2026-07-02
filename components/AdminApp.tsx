@@ -88,7 +88,7 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings 
   settings: SettingsData | null
 }) {
   const [history, setHistory] = useState<any[]>([])
-  const [tab, setTab] = useState<'positions' | 'history'>('positions')
+  const [tab, setTab] = useState<'positions' | 'history' | null>(null)
   const [editPos, setEditPos] = useState<string | null>(null)
   const [addPos, setAddPos] = useState(false)
   const [newPos, setNewPos] = useState({ name1c: '', oral: '', qty: '', unit: 'шт', price: '', resp: '', supplier: '', supplierId: '', status: 'В работе' })
@@ -204,10 +204,11 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings 
           </div>
 
           {/* Вкладки */}
-          <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
+          <div style={{ display: 'flex', gap: 4, marginBottom: tab ? 14 : 0 }}>
             {(['positions', 'history'] as const).map(t => (
-              <button key={t} onClick={() => setTab(t)} style={{ padding: '6px 14px', borderRadius: 7, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: tab === t ? COLORS.primary : '#f1efec', color: tab === t ? '#fff' : '#8a847c' }}>
+              <button key={t} onClick={() => setTab(prev => prev === t ? null : t)} style={{ padding: '6px 14px', borderRadius: 7, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: tab === t ? COLORS.primary : '#f1efec', color: tab === t ? '#fff' : '#8a847c' }}>
                 {t === 'positions' ? `Позиции (${order.positions.length})` : 'История'}
+                {tab === t ? ' ▲' : ' ▼'}
               </button>
             ))}
           </div>
@@ -226,46 +227,48 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings 
                   {order.comment}
                 </div>
               )}
-              {order.positions.map(p => (
-                <div key={p.id} style={{ border: '1.5px solid #e6e2dc', borderRadius: 10, padding: 14, marginBottom: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name1c || p.oral || '—'}</div>
-                      {p.oral && p.name1c && <div style={{ fontSize: 12, color: '#8a847c' }}>{p.oral}</div>}
-                      <div style={{ fontSize: 12, color: '#8a847c', marginTop: 2 }}>
-                        {p.qty} {p.unit} · {p.supplier || '—'}
-                        {p.price > 0 && ` · ${fmtMoney(p.qty * p.price)}`}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                      <StatusBadge status={p.status} />
-                      {p.late && <span style={{ fontSize: 10, background: '#faeaea', color: '#b03020', padding: '1px 6px', borderRadius: 20, fontWeight: 600 }}>ПРОСРОЧ.</span>}
-                    </div>
-                  </div>
-                  {/* Назначить логиста */}
-                  <div style={{ marginBottom: 8 }}>
-                    <label style={{ fontSize: 10, fontWeight: 700, color: '#8a847c', letterSpacing: '.04em', display: 'block', marginBottom: 3 }}>ЛОГИСТ</label>
-                    <UnifiedSelect
-                      value={p.resp}
-                      onChange={v => handleStatusChange(order.id, 'updatePosDetail', { posId: p.id, name1c: p.name1c, oral: p.oral, qty: p.qty, unit: p.unit, price: p.price, resp: v, supplier: p.supplier, supplierId: p.supplierId, status: p.status, payment: p.payment, late: p.late, deadline: p.deadline })}
-                      placeholder="— не назначен —"
-                      style={{ fontSize: 12, padding: '6px 10px' }}
-                      settings={settings}
-                    />
-                  </div>
-                  {/* Быстрая смена статуса позиции */}
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {['В работе', 'Готово к отгрузке', 'В пути', 'Доставлено'].filter(s => s !== p.status).map(s => (
-                      <Btn key={s} size="sm" onClick={() => handleStatusChange(order.id, 'updatePos', { posId: p.id, status: s })}>→ {s}</Btn>
+              {/* Таблица позиций по ТЗ: № | Название | статус | кол-во | (цены только в бухгалтерии) */}
+              {order.positions.length > 0 && (
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
+                  <thead>
+                    <tr style={{ background: '#f8f6f3' }}>
+                      <th style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>№</th>
+                      <th style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>НАИМЕНОВАНИЕ</th>
+                      <th style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'right' }}>КОЛ-ВО</th>
+                      <th style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>СТАТУС</th>
+                      {order.screen === 'bookkeeping' && <th style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'right' }}>СУММА</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {order.positions.map((p, i) => (
+                      <tr key={p.id} style={{ borderTop: '1px solid #f1efec' }}>
+                        <td style={{ padding: '8px 10px', fontSize: 12, color: '#8a847c' }}>{i + 1}</td>
+                        <td style={{ padding: '8px 10px' }}>
+                          <div style={{ fontWeight: 500, fontSize: 13 }}>{p.name1c || p.oral || '—'}</div>
+                          {p.oral && p.name1c && <div style={{ fontSize: 11, color: '#8a847c' }}>{p.oral}</div>}
+                          {p.resp && <div style={{ fontSize: 11, color: '#8a847c' }}>Логист: {p.resp}</div>}
+                          {p.supplier && <div style={{ fontSize: 11, color: '#8a847c' }}>Поставщик: {p.supplier}</div>}
+                        </td>
+                        <td style={{ padding: '8px 10px', fontSize: 13, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {p.qty > 0 ? `${p.qty} ${p.unit}` : <span style={{ color: '#8a847c' }}>—</span>}
+                        </td>
+                        <td style={{ padding: '8px 10px' }}>
+                          <StatusBadge status={p.status} />
+                          {p.late && <span style={{ fontSize: 10, background: '#faeaea', color: '#b03020', padding: '1px 5px', borderRadius: 20, fontWeight: 600, marginLeft: 4 }}>!</span>}
+                        </td>
+                        {order.screen === 'bookkeeping' && (
+                          <td style={{ padding: '8px 10px', fontSize: 13, fontWeight: 600, textAlign: 'right', color: COLORS.primary }}>
+                            {p.price > 0 ? fmtMoney(p.qty * p.price) : '—'}
+                          </td>
+                        )}
+                      </tr>
                     ))}
-                    <Btn size="sm" variant="danger" onClick={() => handleStatusChange(order.id, 'deletePos', { posId: p.id })}>Удалить</Btn>
-                  </div>
-                  {p.payment && <div style={{ marginTop: 8, fontSize: 11, color: '#8a847c' }}>Оплата: {p.payment}</div>}
-                </div>
-              ))}
+                  </tbody>
+                </table>
+              )}
 
-              {/* Сумма */}
-              {sum > 0 && (
+              {/* Сумма — только в бухгалтерии */}
+              {order.screen === 'bookkeeping' && sum > 0 && (
                 <div style={{ background: '#fff8f5', border: '1.5px solid #f3c8b0', borderRadius: 10, padding: '12px 16px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontWeight: 600, fontSize: 13 }}>Сумма заказа</span>
                   <span style={{ fontWeight: 700, fontSize: 16, color: COLORS.primary }}>{fmtMoney(sum)}</span>
