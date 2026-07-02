@@ -49,6 +49,7 @@ function UnifiedSelect({ value, onChange, placeholder = '— выберите �
   const lg = allUsers.filter((u: any) => u.role === 'logist' && u.active !== false)
   const sp = allUsers.filter((u: any) => u.role === 'supplier_client' && u.active !== false)
   const cl = allUsers.filter((u: any) => u.role === 'client' && u.active !== false)
+  const br = allUsers.filter((u: any) => u.role === 'branch' && u.active !== false)
   const INP2: React.CSSProperties = { padding: '9px 12px', borderRadius: 8, fontSize: 13, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', width: '100%' }
   return (
     <select style={{ ...INP2, ...st }} value={value} onChange={e => onChange(e.target.value)}>
@@ -56,6 +57,7 @@ function UnifiedSelect({ value, onChange, placeholder = '— выберите �
       {lg.length > 0 && <optgroup label="Логисты">{lg.map((l: any) => <option key={l.id} value={l.name}>{l.name}</option>)}</optgroup>}
       {sp.length > 0 && <optgroup label="Поставщики/заказчики">{sp.map((s2: any) => <option key={s2.id} value={s2.name}>{s2.name}</option>)}</optgroup>}
       {cl.length > 0 && <optgroup label="Клиенты">{cl.map((c: any) => <option key={c.id} value={c.name}>{c.name}</option>)}</optgroup>}
+      {br.length > 0 && <optgroup label="Филиалы">{br.map((b: any) => <option key={b.id} value={b.name}>{b.name}</option>)}</optgroup>}
     </select>
   )
 }
