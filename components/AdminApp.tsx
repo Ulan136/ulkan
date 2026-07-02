@@ -1811,7 +1811,7 @@ export default function AdminApp({ user }: Props) {
                       </tr></thead>
                       <tbody>{settings.users.map((u, i) => {
                         const rc = roleColors[u.role] || roleColors.client
-                        const accessUrl = (u.role === 'client' || u.role === 'supplier_client' || u.role === 'branch') ? `${base}/client/${u.slug}` : u.role === 'logist' ? `${base}/rsp/${u.slug}` : ''
+                        const accessUrl = u.role === 'branch' ? `${base}/branch/${u.slug}` : (u.role === 'client' || u.role === 'supplier_client') ? `${base}/client/${u.slug}` : u.role === 'logist' ? `${base}/rsp/${u.slug}` : ''
                         return (
                           <tr key={u.id} style={{ borderTop: i > 0 ? '1px solid #f1efec' : 'none' }}>
                             <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13 }}>{u.name}</td>
