@@ -493,7 +493,7 @@ export default function AdminApp({ user }: Props) {
   const [recSpec, setRecSpec] = useState('')
   const [recContact, setRecContact] = useState('')
   const [recPhone, setRecPhone] = useState('')
-  const [recDeadline, setRecDeadline] = useState('')
+  const [recDeadline, setRecDeadline] = useState(new Date().toISOString().slice(0, 10))
   const [recComment, setRecComment] = useState('')
   const [recPositions, setRecPositions] = useState([
     { name1c: '', oral: '', qty: '', unit: 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: '', payment: '' }
@@ -1486,6 +1486,7 @@ export default function AdminApp({ user }: Props) {
                             <Btn size="sm" onClick={() => { navigator.clipboard.writeText(o.trackingLink); showToast('Ссылка скопирована!') }}>📎 Ссылка клиенту</Btn>
                             <Btn size="sm" onClick={() => handleAction(o.id, 'returnOut')}>← Вернуть</Btn>
                             <Btn size="sm" variant="primary" onClick={() => handleAction(o.id, 'markAll')}>✓ Всё выполнено</Btn>
+                            {o.toacc && <Btn size="sm" variant="primary" onClick={() => handleAction(o.id, 'sendAcc')}>Отправить в К Учёту →</Btn>}
                           </div>
                         </div>
                       </div>
@@ -1512,7 +1513,20 @@ export default function AdminApp({ user }: Props) {
         return (
           <div className="anim-fade">
             <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 16 }}>К учёту <span style={{ fontSize: 14, color: '#8a847c', fontWeight: 400 }}>({accounting.length})</span></div>
-            {renderOrders(accounting, 'Нет карточек к учёту')}
+            {(() => {
+              const filtered = filterOrders(accounting)
+              if (filtered.length === 0) return <div style={{ textAlign: 'center', padding: 40, color: '#8a847c', fontSize: 14 }}>Нет карточек к учёту</div>
+              return filtered.map(o => (
+                <div key={o.id}>
+                  <OrderCard order={o} onClick={() => setSelectedOrder(o)} />
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: -4, marginBottom: 12, paddingRight: 4 }}>
+                    <Btn size="sm" onClick={() => handleAction(o.id, 'postpone')}>{o.postponed ? 'Снять откл.' : 'Отложить'}</Btn>
+                    <Btn size="sm" onClick={() => handleAction(o.id, 'returnToAcc')}>← Вернуть</Btn>
+                    <Btn size="sm" variant="primary" onClick={() => handleAction(o.id, 'postAcc')}>→ Бухгалтерия</Btn>
+                  </div>
+                </div>
+              ))
+            })()}
           </div>
         )
 
@@ -1545,7 +1559,21 @@ export default function AdminApp({ user }: Props) {
                 </button>
               ))}
             </div>
-            {bookTab === 'cards' && renderOrders(bookkeeping, 'Нет карточек')}
+            {bookTab === 'cards' && (() => {
+                const filtered = filterOrders(bookkeeping)
+                if (filtered.length === 0) return <div style={{ textAlign: 'center', padding: 40, color: '#8a847c', fontSize: 14 }}>Нет карточек</div>
+                return filtered.map(o => (
+                  <div key={o.id}>
+                    <OrderCard order={o} onClick={() => setSelectedOrder(o)} />
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: -4, marginBottom: 12, paddingRight: 4 }}>
+                      {!o.invoice && <Btn size="sm" onClick={() => handleAction(o.id, 'createDoc', { type: 'invoice' })}>↓ Счёт</Btn>}
+                      {!o.fact && <Btn size="sm" onClick={() => handleAction(o.id, 'createDoc', { type: 'fact' })}>↓ Счёт-фактура</Btn>}
+                      {!o.posted1C && <Btn size="sm" onClick={() => handleAction(o.id, 'post1C')}>Провести 1С</Btn>}
+                      <Btn size="sm" variant="primary" disabled={!o.posted1C} onClick={() => o.posted1C && handleAction(o.id, 'sendArchive')}>→ Архив</Btn>
+                    </div>
+                  </div>
+                ))
+              })()}
             {bookTab === 'reports' && (() => {
               // Фильтрация отчётов
               const filtered = dailyReports.filter(r => {
