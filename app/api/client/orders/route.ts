@@ -26,7 +26,8 @@ export async function POST(req: NextRequest) {
 
   const { to, deadline, text, comment } = await req.json()
 
-  const cardId = generateCardId()
+  const count = await prisma.order.count()
+  const cardId = generateCardId(count)
   const trackingLink = generateTrackingLink(cardId)
 
   const order = await prisma.order.create({

@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const { name, clientId, description, items } = await req.json()
   const sp = await prisma.specProject.create({
     data: {
-      id: generateSpecProjectId(), name,
+      id: generateSpecProjectId(await prisma.specProject.count()), name,
       clientId: clientId || null, description: description || '',
       items: items?.length > 0 ? {
         create: items.map((i: any) => ({

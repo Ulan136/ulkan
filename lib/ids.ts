@@ -1,28 +1,26 @@
-export function generateCardId(): string {
+// Генерация порядкового номера на основе текущего счётчика из базы
+// count передаётся снаружи (из prisma.order.count() и т.д.)
+function dateStr(): string {
   const d = new Date()
-  const seq = String(Math.floor(Math.random() * 900) + 100)
   const dd = String(d.getDate()).padStart(2, '0')
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   const yy = String(d.getFullYear()).slice(-2)
-  return `C-${seq}-${dd}${mm}${yy}`
+  return `${dd}${mm}${yy}`
 }
 
-export function generateProjectId(): string {
-  const d = new Date()
-  const seq = String(Math.floor(Math.random() * 900) + 100)
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const yy = String(d.getFullYear()).slice(-2)
-  return `PRJ-${seq}-${dd}${mm}${yy}`
+export function generateCardId(count: number = 0): string {
+  const seq = String(count + 1).padStart(3, '0')
+  return `C-${seq}-${dateStr()}`
 }
 
-export function generateSpecProjectId(): string {
-  const d = new Date()
-  const seq = String(Math.floor(Math.random() * 900) + 100)
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const yy = String(d.getFullYear()).slice(-2)
-  return `СП-${seq}-${dd}${mm}${yy}`
+export function generateProjectId(count: number = 0): string {
+  const seq = String(count + 1).padStart(3, '0')
+  return `PRJ-${seq}-${dateStr()}`
+}
+
+export function generateSpecProjectId(count: number = 0): string {
+  const seq = String(count + 1).padStart(3, '0')
+  return `СП-${seq}-${dateStr()}`
 }
 
 export function generatePosId(cardId: string, n: number): string {

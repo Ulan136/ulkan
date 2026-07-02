@@ -19,7 +19,8 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const cardId = generateCardId()
+    const count = await prisma.order.count()
+    const cardId = generateCardId(count)
     const trackingLink = generateTrackingLink(cardId)
     const base = process.env.NEXTAUTH_URL || 'https://ulkan.vercel.app'
     const clientUrl = `${base}/client/${user.slug}`

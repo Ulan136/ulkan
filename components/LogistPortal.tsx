@@ -81,18 +81,18 @@ export default function LogistPortal({ user, logistUser }: Props) {
     return () => clearInterval(interval)
   }, [load])
 
-  // ── Позиции КО МНЕ (resp = мой slug/имя, статус не Доставлено) ──
+  // ── Позиции КО МНЕ (resp = моё имя, статус не Доставлено) ──
   const posIn = orders.flatMap(o =>
     o.positions
       .filter(p => p.resp === myName && p.status !== 'Доставлено')
       .map(p => ({ pos: p, order: o }))
   )
 
-  // ── Позиции ОТ МЕНЯ (карточки где from = я) ──
+  // ── Позиции ОТ МЕНЯ (только карточки которые Я создал через "Новый") ──
   const posOut = orders.flatMap(o =>
-    o.positions
-      .filter(p => (o.from === myName || p.resp === myName))
-      .map(p => ({ pos: p, order: o }))
+    o.from === myName
+      ? o.positions.map(p => ({ pos: p, order: o }))
+      : []
   )
 
   // ── История моих действий для отчёта ──

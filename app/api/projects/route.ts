@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
   const { name, clientId, description } = await req.json()
   const project = await prisma.project.create({
-    data: { id: generateProjectId(), name, clientId: clientId || null, description: description || '' },
+    data: { id: generateProjectId(await prisma.project.count()), name, clientId: clientId || null, description: description || '' },
     include: { _count: { select: { orders: true } } },
   })
   return NextResponse.json(project, { status: 201 })

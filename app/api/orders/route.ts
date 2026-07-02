@@ -34,7 +34,8 @@ export async function POST(req: NextRequest) {
     // - иначе incoming (для карточек из кабинета/трекинга)
     const screen = isDraft ? 'incoming' : (bodyScreen || 'incoming')
 
-    const id = generateCardId()
+    const count = await prisma.order.count()
+    const id = generateCardId(count)
     const trackingLink = generateTrackingLink(id)
 
     let posData: any[] = []
