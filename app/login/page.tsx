@@ -49,6 +49,7 @@ function LoginForm() {
     if (from) { router.push(from); return }
     if (user.role === 'logist') router.push(`/rsp/${user.slug}`)
     else if (user.role === 'warehouse_manager') router.push(`/warehouse/${user.slug}`)
+    else if (user.role === 'branch') router.push(`/branch/${user.slug}`)
     else if (user.role === 'client' || user.role === 'supplier_client') router.push(`/client/${user.slug}`)
     else router.push('/admin')
   }
