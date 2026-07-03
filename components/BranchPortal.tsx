@@ -188,20 +188,23 @@ export default function BranchPortal({ user, branchUser }: Props) {
             {/* Кнопки действий филиала */}
             {showActions && (
               <div style={{ padding: '12px 16px', background: '#f8f6f3', borderBottom: '1px solid #f1efec', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {!accepted && !forwarded && (
+                {/* Шаг 1: Принять */}
+                {o.status !== 'Принято филиалом' && o.from !== branchUser.name && (
                   <button onClick={() => handleAccept(o.id)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1.5px solid #b8e0c8', background: '#e8f5ee', color: '#2e8a5e', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
                     ✓ Принял
                   </button>
                 )}
-                {accepted && !forwarded && (
+                {/* Шаг 2: К логисту */}
+                {o.status === 'Принято филиалом' && o.from !== branchUser.name && (
                   <>
-                    <div style={{ width: '100%', fontSize: 12, color: '#2e8a5e', fontWeight: 600, marginBottom: 4 }}>✓ Принято</div>
+                    <span style={{ fontSize: 12, color: '#2e8a5e', fontWeight: 600 }}>✓ Принято</span>
                     <button onClick={() => handleForward(o.id)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: PRIMARY, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
                       К логисту →
                     </button>
                   </>
                 )}
-                {forwarded && (
+                {/* Шаг 3: Передано */}
+                {o.from === branchUser.name && (
                   <div style={{ fontSize: 12, color: '#8a847c', padding: '8px 0' }}>📦 Передано логисту для доставки</div>
                 )}
               </div>
