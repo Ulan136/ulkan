@@ -102,26 +102,71 @@ export default function LogistPortal({ user, logistUser }: Props) {
       .map(p => ({ pos: p, order: o }))
   )
 
-  // Автозаполнение отчёта из завершённых позиций
+  // Загружаем сохранённый черновик смены из базы при входе
   useEffect(() => {
-    if (completedToday.length > 0 && shiftRows.filter(r => r.auto).length === 0) {
-      const autoRows: ShiftRow[] = completedToday.map(({ pos, order }) => ({
-        id: `auto-${pos.id}`,
-        name: pos.name1c || pos.oral,
-        qtyIn: String(pos.qty),
-        fromWho: order.from,
-        commentIn: pos.supplier || '',
-        toWho: order.to || '',
-        qtyOut: String(pos.qty),
-        commentOut: '',
-        auto: true,
-      }))
-      setShiftRows(prev => {
-        const manualRows = prev.filter(r => !r.auto)
-        return [...autoRows, ...manualRows]
-      })
+    async function loadDraft() {
+      try {
+        const res = await fetch('/api/reports/draft')
+        if (!res.ok) return
+        const data = await res.json()
+        if (data && data.rows && data.rows.length > 0) {
+          const savedRows: ShiftRow[] = data.rows.map((r: any) => ({
+            id: r.id,
+            name: r.name,
+            qtyIn: String(r.qtyIn || 0),
+            fromWho: r.fromWho || '',
+            commentIn: r.commentIn || '',
+            toWho: r.toWho || '',
+            qtyOut: String(r.qtyOut || 0),
+            commentOut: r.commentOut || '',
+            invoiceNum: r.invoiceNum || '',
+            auto: true,
+          }))
+          setShiftRows(savedRows)
+        }
+      } catch {}
     }
+    loadDraft()
+  }, [])
+
+  // Автодобавление новых доставленных позиций в смену
+  useEffect(() => {
+    if (completedToday.length === 0) return
+    setShiftRows(prev => {
+      const existingIds = new Set(prev.map(r => r.id))
+      const newRows: ShiftRow[] = completedToday
+        .filter(({ pos }) => !existingIds.has(`auto-${pos.id}`))
+        .map(({ pos, order }) => ({
+          id: `auto-${pos.id}`,
+          name: pos.name1c || pos.oral,
+          qtyIn: String(pos.qty),
+          fromWho: order.from,
+          commentIn: pos.supplier || '',
+          toWho: order.to || '',
+          qtyOut: String(pos.qty),
+          commentOut: '',
+          auto: true,
+        }))
+      if (newRows.length === 0) return prev
+      return [...prev, ...newRows]
+    })
   }, [completedToday.length])
+
+  // Автосохранение черновика смены в базу каждые 30 секунд
+  useEffect(() => {
+    const validRows = shiftRows.filter(r => r.name)
+    if (validRows.length === 0) return
+    const timer = setTimeout(async () => {
+      try {
+        await fetch('/api/reports/draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rows: validRows }),
+        })
+      } catch {}
+    }, 2000)
+    return () => clearTimeout(timer)
+  }, [shiftRows])
 
   // ── Смена статуса позиции ──
   async function handleStatus(cardId: string, posId: string, status: string, posName: string, fromWho: string, toWho: string, qty: number) {
@@ -203,6 +248,9 @@ export default function LogistPortal({ user, logistUser }: Props) {
           toWho: r.toWho, qtyOut: Number(r.qtyOut) || 0, commentOut: r.commentOut, invoiceNum: '',
         })),
       })
+      // Удаляем черновик после успешной отправки
+      await fetch('/api/reports/draft', { method: 'DELETE' }).catch(() => {})
+      setShiftRows([])
       setReportSent(true)
       showMsg('✓ Отчёт отправлен в бухгалтерию!')
     } catch (e: any) { showMsg(e.message) }
