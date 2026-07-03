@@ -1,5 +1,6 @@
 import { getSession } from '@/lib/auth'
 import { redirect } from 'next/navigation'
+import HomeClient from '@/components/HomeClient'
 
 export default async function HomePage() {
   const session = await getSession()
@@ -14,6 +15,6 @@ export default async function HomePage() {
     else redirect('/admin')
   }
 
-  // Не залогинен — публичная главная = трекинг
-  redirect('/track')
+  // Не залогинен — публичная главная = лендинг со входами в кабинеты
+  return <HomeClient />
 }

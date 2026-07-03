@@ -1,27 +1,29 @@
 'use client'
-import { useState } from 'react'
 
 export default function HomeClient() {
-  const [copied, setCopied] = useState('')
-  const base = typeof window !== 'undefined' ? window.location.origin : 'https://ulkan.vercel.app'
-
-  function copy(text: string, key: string) {
-    navigator.clipboard.writeText(text)
-    setCopied(key); setTimeout(() => setCopied(''), 2000)
-  }
-
-  const btn = (variant: 'primary' | 'default' | 'dark' = 'default'): React.CSSProperties => ({
+  const btn = (variant: 'primary' | 'default' = 'default'): React.CSSProperties => ({
     display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px',
     borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer', border: 'none',
-    background: variant === 'primary' ? '#d4613a' : variant === 'dark' ? '#d4613a' : '#ffffff',
-    color: variant === 'primary' || variant === 'dark' ? '#ffffff' : '#26231f',
+    background: variant === 'primary' ? '#d4613a' : '#ffffff',
+    color: variant === 'primary' ? '#ffffff' : '#26231f',
     boxShadow: variant === 'default' ? '0 0 0 1px #e6e2dc' : 'none',
     textDecoration: 'none', fontFamily: 'inherit',
   })
 
+  // Кабинеты (вход по учётным данным)
+  const cabinets: { icon: string; title: string; desc: string; href: string; tag?: string }[] = [
+    { icon: '🟠', title: 'Админка', desc: 'Приём заявок, статусы, склад, бухгалтерия, архив.', href: '/login?from=/admin', tag: 'email + пароль' },
+    { icon: '👤', title: 'Кабинет заказчика', desc: 'Просмотр и подача заявок, уведомления.', href: '/login', tag: 'телефон' },
+    { icon: '🚚', title: 'Портал логиста', desc: 'Доставка, статусы позиций, отчёты смены.', href: '/login', tag: 'телефон' },
+    { icon: '🏢', title: 'Портал филиала', desc: 'Приём товара и передача логисту (двойное плечо).', href: '/login', tag: 'телефон' },
+    { icon: '🏭', title: 'Портал склада', desc: 'Приход, резервы, расход, остатки.', href: '/login', tag: 'телефон' },
+  ]
+
+  const card: React.CSSProperties = { background: '#fff', borderRadius: 14, padding: 20, boxShadow: '0 0 0 1px #e6e2dc', display: 'flex', flexDirection: 'column' }
+
   return (
-    <div style={{ minHeight: '100vh', background: '#f1efec', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', fontFamily: "'Golos Text', system-ui, sans-serif" }}>
-      <div style={{ maxWidth: 800, width: '100%' }}>
+    <div style={{ minHeight: '100vh', background: '#f1efec', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 16px', fontFamily: "'Golos Text', system-ui, sans-serif" }}>
+      <div style={{ maxWidth: 900, width: '100%' }}>
 
         {/* Шапка */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
@@ -34,54 +36,48 @@ export default function HomeClient() {
         </div>
 
         <p style={{ color: '#8a847c', fontSize: 14, marginBottom: 28 }}>
-          Единый поток карточек — от заявки до доставки и учёта.
+          Единый поток карточек — от заявки до доставки и учёта. Выберите свой кабинет.
         </p>
 
-        {/* Админка */}
-        <div style={{ background: '#211f1c', borderRadius: 14, padding: 24, marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <span style={{ fontSize: 18 }}>🟠</span>
-            <span style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>Админка</span>
-            <span style={{ background: '#3a3631', color: '#cfc9c0', fontSize: 11, padding: '2px 8px', borderRadius: 20, marginLeft: 4 }}>10+ экранов</span>
-          </div>
-          <p style={{ color: '#8c857a', fontSize: 13, marginBottom: 16 }}>
-            Полный контроль: приём заявок, статусы позиций, склад, архив, бухгалтерия.
-          </p>
-          <a href="/login?from=/admin" style={{ ...btn('dark'), background: '#d4613a', color: '#fff' }}>Открыть админку →</a>
-        </div>
-
-        {/* Кабинет + Трекинг */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-          <div style={{ background: '#fff', borderRadius: 14, padding: 20, boxShadow: '0 0 0 1px #e6e2dc' }}>
-            <div style={{ fontSize: 18, marginBottom: 6 }}>👤</div>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Кабинет заказчика</div>
-            <p style={{ color: '#8a847c', fontSize: 13, marginBottom: 14 }}>Просмотр заявок, подача новых, уведомления. Вход по телефону.</p>
-            <a href="/login" style={btn('primary')}>Войти →</a>
-          </div>
-
-          <div style={{ background: '#fff', borderRadius: 14, padding: 20, boxShadow: '0 0 0 1px #e6e2dc' }}>
-            <div style={{ fontSize: 18, marginBottom: 6 }}>🚚</div>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Трекинг заказа</div>
-            <p style={{ color: '#8a847c', fontSize: 13, marginBottom: 14 }}>Публичное отслеживание по ID. Заявка без регистрации.</p>
-            <a href="/track" style={btn('primary')}>Открыть →</a>
-          </div>
-        </div>
-
-        {/* Портал логиста */}
-        <div style={{ background: '#fff', borderRadius: 14, padding: 20, boxShadow: '0 0 0 1px #e6e2dc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <span style={{ fontSize: 18 }}>📦</span>
-              <span style={{ fontWeight: 700, fontSize: 15 }}>Портал логиста / Филиала</span>
-              <span style={{ background: '#e8f5ee', color: '#2e8a5e', fontSize: 10, padding: '2px 8px', borderRadius: 20 }}>мобильный</span>
+        {/* Кабинеты */}
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#8a847c', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Кабинеты</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12, marginBottom: 28 }}>
+          {cabinets.map(c => (
+            <div key={c.title} style={card}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 18 }}>{c.icon}</span>
+                <span style={{ fontWeight: 700, fontSize: 15 }}>{c.title}</span>
+              </div>
+              {c.tag && <span style={{ alignSelf: 'flex-start', background: '#f1efec', color: '#8a847c', fontSize: 10, padding: '2px 8px', borderRadius: 20, marginBottom: 8 }}>{c.tag}</span>}
+              <p style={{ color: '#8a847c', fontSize: 13, marginBottom: 14, flex: 1 }}>{c.desc}</p>
+              <a href={c.href} style={{ ...btn('primary'), alignSelf: 'flex-start' }}>Войти →</a>
             </div>
-            <p style={{ color: '#8a847c', fontSize: 13, margin: 0 }}>Статусы доставки, ежедневные отчёты, передача между плечами.</p>
+          ))}
+        </div>
+
+        {/* Клиентам без регистрации */}
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#8a847c', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Клиентам без регистрации</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12, marginBottom: 24 }}>
+          <div style={card}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <span style={{ fontSize: 18 }}>🔍</span>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>Трекинг заказа</span>
+            </div>
+            <p style={{ color: '#8a847c', fontSize: 13, marginBottom: 14, flex: 1 }}>Отслеживание по номеру заказа. Без регистрации.</p>
+            <a href="/track" style={{ ...btn('default'), alignSelf: 'flex-start' }}>Открыть →</a>
           </div>
-          <a href="/login" style={btn('primary')}>Войти →</a>
+          <div style={card}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <span style={{ fontSize: 18 }}>✨</span>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>Подать заявку</span>
+            </div>
+            <p style={{ color: '#8a847c', fontSize: 13, marginBottom: 14, flex: 1 }}>Частный заказ без регистрации — оставьте телефон и текст.</p>
+            <a href="/track?tab=submit" style={{ ...btn('default'), alignSelf: 'flex-start' }}>Оставить заявку →</a>
+          </div>
         </div>
 
         {/* Нижняя ссылка */}
-        <div style={{ textAlign: 'center', marginTop: 20 }}>
+        <div style={{ textAlign: 'center', marginTop: 8 }}>
           <a href="/register" style={{ color: '#8a847c', fontSize: 13 }}>Новый клиент? Зарегистрироваться →</a>
           <span style={{ margin: '0 12px', color: '#d8d3cc' }}>|</span>
           <a href="/login" style={{ color: '#8a847c', fontSize: 13 }}>Войти в систему →</a>

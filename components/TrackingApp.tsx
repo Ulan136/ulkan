@@ -65,8 +65,10 @@ export default function TrackingApp() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const id = new URLSearchParams(window.location.search).get('id')
+      const params = new URLSearchParams(window.location.search)
+      const id = params.get('id')
       if (id) { setSearchId(id); doSearch(id) }
+      if (params.get('tab') === 'submit') setTab('submit')
     }
   }, [])
 
