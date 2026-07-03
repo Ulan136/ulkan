@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     const token = await createToken(session)
 
     const res = NextResponse.json({ ok: true, user: session })
-    res.cookies.set('ukan_session', token, { httpOnly: true, path: '/', maxAge: 60 * 60 * 24 * 7, sameSite: 'lax' })
+    res.cookies.set('ukan_session', token, { httpOnly: true, path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' })
     return res
   } catch (e) {
     console.error(e)
