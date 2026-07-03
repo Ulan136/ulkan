@@ -1,7 +1,7 @@
 // middleware.ts
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { getSessionFromRequest } from './lib/auth'
+import { getSessionFromRequest } from './lib/auth-edge'
 
 const PUBLIC_PATHS = ['/login', '/register', '/track', '/_next', '/favicon', '/api/auth', '/api/track', '/api/client']
 
