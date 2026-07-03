@@ -160,7 +160,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
             {showActions && (
               <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {o.status !== 'Принято филиалом' && o.status !== 'В работе (плечо 2)' && (
-                  <button onClick={() => handleAccept(o.id)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: '#e8f5ee', color: '#2e8a5e', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit', border: '1.5px solid #b8e0c8' }}>
+                  <button onClick={() => handleAccept(o.id)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1.5px solid #b8e0c8', background: '#e8f5ee', color: '#2e8a5e', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
                     ✓ Принял
                   </button>
                 )}
