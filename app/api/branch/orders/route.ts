@@ -8,12 +8,13 @@ export async function GET(req: NextRequest) {
 
   const myName = session.name
 
-  // Входящие (адресованные мне) + Исходящие (я отправил)
   const orders = await prisma.order.findMany({
     where: {
       isCancelled: false,
       OR: [
-        { to: myName, screen: { in: ['outgoing', 'incoming'] } },
+        // Входящие — карточки адресованные мне (в любом статусе кроме архива)
+        { to: myName, screen: { notIn: ['archive'] } },
+        // Исходящие — карточки которые я передал дальше
         { from: myName, screen: { in: ['outgoing', 'incoming'] } },
       ]
     },

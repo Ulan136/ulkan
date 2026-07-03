@@ -77,18 +77,18 @@ export default function BranchPortal({ user, branchUser }: Props) {
   }, [load])
 
   // Входящие — карточки адресованные мне
-  const incoming = orders.filter(o => o.to === branchUser.name && o.screen === 'outgoing')
+  const incoming = orders.filter(o => o.to === branchUser.name)
   // Исходящие — карточки которые я отправил дальше
   const outgoing = orders.filter(o => o.from === branchUser.name)
 
   async function handleAccept(orderId: string) {
     await orderAction(orderId, 'branchAccept', { branchName: branchUser.name })
-    load(); showMsg('✓ Товар принят')
+    load(); showMsg('✓ Принято — теперь передайте логисту')
   }
 
   async function handleForward(orderId: string) {
     await orderAction(orderId, 'branchForward', { branchName: branchUser.name })
-    load(); showMsg('✓ Передано логисту для доставки')
+    load(); showMsg('✓ Передано логисту')
   }
 
   async function handleNewOrder(e: React.FormEvent) {
@@ -156,21 +156,21 @@ export default function BranchPortal({ user, branchUser }: Props) {
               </div>
             ))}
 
-            {/* Кнопки действий */}
+            {/* Кнопки действий — филиал управляет статусами */}
             {showActions && (
               <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {allDelivered && !accepted && (
-                  <button onClick={() => handleAccept(o.id)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: PRIMARY, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
-                    ✓ Принял товар
+                {o.status !== 'Принято филиалом' && o.status !== 'В работе (плечо 2)' && (
+                  <button onClick={() => handleAccept(o.id)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: '#e8f5ee', color: '#2e8a5e', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit', border: '1.5px solid #b8e0c8' }}>
+                    ✓ Принял
                   </button>
                 )}
-                {accepted && (
+                {o.status === 'Принято филиалом' && (
                   <button onClick={() => handleForward(o.id)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: PRIMARY, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
-                    К доставке →
+                    К логисту →
                   </button>
                 )}
-                {!allDelivered && !accepted && (
-                  <div style={{ fontSize: 12, color: '#8a847c', padding: '10px 0' }}>⏳ Ожидаем доставку от логиста...</div>
+                {(o.status === 'В работе (плечо 2)' || o.screen === 'outgoing' && o.from === branchUser.name) && (
+                  <div style={{ fontSize: 12, color: '#8a847c', padding: '10px 0' }}>📦 Передано логисту для доставки</div>
                 )}
               </div>
             )}
