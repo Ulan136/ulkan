@@ -10,10 +10,14 @@ interface Position {
   id: string; cardId: string; name1c: string; oral: string
   qty: number; unit: string; status: string; resp: string; supplier: string
 }
+interface HistoryItem {
+  id: string; action: string; userName: string; createdAt: string
+}
 interface Order {
   id: string; from: string; to: string; screen: string; status: string
   deadline?: string; createdAt: string; updatedAt: string
   trackingLink: string; positions: Position[]
+  history?: HistoryItem[]
 }
 
 type Tab = 'in' | 'out' | 'new'
@@ -21,10 +25,13 @@ type Tab = 'in' | 'out' | 'new'
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { bg: string; color: string }> = {
     'В работе': { bg: '#fff0ea', color: '#c0532a' },
+    'В ожидании': { bg: '#eef2ff', color: '#4a5aaa' },
+    'Новая заявка': { bg: '#eef2ff', color: '#4a5aaa' },
     'В пути': { bg: '#fdf8e1', color: '#8a6f00' },
     'Доставлено': { bg: '#e8f5ee', color: '#2e8a5e' },
     'Принято филиалом': { bg: '#e8f5ee', color: '#2e8a5e' },
     'Готово к отгрузке': { bg: '#fdf8e1', color: '#8a6f00' },
+    'Архив': { bg: '#efece8', color: '#6b655b' },
   }
   const s = map[status] || { bg: '#efece8', color: '#6b655b' }
   return <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: s.bg, color: s.color }}>{status}</span>
@@ -37,8 +44,18 @@ function fmtDate(d?: string | null) {
   return new Date(d).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }
 
+function fmtTime(d?: string | null) {
+  if (!d) return '—'
+  const dt = new Date(d)
+  return dt.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) + ' · ' +
+    dt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+}
+
 function cardProgress(o: Order) {
-  if (!o.positions.length) return o.status === 'Доставлено' ? 100 : 0
+  if (!o.positions.length) {
+    if (o.status === 'Доставлено' || o.status === 'Принято филиалом') return 100
+    return 10
+  }
   const map: Record<string, number> = { 'В работе': 10, 'Готово к отгрузке': 60, 'В пути': 80, 'Доставлено': 100 }
   return Math.round(o.positions.reduce((s, p) => s + (map[p.status] || 0), 0) / o.positions.length)
 }
@@ -51,6 +68,8 @@ export default function BranchPortal({ user, branchUser }: Props) {
   const [tab, setTab] = useState<Tab>('in')
   const [toast, setToast] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
+  const [detailTab, setDetailTab] = useState<'positions' | 'history'>('positions')
+  const [history, setHistory] = useState<Record<string, HistoryItem[]>>({})
 
   // Новый заказ
   const [newTo, setNewTo] = useState('')
@@ -58,7 +77,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
   const [newLoading, setNewLoading] = useState(false)
   const [newDone, setNewDone] = useState<Order | null>(null)
 
-  function showMsg(msg: string) { setToast(msg); setTimeout(() => setToast(''), 2500) }
+  function showMsg(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -76,9 +95,25 @@ export default function BranchPortal({ user, branchUser }: Props) {
     return () => clearInterval(t)
   }, [load])
 
+  async function loadHistory(orderId: string) {
+    if (history[orderId]) return
+    try {
+      const res = await fetch(`/api/orders/${orderId}/history`)
+      const data = await res.json()
+      setHistory(prev => ({ ...prev, [orderId]: Array.isArray(data) ? data : [] }))
+    } catch {}
+  }
+
+  function openOrder(orderId: string) {
+    if (selected === orderId) { setSelected(null); return }
+    setSelected(orderId)
+    setDetailTab('positions')
+    loadHistory(orderId)
+  }
+
   // Входящие — карточки адресованные мне
   const incoming = orders.filter(o => o.to === branchUser.name)
-  // Исходящие — карточки которые я отправил дальше
+  // Исходящие — карточки которые я передал логисту
   const outgoing = orders.filter(o => o.from === branchUser.name)
 
   async function handleAccept(orderId: string) {
@@ -88,7 +123,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
 
   async function handleForward(orderId: string) {
     await orderAction(orderId, 'branchForward', { branchName: branchUser.name })
-    load(); showMsg('✓ Передано логисту')
+    load(); showMsg('✓ Передано логисту для доставки')
   }
 
   async function handleNewOrder(e: React.FormEvent) {
@@ -108,17 +143,23 @@ export default function BranchPortal({ user, branchUser }: Props) {
     finally { setNewLoading(false) }
   }
 
-  const INP: React.CSSProperties = { width: '100%', padding: '10px 14px', borderRadius: 8, fontSize: 14, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }
+  const INP: React.CSSProperties = {
+    width: '100%', padding: '10px 14px', borderRadius: 8, fontSize: 14,
+    border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none',
+    fontFamily: 'inherit', boxSizing: 'border-box'
+  }
 
   function OrderCard({ o, showActions }: { o: Order; showActions: boolean }) {
     const pct = cardProgress(o)
-    const allDelivered = o.positions.length > 0 && o.positions.every(p => p.status === 'Доставлено')
-    const accepted = o.status === 'Принято филиалом'
     const isOpen = selected === o.id
+    const accepted = o.status === 'Принято филиалом'
+    const forwarded = o.from === branchUser.name && o.screen === 'outgoing'
+    const hist = history[o.id] || []
 
     return (
       <div style={{ background: '#fff', borderRadius: 14, marginBottom: 10, boxShadow: '0 0 0 1.5px #e6e2dc', overflow: 'hidden' }}>
-        <div style={{ padding: '14px 16px', cursor: 'pointer' }} onClick={() => setSelected(isOpen ? null : o.id)}>
+        {/* Шапка карточки */}
+        <div style={{ padding: '14px 16px', cursor: 'pointer' }} onClick={() => openOrder(o.id)}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: PRIMARY }}>{o.id}</span>
@@ -132,6 +173,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
             <strong>{o.to}</strong>
             {o.deadline && <span style={{ color: '#8a847c', fontSize: 12, marginLeft: 8 }}>до {fmtDate(o.deadline)}</span>}
           </div>
+          {/* Прогресс бар */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ flex: 1, height: 5, background: '#f1efec', borderRadius: 3, overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${pct}%`, background: barColor(pct), borderRadius: 3, transition: 'width .3s' }} />
@@ -140,44 +182,86 @@ export default function BranchPortal({ user, branchUser }: Props) {
           </div>
         </div>
 
+        {/* Детали */}
         {isOpen && (
-          <div style={{ padding: '0 16px 16px', borderTop: '1px solid #f1efec' }}>
-            {/* Позиции */}
-            {o.positions.map(p => (
-              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f8f6f3' }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name1c || p.oral || '—'}</div>
-                  {p.resp && <div style={{ fontSize: 11, color: '#8a847c' }}>Логист: {p.resp}</div>}
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, color: '#8a847c' }}>{p.qty > 0 ? `${p.qty} ${p.unit}` : '—'}</span>
-                  <StatusBadge status={p.status} />
-                </div>
-              </div>
-            ))}
-
-            {/* Кнопки действий — филиал управляет статусами */}
+          <div style={{ borderTop: '1px solid #f1efec' }}>
+            {/* Кнопки действий филиала */}
             {showActions && (
-              <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {o.status !== 'Принято филиалом' && o.status !== 'В работе (плечо 2)' && (
+              <div style={{ padding: '12px 16px', background: '#f8f6f3', borderBottom: '1px solid #f1efec', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {!accepted && !forwarded && (
                   <button onClick={() => handleAccept(o.id)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1.5px solid #b8e0c8', background: '#e8f5ee', color: '#2e8a5e', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
                     ✓ Принял
                   </button>
                 )}
-                {o.status === 'Принято филиалом' && (
-                  <button onClick={() => handleForward(o.id)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: PRIMARY, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
-                    К логисту →
-                  </button>
+                {accepted && !forwarded && (
+                  <>
+                    <div style={{ width: '100%', fontSize: 12, color: '#2e8a5e', fontWeight: 600, marginBottom: 4 }}>✓ Принято</div>
+                    <button onClick={() => handleForward(o.id)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: PRIMARY, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
+                      К логисту →
+                    </button>
+                  </>
                 )}
-                {(o.status === 'В работе (плечо 2)' || o.screen === 'outgoing' && o.from === branchUser.name) && (
-                  <div style={{ fontSize: 12, color: '#8a847c', padding: '10px 0' }}>📦 Передано логисту для доставки</div>
+                {forwarded && (
+                  <div style={{ fontSize: 12, color: '#8a847c', padding: '8px 0' }}>📦 Передано логисту для доставки</div>
                 )}
               </div>
             )}
 
-            <a href={o.trackingLink} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 12, color: PRIMARY, fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>
-              Трекинг →
-            </a>
+            {/* Вкладки Позиции / История */}
+            <div style={{ display: 'flex', gap: 4, padding: '10px 16px 0' }}>
+              {(['positions', 'history'] as const).map(t => (
+                <button key={t} onClick={() => setDetailTab(t)} style={{ padding: '5px 12px', borderRadius: 7, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: detailTab === t ? PRIMARY : '#f1efec', color: detailTab === t ? '#fff' : '#8a847c' }}>
+                  {t === 'positions' ? `Позиции (${o.positions.length})` : 'История'}
+                </button>
+              ))}
+            </div>
+
+            {/* Позиции */}
+            {detailTab === 'positions' && (
+              <div style={{ padding: '10px 16px' }}>
+                {o.positions.length === 0
+                  ? <div style={{ fontSize: 13, color: '#8a847c', padding: '8px 0' }}>Нет позиций</div>
+                  : o.positions.map(p => (
+                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f8f6f3' }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name1c || p.oral || '—'}</div>
+                        {p.resp && <div style={{ fontSize: 11, color: '#8a847c' }}>Логист: {p.resp}</div>}
+                        {p.supplier && <div style={{ fontSize: 11, color: '#8a847c' }}>Поставщик: {p.supplier}</div>}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+                        <span style={{ fontSize: 12, color: '#8a847c' }}>{p.qty > 0 ? `${p.qty} ${p.unit}` : '—'}</span>
+                        <StatusBadge status={p.status} />
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+
+            {/* История */}
+            {detailTab === 'history' && (
+              <div style={{ padding: '10px 16px' }}>
+                {hist.length === 0
+                  ? <div style={{ fontSize: 13, color: '#8a847c', padding: '8px 0' }}>Нет истории</div>
+                  : hist.map(h => (
+                    <div key={h.id} style={{ display: 'flex', gap: 10, padding: '7px 0', borderBottom: '1px solid #f8f6f3', alignItems: 'flex-start' }}>
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#e6e2dc', marginTop: 6, flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13 }}>{h.action}</div>
+                        <div style={{ fontSize: 11, color: '#8a847c' }}>{h.userName} · {fmtTime(h.createdAt)}</div>
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+
+            {/* Трекинг */}
+            <div style={{ padding: '10px 16px 14px' }}>
+              <a href={o.trackingLink} target="_blank" rel="noreferrer" style={{ color: PRIMARY, fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>
+                Трекинг →
+              </a>
+            </div>
           </div>
         )}
       </div>
@@ -213,6 +297,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
           <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
         )}
 
+        {/* ВХОДЯЩИЕ */}
         {tab === 'in' && (
           <div>
             {incoming.length === 0
@@ -226,6 +311,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
           </div>
         )}
 
+        {/* ИСХОДЯЩИЕ */}
         {tab === 'out' && (
           <div>
             {outgoing.length === 0
@@ -238,6 +324,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
           </div>
         )}
 
+        {/* НОВЫЙ ЗАКАЗ */}
         {tab === 'new' && (
           <div style={{ background: '#fff', borderRadius: 14, padding: 20, boxShadow: '0 0 0 1px #e6e2dc' }}>
             {newDone ? (
@@ -261,7 +348,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
                 </div>
                 <div style={{ marginBottom: 20 }}>
                   <label style={{ fontSize: 11, fontWeight: 700, color: '#8a847c', display: 'block', marginBottom: 4 }}>ОПИСАНИЕ *</label>
-                  <textarea style={{ ...INP, minHeight: 100, resize: 'vertical' }} value={newText} onChange={e => setNewText(e.target.value)} placeholder="Что нужно заказать..." required />
+                  <textarea style={{ ...INP, minHeight: 100, resize: 'vertical' } as any} value={newText} onChange={e => setNewText(e.target.value)} placeholder="Что нужно заказать..." required />
                 </div>
                 <button type="submit" disabled={newLoading} style={{ width: '100%', padding: '12px', background: PRIMARY, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>
                   {newLoading ? 'Отправка...' : 'ОТПРАВИТЬ ЗАЯВКУ →'}
@@ -275,7 +362,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
       {/* Нижнее меню */}
       <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, background: '#211f1c', borderTop: '1px solid #333', display: 'flex' }}>
         {([
-          { key: 'in' as Tab, icon: '📥', label: 'Входящие', badge: incoming.length },
+          { key: 'in' as Tab, icon: '📥', label: 'Входящие', badge: incoming.filter(o => o.status !== 'Принято филиалом').length },
           { key: 'out' as Tab, icon: '📤', label: 'Исходящие', badge: outgoing.length },
           { key: 'new' as Tab, icon: '➕', label: 'Новый', badge: 0 },
         ]).map(({ key, icon, label, badge }) => (
