@@ -1,18 +1,9 @@
+// app/api/orders/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
 import { getSessionFromRequest } from '@/lib/auth'
-import { generateCardId, generateTrackingLink, generatePosId } from '@/lib/ids'
-import { notifyAdmins } from '@/lib/notifications'
-import { reserveStock } from '@/lib/stock'
-
-const WITH_POSITIONS = { positions: { orderBy: { createdAt: 'asc' as const } } }
-
-export async function GET(req: NextRequest) {
-  const session = await getSessionFromRequest(req)
-  if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
-  const orders = await prisma.order.findMany({ include: WITH_POSITIONS, orderBy: { createdAt: 'desc' } })
-  return NextResponse.json(orders)
-}
+import { prisma } from '@/lib/prisma'
+import { generateCardId, generatePosId, generateTrackingLink } from '@/lib/ids'
+import { notifyAdmins, notifyUser } from '@/lib/notifications'
 
 export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req)
@@ -21,73 +12,67 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const {
-      from, to, comment, phone, deadline,
+      from, to = '', comment = '', phone, deadline,
       projectId, specProjectId, contactId,
-      source, isDraft, positions,
-      screen: bodyScreen,  // ← принимаем screen из body!
-      fromId,
+      source = 'admin_manual', isDraft = false,
+      positions = [], fromId,
     } = body
 
-    // Определяем screen:
-    // - если isDraft → incoming
-    // - если передан screen явно → используем
-    // - иначе incoming (для карточек из кабинета/трекинга)
-    const screen = isDraft ? 'incoming' : (bodyScreen || 'incoming')
+    if (!from) return NextResponse.json({ error: 'Укажите отправителя' }, { status: 400 })
 
-    const count = await prisma.order.count()
-    const id = generateCardId(count)
+    const id = generateCardId()
     const trackingLink = generateTrackingLink(id)
 
-    let posData: any[] = []
-    if (positions && positions.length > 0) {
-      posData = positions.map((p: any, i: number) => ({
+    // Создаём позиции БЕЗ cardId (Prisma подставит сам через relation)
+    const posData = positions
+      .filter((p: { name1c?: string; oral?: string }) => p.name1c || p.oral)
+      .map((p: { name1c?: string; oral?: string; qty?: number; unit?: string; price?: number; resp?: string; supplier?: string; supplierId?: string; payment?: string; deadline?: string }, i: number) => ({
         id: generatePosId(id, i + 1),
         name1c: p.name1c || '',
         oral: p.oral || '',
-        qty: p.qty || 0,
+        qty: p.qty || 1,
         unit: p.unit || 'шт',
         price: p.price || 0,
         resp: p.resp || '',
         supplier: p.supplier || '',
         supplierId: p.supplierId || null,
-        status: p.status || 'В работе',
-        deadline: p.deadline ? new Date(p.deadline) : null,
         payment: p.payment || '',
+        deadline: p.deadline ? new Date(p.deadline) : null,
+        status: 'В работе',
       }))
-    }
+
+    // Определяем screen и status
+    const screen = isDraft ? 'incoming' : (posData.length > 0 ? 'outgoing' : 'incoming')
+    const status = isDraft ? 'Черновик' : (posData.length > 0 ? 'В работе' : 'В ожидании')
 
     const order = await prisma.order.create({
       data: {
-        id, from,
-        fromId: fromId || null,
-        to: to || '',
-        screen,              // ← теперь правильный screen!
-        comment: comment || '',
-        phone: phone || null,
+        id, from, fromId: fromId || null, to, screen, status, source,
+        comment, phone: phone || null,
         deadline: deadline ? new Date(deadline) : null,
         projectId: projectId || null,
         specProjectId: specProjectId || null,
         contactId: contactId || null,
-        source: source || 'admin_manual',
-        isDraft: isDraft || false,
-        trackingLink,
-        history: { create: { action: 'Карточка создана', userName: session.name } },
+        isDraft, trackingLink,
         positions: posData.length > 0 ? { create: posData } : undefined,
       },
-      include: WITH_POSITIONS,
+      include: { positions: true },
     })
 
-    // Резервируем склад для позиций с Центр Склад
-    for (const pos of order.positions) {
-      if (pos.supplier === 'Центр Склад' && pos.qty > 0) {
-        await reserveStock(pos.id, pos.name1c || pos.oral, pos.qty)
-      }
+    // История
+    await prisma.history.create({
+      data: { cardId: id, action: 'Создан заказ', detail: `${from} → ${to}`, userName: session.name }
+    })
+
+    // Уведомления
+    if (!isDraft) {
+      await notifyAdmins(`Новый заказ ${id} от ${from}`, id)
+      if (fromId) await notifyUser(fromId, `Ваша заявка ${id} принята`, id)
     }
 
-    await notifyAdmins(`Новая карточка ${id} от ${from}`, id)
     return NextResponse.json(order, { status: 201 })
   } catch (e) {
     console.error(e)
-    return NextResponse.json({ error: 'Ошибка создания карточки' }, { status: 500 })
+    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }

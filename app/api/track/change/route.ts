@@ -1,18 +1,27 @@
+// app/api/track/change/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
+import { prisma } from '@/lib/prisma'
 import { notifyAdmins } from '@/lib/notifications'
+import { normalizePhone } from '@/lib/display'
 
 export async function POST(req: NextRequest) {
   try {
     const { cardId, changeText, changePhone } = await req.json()
-    if (!cardId) return NextResponse.json({ error: 'cardId обязателен' }, { status: 400 })
+    if (!cardId || !changeText || !changePhone) return NextResponse.json({ error: 'Заполните все поля' }, { status: 400 })
+
+    const order = await prisma.order.findUnique({ where: { id: cardId } })
+    if (!order) return NextResponse.json({ error: 'Заказ не найден' }, { status: 404 })
 
     await prisma.order.update({
       where: { id: cardId },
-      data: { isChanged: true, changeText: changeText || '', changePhone: changePhone || '' },
+      data: { isChanged: true, changeText, changePhone: normalizePhone(changePhone) },
     })
-    await prisma.history.create({ data: { cardId, action: 'Клиент внёс изменение', detail: changeText || '', userName: 'Клиент' } })
-    await notifyAdmins(`Клиент изменил заказ ${cardId}: ${changeText}`, cardId)
+
+    await prisma.history.create({
+      data: { cardId, action: 'Изменение от клиента', detail: changeText, userName: order.from },
+    })
+
+    await notifyAdmins(`Заказ ${cardId} изменён клиентом: ${changeText}`, cardId)
 
     return NextResponse.json({ ok: true })
   } catch (e) {

@@ -1,3 +1,5 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,27 +9,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Пользователи ─────────────────────────────────────────────
 model User {
-  id          String   @id @default(cuid())
-  name        String
-  phone       String?  @unique
-  email       String?  @unique
-  password    String?
-  role        String   @default("client")
-  companyId   String?
-  company     User?    @relation("SubUsers", fields: [companyId], references: [id])
-  subUsers    User[]   @relation("SubUsers")
-  slug        String?  @unique
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id        String  @id @default(cuid())
+  name      String
+  phone     String? @unique
+  email     String? @unique
+  password  String?
+  role      String  @default("client")
+  // super_admin | bookkeeper | logist | supplier_client | client
+  companyId String?
+  company   User?   @relation("SubUsers", fields: [companyId], references: [id])
+  subUsers  User[]  @relation("SubUsers")
+  slug      String? @unique
+  active    Boolean @default(true)
+  createdAt DateTime @default(now())
 
-  orders        Order[]        @relation("OrderContact")
-  notifications Notification[]
-  dailyReports  DailyReport[]
+  ordersAsContact Order[]        @relation("OrderContact")
+  notifications   Notification[]
+  dailyReports    DailyReport[]
 }
 
+// ─── Заказы (карточки) ────────────────────────────────────────
 model Order {
-  id            String    @id
+  id            String    @id // C-xxx-DDMMYY
   from          String
   fromId        String?
   to            String    @default("")
@@ -66,8 +71,9 @@ model Order {
   history     History[]
 }
 
+// ─── Позиции ──────────────────────────────────────────────────
 model Position {
-  id         String    @id
+  id         String    @id // CardID-Pn
   cardId     String
   name1c     String    @default("")
   oral       String    @default("")
@@ -84,11 +90,12 @@ model Position {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  order       Order         @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  supplierRef Supplier?     @relation(fields: [supplierId], references: [id])
+  order       Order     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  supplierRef Supplier? @relation(fields: [supplierId], references: [id])
   movements   StockMovement[]
 }
 
+// ─── История ──────────────────────────────────────────────────
 model History {
   id        String   @id @default(cuid())
   cardId    String
@@ -100,8 +107,9 @@ model History {
   order Order @relation(fields: [cardId], references: [id], onDelete: Cascade)
 }
 
+// ─── Проекты ──────────────────────────────────────────────────
 model Project {
-  id          String   @id
+  id          String   @id // PRJ-xxx-DDMMYY
   name        String
   clientId    String?
   description String   @default("")
@@ -111,8 +119,9 @@ model Project {
   orders Order[]
 }
 
+// ─── СпецПроекты ──────────────────────────────────────────────
 model SpecProject {
-  id          String   @id
+  id          String   @id // СП-xxx-DDMMYY
   name        String
   clientId    String?
   description String   @default("")
@@ -123,18 +132,20 @@ model SpecProject {
   items  SpecProjectItem[]
 }
 
+// ─── Смета СпецПроекта ────────────────────────────────────────
 model SpecProjectItem {
-  id             String  @id @default(cuid())
-  specProjectId  String
-  name           String
-  qty            Float
-  unit           String  @default("шт")
-  nomenclatureId String?
+  id              String  @id @default(cuid())
+  specProjectId   String
+  name            String
+  qty             Float
+  unit            String  @default("шт")
+  nomenclatureId  String?
 
   specProject  SpecProject   @relation(fields: [specProjectId], references: [id], onDelete: Cascade)
   nomenclature Nomenclature? @relation(fields: [nomenclatureId], references: [id])
 }
 
+// ─── Поставщики ───────────────────────────────────────────────
 model Supplier {
   id     String  @id @default(cuid())
   name   String  @unique
@@ -145,18 +156,18 @@ model Supplier {
   stock     Stock[]
 }
 
+// ─── Номенклатура ─────────────────────────────────────────────
 model Nomenclature {
-  id       String @id @default(cuid())
-  name     String
-  unit     String @default("шт")
-  group    String @default("")
-  cat      String @default("")
-  subgroup String @default("")
+  id   String @id @default(cuid())
+  name String
+  unit String @default("шт")
+  cat  String @default("")
 
   specItems SpecProjectItem[]
   stock     Stock[]
 }
 
+// ─── Склад (остатки) ──────────────────────────────────────────
 model Stock {
   id             String @id @default(cuid())
   supplierId     String
@@ -170,9 +181,10 @@ model Stock {
   nomenclature Nomenclature @relation(fields: [nomenclatureId], references: [id])
 }
 
+// ─── Движение склада ──────────────────────────────────────────
 model StockMovement {
   id         String   @id @default(cuid())
-  type       String
+  type       String   // reserve | income | expense
   name       String
   qty        Float
   unit       String   @default("шт")
@@ -183,6 +195,7 @@ model StockMovement {
   position Position? @relation(fields: [positionId], references: [id])
 }
 
+// ─── Ежедневный отчёт логиста ─────────────────────────────────
 model DailyReport {
   id        String   @id @default(cuid())
   logistId  String
@@ -191,10 +204,11 @@ model DailyReport {
   status    String   @default("processing")
   createdAt DateTime @default(now())
 
-  logist User            @relation(fields: [logistId], references: [id])
+  logist User             @relation(fields: [logistId], references: [id])
   rows   DailyReportRow[]
 }
 
+// ─── Строки отчёта ────────────────────────────────────────────
 model DailyReportRow {
   id         String @id @default(cuid())
   reportId   String
@@ -210,6 +224,7 @@ model DailyReportRow {
   report DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
 }
 
+// ─── Уведомления ──────────────────────────────────────────────
 model Notification {
   id        String   @id @default(cuid())
   userId    String
@@ -221,6 +236,7 @@ model Notification {
   user User @relation(fields: [userId], references: [id])
 }
 
+// ─── Статусы оплаты ───────────────────────────────────────────
 model PaymentStatus {
   id     String  @id @default(cuid())
   name   String  @unique

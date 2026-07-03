@@ -1,85 +1,102 @@
+// app/api/dashboard/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
 import { getSessionFromRequest } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req)
   if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
+  try {
+    const orders = await prisma.order.findMany({
+      include: { positions: true },
+      orderBy: { createdAt: 'desc' },
+    })
 
-  const [allOrders, activity, specProjectsList] = await Promise.all([
-    prisma.order.findMany({ include: { positions: true } }),
-    prisma.history.findMany({ orderBy: { createdAt: 'desc' }, take: 8 }),
-    prisma.specProject.findMany({ where: { status: 'active' }, include: { orders: { include: { positions: true } }, items: true } }),
-  ])
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
 
-  const active = allOrders.filter(o => !o.isDraft && !o.isCancelled && o.screen !== 'archive').length
-  const deliveredToday = allOrders.filter(o => o.delivered && o.delivered >= today && o.delivered < tomorrow).length
-  const overdue = allOrders.filter(o => o.positions.some(p => p.late && p.status !== 'Доставлено')).length
-  const inwork = allOrders.filter(o => o.screen === 'outgoing').length
-  const turnoverToday = allOrders
-    .filter(o => o.delivered && o.delivered >= today && o.delivered < tomorrow)
-    .reduce((s, o) => s + o.positions.reduce((ps, p) => ps + p.qty * p.price, 0), 0)
+    const active = orders.filter((o: { isDraft: boolean; isCancelled: boolean; screen: string }) => !o.isDraft && !o.isCancelled && o.screen !== 'archive')
+    const deliveredToday = orders.filter((o: { delivered: Date | null }) => o.delivered && new Date(o.delivered) >= today)
+    const inwork = orders.filter((o: { screen: string; status: string }) => o.screen === 'outgoing' && o.status === 'В работе')
+    const overdue = orders.filter((o: { positions: { late: boolean; status: string }[] }) => o.positions.some((p: { late: boolean; status: string }) => p.late && p.status !== 'Доставлено'))
+    const turnoverToday = deliveredToday.reduce((s: number, o: { positions: { qty: number; price: number }[] }) => s + o.positions.reduce((ps: number, p: { qty: number; price: number }) => ps + p.qty * p.price, 0), 0)
 
-  const flow = {
-    incoming: allOrders.filter(o => o.screen === 'incoming' && !o.isDraft && !o.isCancelled).length,
-    reception: allOrders.filter(o => o.screen === 'reception').length,
-    outgoing: allOrders.filter(o => o.screen === 'outgoing').length,
-    accounting: allOrders.filter(o => o.screen === 'accounting').length,
-    bookkeeping: allOrders.filter(o => o.screen === 'bookkeeping').length,
-    archive: allOrders.filter(o => o.screen === 'archive').length,
-  }
+    // Поток
+    const flow = {
+      incoming: orders.filter((o: { screen: string; isDraft: boolean; isCancelled: boolean }) => o.screen === 'incoming' && !o.isDraft && !o.isCancelled).length,
+      reception: orders.filter((o: { screen: string }) => o.screen === 'reception').length,
+      outgoing: inwork.length,
+      accounting: orders.filter((o: { screen: string }) => o.screen === 'accounting').length,
+      bookkeeping: orders.filter((o: { screen: string }) => o.screen === 'bookkeeping').length,
+      archive: orders.filter((o: { screen: string }) => o.screen === 'archive').length,
+    }
 
-  const workOrders = allOrders.filter(o => !o.isDraft && !o.isCancelled && o.screen !== 'archive')
-  const totalPct = workOrders.length > 0
-    ? Math.round(workOrders.reduce((s, o) => {
-        const pct = o.positions.length > 0
-          ? o.positions.reduce((ps, p) => {
-              const map: Record<string, number> = { 'В работе': 10, 'Готово к отгрузке': 60, 'В пути': 80, 'Доставлено': 100 }
-              return ps + (map[p.status] || 0)
-            }, 0) / o.positions.length
-          : (o.status === 'Доставлено' ? 100 : 0)
+    // Прогресс
+    const PCT: Record<string, number> = { 'В работе': 10, 'Готово к отгрузке': 60, 'В пути': 80, 'Доставлено': 100 }
+    const withPos = inwork.filter((o: { positions: { status: string }[] }) => o.positions.length > 0)
+    const overallPct = withPos.length === 0 ? 0 : Math.round(
+      withPos.reduce((s: number, o: { positions: { status: string }[] }) => {
+        const pct = o.positions.reduce((ps: number, p: { status: string }) => ps + (PCT[p.status] || 0), 0) / o.positions.length
         return s + pct
-      }, 0) / workOrders.length)
-    : 0
+      }, 0) / withPos.length
+    )
 
-  // Топ клиенты
-  const clientMap: Record<string, number> = {}
-  allOrders.forEach(o => { clientMap[o.from] = (clientMap[o.from] || 0) + 1 })
-  const totalOrders = allOrders.length
-  const topClients = Object.entries(clientMap)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([name, count]) => ({ name, count, pct: Math.round(count / (totalOrders || 1) * 100) }))
+    // Последние действия
+    const activity = await prisma.history.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 8,
+    })
 
-  // Блоки внимания
-  const attention: Array<{ label: string; sub: string; tag: string; hue: string; screen: string }> = []
-  const changed = allOrders.filter(o => o.isChanged && !o.isCancelled)
-  if (changed.length > 0) attention.push({ label: `${changed.length} изменений от клиентов`, sub: 'Требуют подтверждения', tag: 'isChanged', hue: '#c0532a', screen: 'incoming' })
-  const overdueList = allOrders.filter(o => o.positions.some(p => p.late && p.status !== 'Доставлено'))
-  if (overdueList.length > 0) attention.push({ label: `${overdueList.length} просроченных`, sub: 'Позиции с нарушением срока', tag: 'late', hue: '#b03020', screen: 'outgoing' })
-  const toaccList = allOrders.filter(o => o.toacc && o.screen === 'incoming')
-  if (toaccList.length > 0) attention.push({ label: `${toaccList.length} к учёту`, sub: 'Готовы к проводке', tag: 'toacc', hue: '#2e8a5e', screen: 'incoming' })
+    // Топ заказчики (этот месяц)
+    const monthStart = new Date()
+    monthStart.setDate(1)
+    monthStart.setHours(0, 0, 0, 0)
+    const monthOrders = orders.filter((o: { createdAt: Date | string }) => new Date(o.createdAt) >= monthStart)
+    const clientMap: Record<string, number> = {}
+    monthOrders.forEach((o: { from: string }) => { clientMap[o.from] = (clientMap[o.from] || 0) + 1 })
+    const maxCount = Math.max(...Object.values(clientMap), 1)
+    const topClients = Object.entries(clientMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, count]) => ({ name, count, pct: Math.round((count / maxCount) * 100) }))
 
-  // СпецПроекты с прогрессом
-  const specProjects = specProjectsList.map(sp => {
-    const needed = sp.items.reduce((s, i) => s + i.qty, 0)
-    const collected = sp.orders.reduce((s, o) => s + o.positions.reduce((ps, p) => ps + p.qty, 0), 0)
-    const pct = needed > 0 ? Math.round(Math.min(collected / needed * 100, 100)) : 0
-    return { id: sp.id, name: sp.name, pct, cardCount: sp.orders.length }
-  })
+    // СпецПроекты
+    const specProjects = await prisma.specProject.findMany({
+      where: { status: 'active' },
+      include: { orders: { include: { positions: true } }, items: true },
+    })
 
-  return NextResponse.json({
-    kpi: { active, deliveredToday, overdue, inwork, turnoverToday },
-    flow,
-    progress: { overallPct: totalPct, inwork, delivered: deliveredToday, overdue },
-    attention,
-    activity,
-    topClients,
-    specProjects,
-  })
+    const spData = specProjects.map((sp: {
+      id: string;
+      name: string;
+      orders: { positions: { status: string }[] }[];
+      items: { qty: number; name: string }[];
+    }) => {
+      const cards = sp.orders.length
+      const allPos = sp.orders.flatMap((o: { positions: { status: string }[] }) => o.positions)
+      const pct = allPos.length === 0 ? 0 : Math.round(allPos.filter((p: { status: string }) => p.status === 'Доставлено').length / allPos.length * 100)
+      return { id: sp.id, name: sp.name, pct, cardCount: cards }
+    })
+
+    // Требуют внимания
+    const attention = []
+    if (overdue.length > 0) attention.push({ label: `Просрочено: ${overdue.length}`, sub: 'Позиции с истёкшим сроком', tag: 'просрочено', hue: '25', screen: 'outgoing' })
+    const changed = orders.filter((o: { isChanged: boolean; isCancelled: boolean; isDraft: boolean }) => o.isChanged && !o.isCancelled && !o.isDraft)
+    if (changed.length > 0) attention.push({ label: `Изменено: ${changed.length}`, sub: 'Ждут подтверждения', tag: 'изменено', hue: '70', screen: 'incoming' })
+    if (flow.accounting > 0) attention.push({ label: `К учёту: ${flow.accounting}`, sub: 'Ждут проводки', tag: 'к учёту', hue: '155', screen: 'accounting' })
+
+    return NextResponse.json({
+      kpi: { active: active.length, deliveredToday: deliveredToday.length, overdue: overdue.length, inwork: inwork.length, turnoverToday },
+      flow,
+      progress: { overallPct, inwork: inwork.length, delivered: deliveredToday.length, overdue: overdue.length },
+      attention,
+      activity,
+      topClients,
+      specProjects: spData,
+    })
+  } catch (e) {
+    console.error(e)
+    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+  }
 }

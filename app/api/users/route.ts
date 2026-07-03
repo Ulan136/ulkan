@@ -1,54 +1,40 @@
+// app/api/users/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import bcrypt from 'bcryptjs'
-import prisma from '@/lib/prisma'
 import { getSessionFromRequest } from '@/lib/auth'
-import { generateSlug, normalizePhone } from '@/lib/ids'
-
-export async function GET(req: NextRequest) {
-  const session = await getSessionFromRequest(req)
-  if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
-  const users = await prisma.user.findMany({ orderBy: { createdAt: 'asc' } })
-  return NextResponse.json(users)
-}
+import { prisma } from '@/lib/prisma'
+import bcrypt from 'bcryptjs'
+import { generateSlug } from '@/lib/ids'
+import { normalizePhone } from '@/lib/display'
 
 export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req)
   if (!session || session.role !== 'super_admin') return NextResponse.json({ error: 'Нет доступа' }, { status: 403 })
 
   try {
-    const body = await req.json()
-    const { name, role, email, phone, password, companyId, slug: slugRaw } = body
+    const { name, role, email, phone, password, companyId, slug: rawSlug, active = true } = await req.json()
+    if (!name || !role) return NextResponse.json({ error: 'Заполните обязательные поля' }, { status: 400 })
 
-    let hashedPassword: string | null = null
-    if (password) hashedPassword = await bcrypt.hash(password, 10)
-
-    let slug = slugRaw || (name ? generateSlug(name) : null)
-    if (slug) {
-      const exists = await prisma.user.findUnique({ where: { slug } })
-      if (exists) slug = slug + '-' + Date.now().toString().slice(-4)
-    }
-
-    const normPhone = phone ? normalizePhone(phone) : null
+    const slug = rawSlug || generateSlug(name)
+    const hashedPassword = password ? await bcrypt.hash(password, 10) : null
+    const normalizedPhone = phone ? normalizePhone(phone) : null
 
     const user = await prisma.user.create({
       data: {
-        name, role: role || 'client',
-        email: email || null, phone: normPhone,
-        password: hashedPassword,
-        companyId: companyId || null,
-        slug: slug || null, active: true,
+        name, role, email: email || null,
+        phone: normalizedPhone, password: hashedPassword,
+        companyId: companyId || null, slug, active,
       },
     })
 
-    const base = process.env.NEXTAUTH_URL || 'https://ulkan.vercel.app'
+    const base = process.env.NEXTAUTH_URL || ''
     let accessUrl = ''
-    if (role === 'client' || role === 'supplier_client') accessUrl = `${base}/client/${user.slug}`
-    else if (role === 'logist') accessUrl = `${base}/rsp/${user.slug}`
+    if (role === 'logist') accessUrl = `${base}/rsp/${slug}`
+    else if (['client', 'supplier_client'].includes(role)) accessUrl = `${base}/client/${slug}`
 
     return NextResponse.json({ user, accessUrl }, { status: 201 })
-  } catch (e: any) {
-    if (e.code === 'P2002') return NextResponse.json({ error: 'Email или телефон уже существует' }, { status: 409 })
+  } catch (e: unknown) {
     console.error(e)
-    return NextResponse.json({ error: 'Ошибка создания пользователя' }, { status: 500 })
+    const msg = e instanceof Error && e.message.includes('Unique') ? 'Email, телефон или slug уже используется' : 'Ошибка сервера'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

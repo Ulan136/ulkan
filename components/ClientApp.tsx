@@ -1,419 +1,306 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { fetchClientOrders, createClientOrder, fetchNotifications, markNotificationRead, logout, orderAction } from '@/lib/api'
-import { Order, SessionUser, Notification } from '@/lib/types'
 
-function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
-  useEffect(() => { const t = setTimeout(onClose, 2300); return () => clearTimeout(t) }, [onClose])
-  return <div style={{ position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)', background: '#211f1c', color: '#fff', padding: '10px 22px', borderRadius: 10, fontSize: 14, fontWeight: 500, zIndex: 9999, animation: 'uktoast .25s ease both', whiteSpace: 'nowrap' }}>{msg}</div>
+interface Position { id: string; name1c: string; oral: string; qty: number; unit: string; status: string }
+interface Order {
+  id: string; from: string; to: string; status: string; screen: string
+  comment: string; createdAt: string; isDraft: boolean; isCancelled: boolean
+  positions: Position[]; trackingLink?: string; isChanged: boolean
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { bg: string; color: string }> = {
-    'В ожидании': { bg: '#eef2ff', color: '#4a5aaa' }, 'Новая заявка': { bg: '#eef2ff', color: '#4a5aaa' },
-    'Принят': { bg: '#fff0ea', color: '#c0532a' }, 'В обработке': { bg: '#fff0ea', color: '#c0532a' }, 'В работе': { bg: '#fff0ea', color: '#c0532a' },
-    'Готово к отгрузке': { bg: '#fdf8e1', color: '#8a6f00' }, 'В пути': { bg: '#fdf8e1', color: '#8a6f00' },
-    'Доставлено': { bg: '#e8f5ee', color: '#2e8a5e' }, 'К учёту': { bg: '#e8f5ee', color: '#2e8a5e' },
-    'Бухгалтерия': { bg: '#e8f5ee', color: '#2e8a5e' }, 'Отменён': { bg: '#faeaea', color: '#b03020' }, 'Черновик': { bg: '#efece8', color: '#6b655b' },
-  }
-  const s = map[status] || { bg: '#efece8', color: '#6b655b' }
-  return <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, fontWeight: 600, background: s.bg, color: s.color }}>{status}</span>
-}
+const fmt = (d?: string) => d ? new Date(d).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''
+const sc = (s: string): { bg: string; color: string } => ({
+  'В ожидании': { bg: '#eef2ff', color: '#4a5aaa' }, 'В работе': { bg: '#fff0ea', color: '#c0532a' },
+  'В пути': { bg: '#fdf8e1', color: '#8a6f00' }, 'Доставлено': { bg: '#e8f5ee', color: '#2e8a5e' },
+  'Отменён': { bg: '#faeaea', color: '#b03020' }, 'Черновик': { bg: '#efece8', color: '#6b655b' },
+}[s] || { bg: '#f1efec', color: '#6b655b' })
 
-function barColor(pct: number) { return pct >= 100 ? '#3a9d6e' : pct >= 60 ? '#c4a832' : '#d4613a' }
+const PCT: Record<string, number> = { 'В работе': 10, 'Готово к отгрузке': 60, 'В пути': 80, 'Доставлено': 100 }
 
-function cardProgress(o: Order) {
-  if (!o.positions.length) return o.status === 'Доставлено' ? 100 : 0
-  const map: Record<string, number> = { 'В работе': 10, 'Готово к отгрузке': 60, 'В пути': 80, 'Доставлено': 100 }
-  return Math.round(o.positions.reduce((s, p) => s + (map[p.status] || 0), 0) / o.positions.length)
-}
-
-function fmtDate(d?: string | null) {
-  if (!d) return '—'
-  return new Date(d).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })
-}
-function fmtDateTime(d?: string) {
-  if (!d) return '—'
-  const date = new Date(d), diff = Math.floor((Date.now() - date.getTime()) / 60000)
-  if (diff < 1) return 'только что'
-  if (diff < 60) return `${diff} мин`
-  if (diff < 1440) return `${Math.floor(diff / 60)} ч`
-  return fmtDate(d)
-}
-
-interface Props { user: SessionUser; clientUser: { name: string; slug: string; phone?: string } }
-
-export default function ClientApp({ user, clientUser }: Props) {
+export default function ClientApp({ userName, slug }: { userName: string; slug: string }) {
   const [orders, setOrders] = useState<Order[]>([])
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [loading, setLoading] = useState(true)
-  const isBranch = user.role === 'branch'
-  const [tab, setTab] = useState<'orders' | 'incoming' | 'new' | 'notifications'>('orders')
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [tab, setTab] = useState<'orders' | 'new' | 'track'>('orders')
+  const [selected, setSelected] = useState<Order | null>(null)
+  const [text, setText] = useState('')
+  const [deadline, setDeadline] = useState('')
+  const [trackId, setTrackId] = useState('')
+  const [trackData, setTrackData] = useState<Record<string, unknown> | null>(null)
+  const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState('')
-  const [copied, setCopied] = useState('')
+  const [changeText, setChangeText] = useState('')
+  const [changePhone, setChangePhone] = useState('')
+  const [showChange, setShowChange] = useState(false)
 
-  // Новая заявка
-  const [newTo, setNewTo] = useState('')
-  const [newText, setNewText] = useState('')
-  const [newDeadline, setNewDeadline] = useState('')
-  const [newLoading, setNewLoading] = useState(false)
-  const [newResult, setNewResult] = useState<{ order: Order; trackingUrl: string } | null>(null)
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2500) }
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [ord, notifs] = await Promise.all([fetchClientOrders() as any, fetchNotifications() as any])
-      setOrders(ord); setNotifications(notifs)
-    } catch {}
-    finally { setLoading(false) }
+  const loadOrders = useCallback(async () => {
+    const d = await fetch('/api/client/orders').then(r => r.json())
+    setOrders(Array.isArray(d) ? d : [])
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { loadOrders() }, [loadOrders])
 
-  // Автообновление каждые 30 секунд
-  useEffect(() => {
-    const interval = setInterval(() => { load() }, 5000)
-    return () => clearInterval(interval)
-  }, [load])
-
-  const unread = notifications.filter(n => !n.read).length
-  // Для филиала — входящие карточки (адресованные мне)
-  const incomingOrders = orders.filter(o => o.to === clientUser.name && o.fromId !== user.id)
-  const myOrders = orders.filter(o => o.fromId === user.id)
-  const base = typeof window !== 'undefined' ? window.location.origin : 'https://ulkan.vercel.app'
-
-  function copy(text: string, key: string) {
-    navigator.clipboard.writeText(text)
-    setCopied(key); setTimeout(() => setCopied(''), 2000)
-    setToast('Скопировано!')
-  }
-
-  async function handleNewOrder(e: React.FormEvent) {
-    e.preventDefault()
-    setNewLoading(true)
+  const submit = async (draft = false) => {
+    if (!text.trim() && !draft) { showToast('Напишите что нужно'); return }
+    setLoading(true)
     try {
-      const r = await createClientOrder({ to: newTo, text: newText, deadline: newDeadline || undefined }) as any
-      setNewResult(r); load()
-    } catch (e: any) { setToast(e.message) }
-    finally { setNewLoading(false) }
+      const d = await fetch('/api/client/orders', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, deadline, isDraft: draft }),
+      }).then(r => r.json())
+      showToast(draft ? 'Черновик сохранён' : 'Заявка отправлена!')
+      setText(''); setDeadline(''); setTab('orders')
+      loadOrders()
+    } catch { showToast('Ошибка') }
+    finally { setLoading(false) }
   }
 
-  async function handleReadNotif(id: string) {
-    await markNotificationRead(id)
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+  const sendTrack = async () => {
+    if (!trackId.trim()) return
+    setLoading(true)
+    try {
+      const d = await fetch(`/api/track?id=${encodeURIComponent(trackId.trim())}`).then(r => r.json())
+      setTrackData(d)
+    } catch { showToast('Не найдено') }
+    finally { setLoading(false) }
   }
 
-  const inp: React.CSSProperties = { width: '100%', padding: '10px 14px', borderRadius: 8, fontSize: 14, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit' }
+  const sendChange = async (orderId: string) => {
+    if (!changeText || !changePhone) { showToast('Заполните все поля'); return }
+    await fetch('/api/track/change', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cardId: orderId, changeText, changePhone }),
+    })
+    showToast('Изменение отправлено'); setShowChange(false); setChangeText(''); setChangePhone('')
+  }
+
+  const inp: React.CSSProperties = { width: '100%', padding: '11px 14px', border: '1.5px solid #e0dbd3', borderRadius: 9, fontSize: 14, fontFamily: 'inherit', color: '#26231f', outline: 'none', boxSizing: 'border-box' }
+
+  const active = orders.filter(o => !o.isDraft && !o.isCancelled && o.screen !== 'archive')
+  const drafts = orders.filter(o => o.isDraft)
+  const done = orders.filter(o => o.status === 'Доставлено' || o.screen === 'archive')
+
+  const OrderCard = ({ o }: { o: Order }) => {
+    const pct = o.positions.length === 0 ? 0 : Math.round(o.positions.reduce((s, p) => s + (PCT[p.status] || 0), 0) / o.positions.length)
+    const c = sc(o.status)
+    return (
+      <div onClick={() => setSelected(o)} style={{ background: '#fff', borderRadius: 12, padding: '14px 16px', marginBottom: 8, border: '1px solid #e8e3db', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 700, color: '#d4613a' }}>{o.id}</span>
+          <span style={{ background: c.bg, color: c.color, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>{o.status}</span>
+        </div>
+        {o.positions.length > 0 && (
+          <>
+            <div style={{ background: '#e8e3db', borderRadius: 4, height: 5, marginBottom: 4 }}>
+              <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? '#3a9d6e' : '#d4613a', borderRadius: 4 }} />
+            </div>
+            <div style={{ fontSize: 11, color: '#9d9690' }}>{pct}% · {o.positions.length} позиций</div>
+          </>
+        )}
+        <div style={{ fontSize: 11, color: '#9d9690', marginTop: 4 }}>{fmt(o.createdAt)}</div>
+      </div>
+    )
+  }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f1efec', fontFamily: "'Golos Text', system-ui, sans-serif" }}>
-      {toast && <Toast msg={toast} onClose={() => setToast('')} />}
-
+    <div style={{ maxWidth: 880, margin: '0 auto', padding: 16, fontFamily: 'Golos Text, system-ui, sans-serif', minHeight: '100vh' }}>
       {/* Шапка */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #e6e2dc', padding: '0 20px' }}>
-        <div style={{ maxWidth: 880, margin: '0 auto', display: 'flex', alignItems: 'center', height: 56 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 32, height: 32, background: '#d4613a', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14 }}>U</div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>{clientUser.name}</div>
-              <div style={{ fontSize: 11, color: '#8a847c' }}>Кабинет заказчика</div>
-            </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 36, height: 36, background: '#d4613a', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ color: '#fff', fontWeight: 700, fontSize: 18 }}>Ю</span>
           </div>
-
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-            {/* Ссылки */}
-            <div style={{ fontSize: 12, color: '#8a847c', display: 'flex', gap: 12 }}>
-              <span>Ваш кабинет:
-                <button onClick={() => copy(`${base}/client/${clientUser.slug}`, 'cab')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#d4613a', marginLeft: 6, fontFamily: 'inherit', fontSize: 12 }}>
-                  {copied === 'cab' ? '✓' : '📋 Скопировать'}
-                </button>
-              </span>
-            </div>
-            <button onClick={logout} style={{ padding: '6px 14px', border: '1.5px solid #e6e2dc', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 13, color: '#8a847c', fontFamily: 'inherit' }}>
-              Выйти
-            </button>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: '#211f1c' }}>U-Kan</div>
+            <div style={{ fontSize: 12, color: '#9d9690' }}>{userName}</div>
           </div>
         </div>
+        <button onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login' }}
+          style={{ padding: '7px 14px', background: '#f1efec', color: '#6b655b', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+          Выйти
+        </button>
       </div>
 
-      <div style={{ maxWidth: 880, margin: '0 auto', padding: 20 }}>
+      {/* Табы */}
+      <div style={{ display: 'flex', background: '#fff', borderRadius: 12, padding: 4, marginBottom: 20, border: '1px solid #e8e3db' }}>
+        {([
+          { k: 'orders', label: `Мои заказы (${active.length})` },
+          { k: 'new', label: '+ Новая заявка' },
+          { k: 'track', label: '🔍 Отследить' },
+        ] as const).map(t => (
+          <button key={t.k} onClick={() => setTab(t.k)} style={{
+            flex: 1, padding: '10px 8px', border: 'none', borderRadius: 9, cursor: 'pointer',
+            background: tab === t.k ? '#d4613a' : 'none', color: tab === t.k ? '#fff' : '#6b655b',
+            fontWeight: tab === t.k ? 700 : 400, fontSize: 13, fontFamily: 'inherit',
+          }}>{t.label}</button>
+        ))}
+      </div>
 
-        {/* Табы */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
-          {[
-            ...(isBranch ? [{ key: 'incoming', label: `📥 Входящие (${incomingOrders.length})` }] : []),
-            { key: 'orders', label: `Мои заявки (${myOrders.length})` },
-            { key: 'new', label: '+ Новая заявка' },
-            { key: 'notifications', label: `Уведомления${unread > 0 ? ` (${unread})` : ''}` },
-          ].map(t => (
-            <button key={t.key} onClick={() => setTab(t.key as any)} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', background: tab === t.key ? '#d4613a' : '#fff', color: tab === t.key ? '#fff' : '#26231f', boxShadow: '0 0 0 1px #e6e2dc' }}>
-              {t.label}
+      {/* Заказы */}
+      {tab === 'orders' && (
+        <div>
+          {orders.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9d9690' }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>Заказов пока нет</div>
+              <button onClick={() => setTab('new')} style={{ padding: '10px 20px', background: '#d4613a', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Создать первый
+              </button>
+            </div>
+          ) : (
+            <>
+              {active.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#9d9690', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 10 }}>Активные</div>
+                  {active.map(o => <OrderCard key={o.id} o={o} />)}
+                </div>
+              )}
+              {drafts.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#9d9690', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 10 }}>Черновики</div>
+                  {drafts.map(o => <OrderCard key={o.id} o={o} />)}
+                </div>
+              )}
+              {done.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#9d9690', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 10 }}>Завершённые</div>
+                  {done.map(o => <OrderCard key={o.id} o={o} />)}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Новая заявка */}
+      {tab === 'new' && (
+        <div style={{ background: '#fff', borderRadius: 14, padding: '24px 20px', border: '1px solid #e8e3db' }}>
+          <h3 style={{ margin: '0 0 18px', fontSize: 17, fontWeight: 700, color: '#211f1c' }}>Новая заявка</h3>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#6b655b', marginBottom: 5 }}>Что нужно? *</label>
+            <textarea value={text} onChange={e => setText(e.target.value)} rows={5}
+              placeholder="Напишите что нужно: профнастил 50 листов RAL8017, оцинковка 1 рулон 0.5мм..."
+              style={{ ...inp, resize: 'vertical' } as React.CSSProperties} />
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#6b655b', marginBottom: 5 }}>Нужно к дате</label>
+            <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} style={inp} />
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => submit(true)} disabled={loading} style={{ flex: 1, padding: '12px', background: '#f1efec', color: '#26231f', border: 'none', borderRadius: 9, fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Черновик
             </button>
-          ))}
-          <div style={{ marginLeft: 'auto' }}>
-            <button onClick={load} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>⟳</button>
+            <button onClick={() => submit(false)} disabled={loading} style={{ flex: 2, padding: '12px', background: loading ? '#e0dbd3' : '#d4613a', color: '#fff', border: 'none', borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {loading ? 'Отправляем...' : 'Отправить заявку'}
+            </button>
           </div>
         </div>
+      )}
 
-        {/* === ВХОДЯЩИЕ (для Филиала) === */}
-        {tab === 'incoming' && (
-          <div className="anim-fade">
-            {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
-              : incomingOrders.length === 0 ? (
-                <div style={{ background: '#fff', borderRadius: 14, padding: 40, textAlign: 'center', boxShadow: '0 0 0 1px #e6e2dc' }}>
-                  <div style={{ fontSize: 32, marginBottom: 12 }}>📥</div>
-                  <div style={{ fontWeight: 600, marginBottom: 8 }}>Нет входящих карточек</div>
-                  <div style={{ color: '#8a847c', fontSize: 13 }}>Карточки появятся когда вас назначат получателем</div>
+      {/* Трекинг */}
+      {tab === 'track' && (
+        <div>
+          <div style={{ background: '#fff', borderRadius: 14, padding: '20px', border: '1px solid #e8e3db', marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input value={trackId} onChange={e => setTrackId(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendTrack()} placeholder="Введите номер заказа C-001-..." style={{ ...inp, flex: 1 }} />
+              <button onClick={sendTrack} disabled={loading} style={{ padding: '11px 18px', background: '#d4613a', color: '#fff', border: 'none', borderRadius: 9, fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {loading ? '...' : 'Найти'}
+              </button>
+            </div>
+          </div>
+          {trackData && (
+            <div style={{ background: '#fff', borderRadius: 14, padding: '20px', border: '1px solid #e8e3db', animation: 'ukfade .2s ease' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: '#d4613a', fontSize: 14 }}>{String(trackData.id)}</div>
+                  <div style={{ fontSize: 22, margin: '8px 0 4px' }}>{String(trackData.heroIcon)}</div>
                 </div>
-              ) : incomingOrders.map(o => {
-                const pct = cardProgress(o)
-                const allDelivered = o.positions.length > 0 && o.positions.every(p => p.status === 'Доставлено')
-                const accepted = o.status === 'Принято филиалом'
-                return (
-                  <div key={o.id} style={{ background: '#fff', borderRadius: 14, marginBottom: 12, boxShadow: '0 0 0 1px #e6e2dc', overflow: 'hidden' }}>
-                    {/* Шапка */}
-                    <div style={{ padding: '14px 16px', cursor: 'pointer' }} onClick={() => setSelectedOrder(selectedOrder?.id === o.id ? null : o)}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: '#d4613a' }}>{o.id}</span>
-                          <StatusBadge status={o.status} />
-                        </div>
-                        <span style={{ fontSize: 12, color: '#8a847c' }}>{fmtDate(o.createdAt)}</span>
-                      </div>
-                      <div style={{ fontSize: 13, color: '#26231f', marginBottom: 6 }}>
-                        {o.from} → <strong>{o.to}</strong>
-                        {o.deadline && <span style={{ color: '#8a847c', marginLeft: 8 }}>до {fmtDate(o.deadline)}</span>}
-                      </div>
-                      {/* Прогресс */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ flex: 1, height: 5, background: '#f1efec', borderRadius: 3, overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${pct}%`, background: barColor(pct), borderRadius: 3, transition: 'width .3s' }} />
-                        </div>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: barColor(pct), minWidth: 36, textAlign: 'right' }}>{pct}%</span>
-                      </div>
+                <span style={{ background: '#e8f5ee', color: '#2e8a5e', padding: '4px 12px', borderRadius: 20, fontSize: 13, fontWeight: 700 }}>{String(trackData.status)}</span>
+              </div>
+              <div style={{ background: '#e8e3db', borderRadius: 4, height: 8, marginBottom: 12 }}>
+                <div style={{ width: `${Number(trackData.progress)}%`, height: '100%', background: '#d4613a', borderRadius: 4, transition: 'width .5s' }} />
+              </div>
+              <div style={{ fontSize: 13, color: '#6b655b', marginBottom: 8 }}>Прогресс: {String(trackData.progress)}%</div>
+              {Array.isArray(trackData.positions) && trackData.positions.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#9d9690', marginBottom: 8, textTransform: 'uppercase' }}>Позиции</div>
+                  {(trackData.positions as { name: string; qty: number; unit: string; status: string }[]).map((p, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f1efec', fontSize: 13 }}>
+                      <span>{p.name} — {p.qty} {p.unit}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: p.status === 'Доставлено' ? '#2e8a5e' : '#9d9690' }}>{p.status}</span>
                     </div>
-
-                    {/* Детали */}
-                    {selectedOrder?.id === o.id && (
-                      <div style={{ padding: '0 16px 16px' }}>
-                        {/* Позиции */}
-                        {o.positions.length > 0 && (
-                          <div style={{ marginBottom: 14 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#8a847c', marginBottom: 8, letterSpacing: '.04em' }}>ПОЗИЦИИ</div>
-                            {o.positions.map((p, i) => (
-                              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid #f1efec' }}>
-                                <div>
-                                  <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name1c || p.oral}</div>
-                                  {p.resp && <div style={{ fontSize: 11, color: '#8a847c' }}>Логист: {p.resp}</div>}
-                                </div>
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                  <span style={{ fontSize: 12, color: '#8a847c' }}>{p.qty > 0 ? `${p.qty} ${p.unit}` : '—'}</span>
-                                  <StatusBadge status={p.status} />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Кнопки действий филиала */}
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-                          {allDelivered && !accepted && (
-                            <button onClick={async () => {
-                              await orderAction(o.id, 'branchAccept', { branchName: clientUser.name })
-                              load(); setToast('✓ Товар принят')
-                            }} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#d4613a', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit' }}>
-                              ✓ Принял товар
-                            </button>
-                          )}
-                          {accepted && (
-                            <button onClick={async () => {
-                              await orderAction(o.id, 'branchForward', { branchName: clientUser.name })
-                              load(); setToast('✓ Передано логисту')
-                            }} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#d4613a', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit' }}>
-                              К доставке →
-                            </button>
-                          )}
-                          {!allDelivered && (
-                            <span style={{ fontSize: 12, color: '#8a847c', padding: '9px 0' }}>⏳ Ожидаем доставку от логиста...</span>
-                          )}
-                        </div>
-
-                        <a href={o.trackingLink} target="_blank" rel="noreferrer" style={{ color: '#d4613a', fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>
-                          Трекинг →
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-          </div>
-        )}
-
-        {/* === МОИ ЗАЯВКИ === */}
-        {tab === 'orders' && (
-          <div className="anim-fade">
-            {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
-              : myOrders.length === 0 ? (
-                <div style={{ background: '#fff', borderRadius: 14, padding: 40, textAlign: 'center', boxShadow: '0 0 0 1px #e6e2dc' }}>
-                  <div style={{ fontSize: 32, marginBottom: 12 }}>📦</div>
-                  <div style={{ fontWeight: 600, marginBottom: 8 }}>Заявок пока нет</div>
-                  <button onClick={() => setTab('new')} style={{ padding: '10px 20px', background: '#d4613a', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Подать заявку</button>
+                  ))}
                 </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {orders.map(o => {
-                    const pct = cardProgress(o)
-                    return (
-                      <div key={o.id} onClick={() => setSelectedOrder(selectedOrder?.id === o.id ? null : o)}
-                        style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', boxShadow: '0 0 0 1px #e6e2dc', cursor: 'pointer' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: 13, color: '#d4613a' }}>{o.id}</span>
-                          <StatusBadge status={o.status} />
-                          {o.isChanged && <span style={{ fontSize: 10, background: '#fff0ea', color: '#c0532a', padding: '1px 8px', borderRadius: 20, fontWeight: 600 }}>ИЗМЕНЕНИЕ</span>}
-                          <span style={{ marginLeft: 'auto', fontSize: 12, color: '#8a847c' }}>{fmtDate(o.createdAt)}</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: o.positions.length > 0 ? 10 : 0 }}>
-                          <span style={{ fontSize: 13, fontWeight: 500 }}>→ {o.to || '—'}</span>
-                          {o.deadline && <span style={{ fontSize: 12, color: '#8a847c' }}>до {fmtDate(o.deadline)}</span>}
-                          <span style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 700, color: barColor(pct) }}>{pct}%</span>
-                        </div>
-                        {o.positions.length > 0 && (
-                          <div style={{ height: 4, background: '#f1efec', borderRadius: 4, overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${pct}%`, background: barColor(pct), transition: 'width .3s', borderRadius: 4 }} />
-                          </div>
-                        )}
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
-                        {/* Раскрытые детали */}
-                        {selectedOrder?.id === o.id && (
-                          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f1efec' }}>
-                            {o.comment && <div style={{ fontSize: 13, color: '#8a847c', marginBottom: 10 }}>Комментарий: {o.comment}</div>}
-                            {o.positions.length > 0 && (
-                              <div>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 8 }}>ПОЗИЦИИ</div>
-                                {o.positions.map(p => (
-                                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #f1efec' }}>
-                                    <span style={{ fontSize: 13 }}>{p.name1c || p.oral}</span>
-                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                      <span style={{ fontSize: 12, color: '#8a847c' }}>{p.qty} {p.unit}</span>
-                                      <StatusBadge status={p.status} />
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            {/* Кнопки для филиала */}
-                            {user.role === 'branch' && o.screen === 'outgoing' && (
-                              <div style={{ marginTop: 14, padding: '12px 14px', background: '#f8f6f3', borderRadius: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <span style={{ fontSize: 12, color: '#8a847c', fontWeight: 600 }}>ДЕЙСТВИЯ ФИЛИАЛА:</span>
-                                {o.status !== 'Принято филиалом' && (
-                                  <button onClick={async e => {
-                                    e.stopPropagation()
-                                    await orderAction(o.id, 'branchAccept', { branchName: clientUser.name })
-                                    load()
-                                    setToast('✓ Товар принят филиалом')
-                                  }} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#d4613a', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13, fontFamily: 'inherit' }}>
-                                    ✓ Принял
-                                  </button>
-                                )}
-                                {o.status === 'Принято филиалом' && (
-                                  <>
-                                    <span style={{ fontSize: 12, padding: '4px 10px', borderRadius: 20, background: '#e8f5ee', color: '#2e8a5e', fontWeight: 600 }}>✓ Принято</span>
-                                    <button onClick={async e => {
-                                      e.stopPropagation()
-                                      await orderAction(o.id, 'branchForward', { branchName: clientUser.name })
-                                      load()
-                                      setToast('✓ Передано логисту для доставки клиенту')
-                                    }} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#d4613a', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13, fontFamily: 'inherit' }}>
-                                      К доставке →
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            )}
-
-                            <div style={{ marginTop: 12 }}>
-                              <a href={o.trackingLink} target="_blank" rel="noreferrer" style={{ color: '#d4613a', fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>
-                                Открыть трекинг →
-                              </a>
-                              <button onClick={e => { e.stopPropagation(); copy(o.trackingLink, o.id) }} style={{ marginLeft: 12, border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, color: '#8a847c', fontFamily: 'inherit' }}>
-                                {copied === o.id ? '✓ Скопировано' : '📋 Ссылка'}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )
-            }
-          </div>
-        )}
-
-        {/* === НОВАЯ ЗАЯВКА === */}
-        {tab === 'new' && (
-          <div className="anim-fade">
-            {newResult ? (
-              <div style={{ background: '#fff', borderRadius: 14, padding: 32, boxShadow: '0 0 0 1px #e6e2dc', textAlign: 'center', maxWidth: 480, margin: '0 auto' }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
-                <div style={{ fontWeight: 700, fontSize: 20, color: '#2e8a5e', marginBottom: 8 }}>Заявка {newResult.order.id} создана!</div>
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16 }}>
-                  <button onClick={() => { setNewResult(null); setNewTo(''); setNewText(''); setNewDeadline(''); setTab('orders') }} style={{ padding: '10px 20px', background: '#fff', border: '1.5px solid #e6e2dc', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>Мои заявки</button>
-                  <a href={newResult.trackingUrl} target="_blank" rel="noreferrer" style={{ padding: '10px 20px', background: '#d4613a', color: '#fff', borderRadius: 8, fontWeight: 600, textDecoration: 'none', fontSize: 14 }}>Отслеживать →</a>
-                </div>
+      {/* Детали заказа */}
+      {selected && (
+        <div onClick={() => setSelected(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 100, display: 'flex', alignItems: 'flex-end', padding: 0 }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxHeight: '85vh', background: '#fff', borderRadius: '16px 16px 0 0', overflow: 'auto', padding: '20px 20px 32px', animation: 'ukpop .18s ease' }}>
+            <div style={{ width: 40, height: 4, background: '#e0dbd3', borderRadius: 2, margin: '0 auto 16px' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+              <div>
+                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: '#d4613a', fontSize: 14 }}>{selected.id}</div>
+                <div style={{ fontSize: 13, color: '#9d9690', marginTop: 2 }}>{fmt(selected.createdAt)}</div>
               </div>
-            ) : (
-              <div style={{ background: '#fff', borderRadius: 14, padding: 28, boxShadow: '0 0 0 1px #e6e2dc', maxWidth: 560 }}>
-                <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 4 }}>Новая заявка</div>
-                <div style={{ color: '#8a847c', fontSize: 13, marginBottom: 24 }}>Заполните форму — менеджер свяжется с вами</div>
-                <form onSubmit={handleNewOrder} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 4, display: 'block' }}>ПОЛУЧАТЕЛЬ / КУДА</label>
-                    <input style={inp} value={newTo} onChange={e => setNewTo(e.target.value)} placeholder="Нипа Базар, Алматы" />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 4, display: 'block' }}>ОПИСАНИЕ ЗАЯВКИ *</label>
-                    <textarea style={{ ...inp, minHeight: 100, resize: 'vertical' }} value={newText} onChange={e => setNewText(e.target.value)} placeholder="Что нужно заказать, в каком количестве..." required />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 4, display: 'block' }}>ЖЕЛАЕМЫЙ СРОК</label>
-                    <input style={inp} type="date" value={newDeadline} onChange={e => setNewDeadline(e.target.value)} />
-                  </div>
-                  <button type="submit" disabled={newLoading} style={{ padding: '12px', background: '#d4613a', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: newLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-                    {newLoading ? 'Отправка...' : 'ОТПРАВИТЬ ЗАЯВКУ →'}
-                  </button>
-                </form>
-              </div>
+              <span style={{ background: sc(selected.status).bg, color: sc(selected.status).color, padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{selected.status}</span>
+            </div>
+
+            {selected.comment && (
+              <div style={{ background: '#fafaf9', borderRadius: 8, padding: '12px 14px', marginBottom: 12, fontSize: 13, color: '#26231f', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{selected.comment}</div>
             )}
-          </div>
-        )}
 
-        {/* === УВЕДОМЛЕНИЯ === */}
-        {tab === 'notifications' && (
-          <div className="anim-fade">
-            {notifications.length === 0 ? (
-              <div style={{ background: '#fff', borderRadius: 14, padding: 40, textAlign: 'center', boxShadow: '0 0 0 1px #e6e2dc' }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>🔔</div>
-                <div style={{ color: '#8a847c' }}>Уведомлений пока нет</div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {notifications.map(n => (
-                  <div key={n.id} onClick={() => !n.read && handleReadNotif(n.id)}
-                    style={{ background: n.read ? '#fff' : '#fff8f5', borderRadius: 10, padding: '14px 18px', boxShadow: `0 0 0 1px ${n.read ? '#e6e2dc' : '#f3c8b0'}`, cursor: n.read ? 'default' : 'pointer' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ fontSize: 13, fontWeight: n.read ? 400 : 600 }}>{n.text}</div>
-                      {!n.read && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#d4613a', flexShrink: 0, marginTop: 3 }} />}
-                    </div>
-                    <div style={{ fontSize: 11, color: '#8a847c', marginTop: 4 }}>{fmtDateTime(n.createdAt)}</div>
+            {selected.positions.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#9d9690', marginBottom: 6, textTransform: 'uppercase' }}>Позиции</div>
+                {selected.positions.map(p => (
+                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f1efec', fontSize: 13 }}>
+                    <span>{p.name1c || p.oral} — {p.qty} {p.unit}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: p.status === 'Доставлено' ? '#2e8a5e' : '#9d9690' }}>{p.status}</span>
                   </div>
                 ))}
               </div>
             )}
+
+            {selected.trackingLink && (
+              <a href={selected.trackingLink} style={{ display: 'block', textAlign: 'center', padding: '11px', background: '#eef2ff', color: '#4a5aaa', borderRadius: 9, fontWeight: 600, fontSize: 14, textDecoration: 'none', marginBottom: 8 }}>
+                🔍 Отследить заказ
+              </a>
+            )}
+
+            {!selected.isCancelled && selected.status !== 'Доставлено' && (
+              <div style={{ marginTop: 12 }}>
+                {!showChange ? (
+                  <button onClick={() => setShowChange(true)} style={{ width: '100%', padding: '11px', background: '#fff0ea', color: '#c0532a', border: '1px solid #f4c4a8', borderRadius: 9, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    ✏ Изменить заказ
+                  </button>
+                ) : (
+                  <div style={{ background: '#fafaf9', borderRadius: 10, padding: '14px' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Что изменить?</div>
+                    <textarea value={changeText} onChange={e => setChangeText(e.target.value)} rows={3} placeholder="Опишите изменения..."
+                      style={{ ...inp, resize: 'none', marginBottom: 8 } as React.CSSProperties} />
+                    <input value={changePhone} onChange={e => setChangePhone(e.target.value)} placeholder="Ваш телефон для связи" style={{ ...inp, marginBottom: 10 }} />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => setShowChange(false)} style={{ flex: 1, padding: '10px', background: '#f1efec', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>Отмена</button>
+                      <button onClick={() => sendChange(selected.id)} style={{ flex: 2, padding: '10px', background: '#d4613a', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>Отправить</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#211f1c', color: '#fff', padding: '12px 24px', borderRadius: 12, fontSize: 14, fontWeight: 500, zIndex: 200, whiteSpace: 'nowrap', boxShadow: '0 8px 24px rgba(0,0,0,.25)' }}>
+          {toast}
+        </div>
+      )}
     </div>
   )
 }

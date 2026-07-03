@@ -1,3 +1,5 @@
+// lib/types.ts
+
 export interface Position {
   id: string
   cardId: string
@@ -52,6 +54,15 @@ export interface Order {
   positions: Position[]
 }
 
+export interface SessionUser {
+  id: string
+  name: string
+  email?: string
+  phone?: string
+  role: string
+  slug?: string
+}
+
 export interface User {
   id: string
   name: string
@@ -71,7 +82,6 @@ export interface Project {
   description: string
   status: string
   createdAt: string
-  _count?: { orders: number }
 }
 
 export interface SpecProject {
@@ -82,7 +92,6 @@ export interface SpecProject {
   status: string
   createdAt: string
   items: SpecProjectItem[]
-  _count?: { orders: number }
 }
 
 export interface SpecProjectItem {
@@ -106,29 +115,6 @@ export interface Nomenclature {
   name: string
   unit: string
   cat: string
-}
-
-export interface Stock {
-  id: string
-  supplierId: string
-  nomenclatureId: string
-  name: string
-  unit: string
-  qty: number
-  reserved: number
-  supplier?: Supplier
-  nomenclature?: Nomenclature
-}
-
-export interface StockMovement {
-  id: string
-  type: string
-  name: string
-  qty: number
-  unit: string
-  positionId?: string
-  cardId?: string
-  createdAt: string
 }
 
 export interface DailyReport {
@@ -164,92 +150,21 @@ export interface Notification {
   createdAt: string
 }
 
-export interface SessionUser {
+export interface PaymentStatus {
   id: string
   name: string
-  email?: string
-  phone?: string
-  role: string
-  slug?: string
-}
-
-export interface HistoryItem {
-  id: string
-  cardId: string
-  action: string
-  detail: string
-  userName: string
-  createdAt: string
-}
-
-export interface AnalysisRow {
-  name: string
-  unit: string
-  needed: number
-  collected: number
-  remaining: number
-  pct: number
-}
-
-export interface DashboardData {
-  kpi: {
-    active: number
-    deliveredToday: number
-    overdue: number
-    inwork: number
-    turnoverToday: number
-  }
-  flow: {
-    incoming: number
-    reception: number
-    outgoing: number
-    accounting: number
-    bookkeeping: number
-    archive: number
-  }
-  progress: {
-    overallPct: number
-    inwork: number
-    delivered: number
-    overdue: number
-  }
-  attention: Array<{ label: string; sub: string; tag: string; hue: string; screen: string }>
-  activity: HistoryItem[]
-  topClients: Array<{ name: string; count: number; pct: number }>
-  specProjects: Array<{ id: string; name: string; pct: number; cardCount: number }>
-}
-
-export interface SettingsData {
-  users: User[]
-  projects: Project[]
-  specProjects: SpecProject[]
-  suppliers: Supplier[]
-  nomenclature: Nomenclature[]
-  paymentStatuses: Array<{ id: string; name: string; active: boolean }>
-}
-
-export interface TrackData {
-  id: string
-  from: string
-  to: string
-  status: string
-  stage: number
-  progress: number
-  createdAt: string
-  delivered?: string
-  positions: Array<{ name: string; qty: number; unit: string; status: string }>
-  history: Array<{ action: string; time: string }>
-  details: Array<{ k: string; v: string }>
+  active: boolean
 }
 
 export type AdminScreen =
   | 'dashboard' | 'reception' | 'incoming' | 'outgoing'
   | 'filter' | 'accounting' | 'warehouse' | 'bookkeeping'
-  | 'archive' | 'nomenclature' | 'settings'
+  | 'archive' | 'settings'
 
 export type IncTab = 'new' | 'changed' | 'toacc' | 'drafts' | 'cancelled'
 export type FilterGroup = 'clients' | 'suppliers' | 'projects' | 'specprojects'
 export type FilterStatus = 'inwork' | 'delivered' | 'all'
 export type ArchiveTab = 'cards' | 'projects' | 'specprojects'
 export type SettingsTab = 'users' | 'projects' | 'specprojects' | 'nomenclature' | 'payment'
-export type BookkeepingTab = 'cards' | 'reports' | 'shifts'
+export type BookkeepingTab = 'cards' | 'reports'
+export type OutgoingTab = 'inwork' | 'ready' | 'all'

@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation'
-import { getSession } from '@/lib/auth'
+import { cookies } from 'next/headers'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await getSession()
-  if (!session) redirect('/login')
-  if (!['super_admin', 'bookkeeper'].includes(session.role)) redirect('/')
+  const cookieStore = await cookies()
+  const token = cookieStore.get('ukan_session')?.value
+  if (!token) redirect('/login')
   return <>{children}</>
 }

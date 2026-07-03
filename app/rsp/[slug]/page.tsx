@@ -1,15 +1,37 @@
-import { getSession } from '@/lib/auth'
-import { redirect } from 'next/navigation'
+// app/rsp/[slug]/page.tsx
+'use client'
+import { useEffect, useState } from 'react'
 import LogistPortal from '@/components/LogistPortal'
-import prisma from '@/lib/prisma'
+import { useParams } from 'next/navigation'
 
-export default async function RspPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params
-  const session = await getSession()
-  if (!session) redirect(`/login?from=/rsp/${slug}`)
+interface User { id: string; name: string; role: string; slug: string }
 
-  const user = await prisma.user.findUnique({ where: { slug } })
-  if (!user) redirect('/')
+export default function LogistPage() {
+  const params = useParams()
+  const slug = params.slug as string
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  return <LogistPortal user={session} logistUser={user as any} />
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(d => {
+        if (d.user && (d.user.slug === slug || d.user.role === 'super_admin')) {
+          setUser(d.user)
+        } else {
+          window.location.href = '/login?from=/rsp/' + slug
+        }
+      })
+      .catch(() => { window.location.href = '/login' })
+      .finally(() => setLoading(false))
+  }, [slug])
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#f1efec', fontFamily: 'Golos Text, system-ui, sans-serif', color: '#9d9690' }}>
+      Загрузка...
+    </div>
+  )
+
+  if (!user) return null
+  return <LogistPortal userName={user.name} userId={user.id} />
 }
