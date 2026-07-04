@@ -18,8 +18,8 @@ export async function GET(req: NextRequest) {
       isCancelled: false,
       screen: { in: ['outgoing', 'incoming', 'reception'] },
       OR: [
-        { positions: { some: { resp: myName } } },
-        { from: myName },
+        { positions: { some: { resp: { equals: myName, mode: 'insensitive' } } } },
+        { from: { equals: myName, mode: 'insensitive' } },
         { fromId: myId },
       ]
     },

@@ -55,6 +55,8 @@ export default function LogistPortal({ user, logistUser }: Props) {
   const [reportLoading, setReportLoading] = useState(false)
 
   const myName = logistUser.name
+  // Сравнение имён без учёта регистра и лишних пробелов
+  const eqName = (a?: string, b?: string) => (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase()
 
   const showMsg = useCallback((msg: string) => setToast(msg), [])
 
@@ -84,13 +86,13 @@ export default function LogistPortal({ user, logistUser }: Props) {
   // ── Позиции КО МНЕ (resp = моё имя, статус не Доставлено) ──
   const posIn = orders.flatMap(o =>
     o.positions
-      .filter(p => p.resp === myName && p.status !== 'Доставлено')
+      .filter(p => eqName(p.resp, myName) && p.status !== 'Доставлено')
       .map(p => ({ pos: p, order: o }))
   )
 
   // ── Позиции ОТ МЕНЯ (только карточки которые Я создал через "Новый") ──
   const posOut = orders.flatMap(o =>
-    o.from === myName
+    eqName(o.from, myName)
       ? o.positions.map(p => ({ pos: p, order: o }))
       : []
   )
@@ -98,7 +100,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
   // ── История моих действий для отчёта ──
   const completedToday = orders.flatMap(o =>
     o.positions
-      .filter(p => p.resp === myName && p.status === 'Доставлено')
+      .filter(p => eqName(p.resp, myName) && p.status === 'Доставлено')
       .map(p => ({ pos: p, order: o }))
   )
 

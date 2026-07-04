@@ -13,9 +13,9 @@ export async function GET(req: NextRequest) {
       isCancelled: false,
       OR: [
         // Входящие — карточки адресованные мне (в любом статусе кроме архива)
-        { to: myName, screen: { notIn: ['archive'] } },
+        { to: { equals: myName, mode: 'insensitive' }, screen: { notIn: ['archive'] } },
         // Исходящие — карточки которые я передал дальше
-        { from: myName, screen: { in: ['outgoing', 'incoming'] } },
+        { from: { equals: myName, mode: 'insensitive' }, screen: { in: ['outgoing', 'incoming'] } },
       ]
     },
     include: {
