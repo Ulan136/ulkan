@@ -67,12 +67,24 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: 'Нельзя удалить самого себя' }, { status: 400 })
     }
 
-    await prisma.user.delete({ where: { id } })
+    // Чистим связанные записи в одной транзакции, чтобы FK не блокировали удаление.
+    // Заказы НЕ удаляем — только отвязываем контакт (история заказов сохраняется).
+    await prisma.$transaction([
+      prisma.notification.deleteMany({ where: { userId: id } }),          // уведомления
+      prisma.dailyReport.deleteMany({ where: { logistId: id } }),         // смены (строки каскадом)
+      prisma.order.updateMany({ where: { contactId: id }, data: { contactId: null } }), // контакт заказа
+      prisma.user.updateMany({ where: { companyId: id }, data: { companyId: null } }),  // подпользователи
+      prisma.user.delete({ where: { id } }),
+    ])
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     if (e.code === 'P2003') {
-      return NextResponse.json({ error: 'Нельзя удалить — есть связанные данные (карточки, уведомления). Сначала отключите пользователя.' }, { status: 409 })
+      return NextResponse.json({ error: 'Нельзя удалить — остались связанные данные. Отключите пользователя.' }, { status: 409 })
     }
+    if (e.code === 'P2025') {
+      return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 })
+    }
+    console.error('delete user error:', e)
     return NextResponse.json({ error: 'Ошибка удаления' }, { status: 500 })
   }
 }
