@@ -207,7 +207,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           delivered: null,
           leg: 2,
         }
-        historyText = `Передано филиалом ${payload.branchName || order.to} → второе плечо доставки`
+        historyText = `Передано филиалом ${payload.branchName || order.to} → передан логисту на доставку`
         // Уведомляем логистов, назначенных в позициях, что заказ готов к доставке
         const respNames = [...new Set(order.positions.map(p => p.resp).filter(Boolean))]
         for (const respName of respNames) {
@@ -219,6 +219,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
       // ── Филиал: принял товар ──
       case 'branchAccept':
+        // Ставим позиции в 'Принято филиалом' (100% в PCT), чтобы прогресс
+        // первого плеча дошёл до конца. branchForward потом сбросит их в 'В работе'.
+        await prisma.position.updateMany({ where: { cardId: id }, data: { status: 'Принято филиалом' } })
         updateData = { status: 'Принято филиалом' }
         historyText = `Товар принят филиалом ${payload.branchName || order.to}`
         break

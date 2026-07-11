@@ -28,6 +28,13 @@ function StatusBadge({ status }: { status: string }) {
 
 function barColor(pct: number) { return pct >= 100 ? '#3a9d6e' : pct >= 60 ? '#c4a832' : '#d4613a' }
 
+// Стиль подписи этапа (двухплечевые заказы). Цвета из палитры (hex).
+function legStageStyle(label: string): { bg: string; color: string } {
+  return label.includes('Изготовление')
+    ? { bg: '#fff0ea', color: '#c0532a' } // 1-е плечо · изготовление
+    : { bg: '#eef2ff', color: '#4a5aaa' } // 2-е плечо · доставка
+}
+
 function fmtTime(iso: string) {
   const d = new Date(iso), diff = Math.floor((Date.now() - d.getTime()) / 60000)
   if (diff < 1) return 'только что'
@@ -190,7 +197,14 @@ export default function TrackingApp() {
                         <div style={{ color: '#8a847c', fontSize: 12, marginTop: 2 }}>обновлено {fmtTime(new Date().toISOString())}</div>
                       </div>
                     </div>
-                    <div style={{ fontSize: 28, fontWeight: 700, color: barColor(trackData.progress) }}>{trackData.progress}%</div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 28, fontWeight: 700, color: barColor(trackData.progress) }}>{trackData.progress}%</div>
+                      {trackData.legStage && (
+                        <div style={{ marginTop: 6, display: 'inline-block', fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 20, ...legStageStyle(trackData.legStage) }}>
+                          {trackData.legStage}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Прогресс бар */}

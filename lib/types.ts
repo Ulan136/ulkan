@@ -236,6 +236,7 @@ export interface TrackData {
   status: string
   stage: number
   progress: number
+  legStage?: string | null
   createdAt: string
   delivered?: string
   positions: Array<{ name: string; qty: number; unit: string; status: string }>
