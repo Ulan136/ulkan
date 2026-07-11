@@ -19,7 +19,7 @@ function StatusBadge({ status }: { status: string }) {
     'В ожидании': { bg: '#eef2ff', color: '#4a5aaa' }, 'Новая заявка': { bg: '#eef2ff', color: '#4a5aaa' },
     'Принят': { bg: '#fff0ea', color: '#c0532a' }, 'В обработке': { bg: '#fff0ea', color: '#c0532a' }, 'В работе': { bg: '#fff0ea', color: '#c0532a' },
     'Готово к отгрузке': { bg: '#fdf8e1', color: '#8a6f00' }, 'В пути': { bg: '#fdf8e1', color: '#8a6f00' },
-    'Доставлено': { bg: '#e8f5ee', color: '#2e8a5e' }, 'Архив': { bg: '#eef2ff', color: '#4a5aaa' },
+    'Доставлено': { bg: '#e8f5ee', color: '#2e8a5e' }, 'Принято филиалом': { bg: '#e8f5ee', color: '#2e8a5e' }, 'Архив': { bg: '#eef2ff', color: '#4a5aaa' },
     'Отменён': { bg: '#faeaea', color: '#b03020' },
   }
   const s = map[status] || { bg: '#efece8', color: '#6b655b' }

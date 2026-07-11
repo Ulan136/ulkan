@@ -12,7 +12,7 @@ import {
   Project, SpecProject, AdminScreen, IncTab, ArchiveTab, SettingsTab, BookkeepingTab,
   User, DailyReport, AnalysisRow, Notification,
 } from '@/lib/types'
-import { cardProgress, cardSum, isOverdue, barColor, statusStyle, sourceStyle, sourceLabel, fmtMoney, fmtDate, fmtDateTime } from '@/lib/display'
+import { cardProgress, posPct, cardSum, isOverdue, barColor, statusStyle, sourceStyle, sourceLabel, fmtMoney, fmtDate, fmtDateTime } from '@/lib/display'
 import { COLORS } from '@/lib/colors'
 import FilterScreen from '@/components/FilterScreen'
 import WarehouseScreen from '@/components/WarehouseScreen'
@@ -1470,7 +1470,7 @@ export default function AdminApp({ user }: Props) {
                         {o.positions.length > 0 && (
                           <div style={{ padding: '12px 18px', borderBottom: '1px solid #f1efec' }}>
                             {o.positions.map((pos, i) => {
-                              const posPct = ({'В работе': 10, 'Готово к отгрузке': 60, 'В пути': 80, 'Доставлено': 100} as Record<string,number>)[pos.status] || 0
+                              const pPct = posPct(pos)
                               return (
                                 <div key={pos.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 0', borderBottom: i < o.positions.length - 1 ? '1px solid #f8f6f3' : 'none' }}>
                                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -1478,7 +1478,7 @@ export default function AdminApp({ user }: Props) {
                                     <div style={{ fontSize: 11, color: '#8a847c' }}>{pos.qty} {pos.unit}{pos.resp ? ` · ${pos.resp}` : ''}{pos.supplier ? ` · ${pos.supplier}` : ''}</div>
                                   </div>
                                   <div style={{ width: 120 }}>
-                                    <ProgressBar pct={posPct} height={4} />
+                                    <ProgressBar pct={pPct} height={4} />
                                   </div>
                                   {pos.late && <span style={{ fontSize: 10, background: '#faeaea', color: '#b03020', padding: '1px 6px', borderRadius: 20, fontWeight: 600, flexShrink: 0 }}>ПРОСРОЧ.</span>}
                                   <select
@@ -1487,7 +1487,7 @@ export default function AdminApp({ user }: Props) {
                                     onClick={e => e.stopPropagation()}
                                     style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
                                   >
-                                    {['В работе', 'Готово к отгрузке', 'В пути', 'Доставлено'].map(s => <option key={s} value={s}>{s}</option>)}
+                                    {['В работе', 'Готово к отгрузке', 'В пути', 'Доставлено', 'Принято филиалом'].map(s => <option key={s} value={s}>{s}</option>)}
                                   </select>
                                 </div>
                               )

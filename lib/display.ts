@@ -37,6 +37,7 @@ export function statusStyle(status: string): React.CSSProperties {
     'Готово к отгрузке':COLORS.status.ready,
     'В пути':           COLORS.status.ready,
     'Доставлено':       COLORS.status.delivered,
+    'Принято филиалом': COLORS.status.delivered,
     'К учёту':          COLORS.status.delivered,
     'Бухгалтерия':      COLORS.status.delivered,
     'Отменён':          COLORS.status.cancelled,

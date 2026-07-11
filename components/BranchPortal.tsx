@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { orderAction, logout } from '@/lib/api'
 import { SessionUser } from '@/lib/types'
+import { cardProgress } from '@/lib/display'
 
 const PRIMARY = '#d4613a'
 const BG = '#f1efec'
@@ -49,15 +50,6 @@ function fmtTime(d?: string | null) {
   const dt = new Date(d)
   return dt.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) + ' · ' +
     dt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-}
-
-function cardProgress(o: Order) {
-  if (!o.positions.length) {
-    if (o.status === 'Доставлено' || o.status === 'Принято филиалом') return 100
-    return 10
-  }
-  const map: Record<string, number> = { 'В работе': 10, 'Готово к отгрузке': 60, 'В пути': 80, 'Доставлено': 100 }
-  return Math.round(o.positions.reduce((s, p) => s + (map[p.status] || 0), 0) / o.positions.length)
 }
 
 interface Props { user: SessionUser; branchUser: { name: string; slug: string; phone?: string } }

@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { fetchClientOrders, createClientOrder, fetchNotifications, markNotificationRead, logout, orderAction } from '@/lib/api'
 import { Order, SessionUser, Notification } from '@/lib/types'
+import { cardProgress } from '@/lib/display'
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   useEffect(() => { const t = setTimeout(onClose, 2300); return () => clearTimeout(t) }, [onClose])
@@ -13,7 +14,7 @@ function StatusBadge({ status }: { status: string }) {
     'В ожидании': { bg: '#eef2ff', color: '#4a5aaa' }, 'Новая заявка': { bg: '#eef2ff', color: '#4a5aaa' },
     'Принят': { bg: '#fff0ea', color: '#c0532a' }, 'В обработке': { bg: '#fff0ea', color: '#c0532a' }, 'В работе': { bg: '#fff0ea', color: '#c0532a' },
     'Готово к отгрузке': { bg: '#fdf8e1', color: '#8a6f00' }, 'В пути': { bg: '#fdf8e1', color: '#8a6f00' },
-    'Доставлено': { bg: '#e8f5ee', color: '#2e8a5e' }, 'К учёту': { bg: '#e8f5ee', color: '#2e8a5e' },
+    'Доставлено': { bg: '#e8f5ee', color: '#2e8a5e' }, 'Принято филиалом': { bg: '#e8f5ee', color: '#2e8a5e' }, 'К учёту': { bg: '#e8f5ee', color: '#2e8a5e' },
     'Бухгалтерия': { bg: '#e8f5ee', color: '#2e8a5e' }, 'Отменён': { bg: '#faeaea', color: '#b03020' }, 'Черновик': { bg: '#efece8', color: '#6b655b' },
   }
   const s = map[status] || { bg: '#efece8', color: '#6b655b' }
@@ -21,12 +22,6 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function barColor(pct: number) { return pct >= 100 ? '#3a9d6e' : pct >= 60 ? '#c4a832' : '#d4613a' }
-
-function cardProgress(o: Order) {
-  if (!o.positions.length) return o.status === 'Доставлено' ? 100 : 0
-  const map: Record<string, number> = { 'В работе': 10, 'Готово к отгрузке': 60, 'В пути': 80, 'Доставлено': 100 }
-  return Math.round(o.positions.reduce((s, p) => s + (map[p.status] || 0), 0) / o.positions.length)
-}
 
 function fmtDate(d?: string | null) {
   if (!d) return '—'
