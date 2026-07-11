@@ -8,13 +8,31 @@ const PRIMARY = '#d4613a'
 const DARK    = '#211f1c'
 const DARK2   = '#322f2b'
 
-// Сегодня по Asia/Almaty (UTC+5) — для фильтра доставок текущей смены
+// Даты по Asia/Almaty (UTC+5, без DST)
+const ALMATY_OFFSET = 5 * 60 * 60 * 1000
 function isAlmatyToday(iso?: string | null): boolean {
   if (!iso) return false
-  const OFFSET = 5 * 60 * 60 * 1000
-  const d = new Date(new Date(iso).getTime() + OFFSET)
-  const now = new Date(Date.now() + OFFSET)
+  const d = new Date(new Date(iso).getTime() + ALMATY_OFFSET)
+  const now = new Date(Date.now() + ALMATY_OFFSET)
   return d.getUTCFullYear() === now.getUTCFullYear() && d.getUTCMonth() === now.getUTCMonth() && d.getUTCDate() === now.getUTCDate()
+}
+// 'YYYY-MM-DD' по дню Алматы
+function almatyTodayStr(): string {
+  return new Date(Date.now() + ALMATY_OFFSET).toISOString().slice(0, 10)
+}
+function almatyDateStr(iso: string): string {
+  return new Date(new Date(iso).getTime() + ALMATY_OFFSET).toISOString().slice(0, 10)
+}
+function fmtAlmatyDate(iso: string): string {
+  const [y, m, d] = almatyDateStr(iso).split('-')
+  return `${d}.${m}.${y}`
+}
+function mapDraftRows(rows: any[]): ShiftRow[] {
+  return (rows || []).map((r: any) => ({
+    id: r.id, name: r.name, qtyIn: String(r.qtyIn || 0), fromWho: r.fromWho || '',
+    commentIn: r.commentIn || '', toWho: r.toWho || '', qtyOut: String(r.qtyOut || 0),
+    commentOut: r.commentOut || '', invoiceNum: r.invoiceNum || '', auto: true,
+  }))
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -56,7 +74,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
   const [newLoading, setNewLoading] = useState(false)
 
   // Отчёт по смене
-  const [reportDate, setReportDate] = useState(new Date().toISOString().slice(0, 10))
+  const [reportDate, setReportDate] = useState(almatyTodayStr())
   const [reportComment, setReportComment] = useState('')
   const [shiftRows, setShiftRows] = useState<ShiftRow[]>([])
   const [showAddRow, setShowAddRow] = useState(false)
@@ -64,6 +82,9 @@ export default function LogistPortal({ user, logistUser }: Props) {
   const [addData, setAddData] = useState({ name: '', qtyIn: '', fromWho: '', commentIn: '', toWho: '', qtyOut: '', commentOut: '', invoiceNum: '' })
   const [reportSent, setReportSent] = useState(false)
   const [reportLoading, setReportLoading] = useState(false)
+  // editingDate = null → сегодняшняя смена; 'YYYY-MM-DD' → редактируем прошлую смену
+  const [editingDate, setEditingDate] = useState<string | null>(null)
+  const [pastDrafts, setPastDrafts] = useState<{ id: string; date: string; rowCount: number }[]>([])
 
   const myName = logistUser.name
   // Сравнение имён без учёта регистра и лишних пробелов
@@ -119,35 +140,51 @@ export default function LogistPortal({ user, logistUser }: Props) {
       .map(p => ({ pos: p, order: o }))
   )
 
-  // Загружаем сохранённый черновик смены из базы при входе
-  useEffect(() => {
-    async function loadDraft() {
-      try {
-        const res = await fetch('/api/reports/draft')
-        if (!res.ok) return
-        const data = await res.json()
-        if (data && data.rows && data.rows.length > 0) {
-          const savedRows: ShiftRow[] = data.rows.map((r: any) => ({
-            id: r.id,
-            name: r.name,
-            qtyIn: String(r.qtyIn || 0),
-            fromWho: r.fromWho || '',
-            commentIn: r.commentIn || '',
-            toWho: r.toWho || '',
-            qtyOut: String(r.qtyOut || 0),
-            commentOut: r.commentOut || '',
-            invoiceNum: r.invoiceNum || '',
-            auto: true,
-          }))
-          setShiftRows(savedRows)
-        }
-      } catch {}
-    }
-    loadDraft()
+  // Загрузка черновика (сегодняшнего или конкретного дня).
+  // replace=false — не затирать уже подмешанные авто-строки при пустом ответе.
+  const loadDraft = useCallback(async (date?: string | null, replace = true) => {
+    try {
+      const res = await fetch('/api/reports/draft' + (date ? `?date=${date}` : ''))
+      if (res.status === 401 || res.status === 403) { setSessionExpired(true); return }
+      if (!res.ok) return
+      const data = await res.json()
+      const rows: ShiftRow[] = data?.rows?.length ? mapDraftRows(data.rows) : []
+      if (rows.length > 0) { setShiftRows(rows); setReportComment(data?.comment || '') }
+      else if (replace) { setShiftRows([]); setReportComment('') }
+    } catch {}
   }, [])
 
-  // Автодобавление новых доставленных позиций в смену
+  // Список незакрытых черновиков за прошлые дни (для баннера)
+  const loadPast = useCallback(async () => {
+    try {
+      const res = await fetch('/api/reports/draft?scope=past')
+      if (!res.ok) return
+      const data = await res.json()
+      setPastDrafts(Array.isArray(data) ? data : [])
+    } catch {}
+  }, [])
+
+  useEffect(() => { loadDraft(null, false); loadPast() }, [loadDraft, loadPast])
+
+  // Открыть прошлую смену для дозаполнения и закрытия
+  async function openPastDraft(iso: string) {
+    const dateStr = almatyDateStr(iso)
+    setEditingDate(dateStr)
+    setReportDate(dateStr)
+    setReportSent(false)
+    await loadDraft(dateStr, true)
+  }
+  // Вернуться к сегодняшней смене
+  async function backToToday() {
+    setEditingDate(null)
+    setReportDate(almatyTodayStr())
+    setReportSent(false)
+    await loadDraft(null, true)
+  }
+
+  // Автодобавление новых доставленных позиций в смену (только для сегодняшней)
   useEffect(() => {
+    if (editingDate) return  // редактируем прошлую смену — сегодняшние доставки не подмешиваем
     if (completedToday.length === 0) return
     setShiftRows(prev => {
       const existingIds = new Set(prev.map(r => r.id))
@@ -168,7 +205,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
       if (newRows.length === 0) return prev
       return [...prev, ...newRows]
     })
-  }, [completedToday.length])
+  }, [completedToday.length, editingDate])
 
   // Автосохранение черновика смены в базу каждые 30 секунд
   useEffect(() => {
@@ -179,12 +216,12 @@ export default function LogistPortal({ user, logistUser }: Props) {
         await fetch('/api/reports/draft', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rows: validRows }),
+          body: JSON.stringify({ rows: validRows, date: editingDate || undefined }),
         })
       } catch {}
     }, 2000)
     return () => clearTimeout(timer)
-  }, [shiftRows])
+  }, [shiftRows, editingDate])
 
   // ── Смена статуса позиции ──
   async function handleStatus(cardId: string, posId: string, status: string, posName: string, fromWho: string, toWho: string, qty: number) {
@@ -193,8 +230,8 @@ export default function LogistPortal({ user, logistUser }: Props) {
       await orderAction(cardId, 'updatePos', { posId, status })
       showMsg(`✓ ${status}`)
 
-      // Если Доставлено — добавляем строку в отчёт автоматически
-      if (status === 'Доставлено') {
+      // Если Доставлено — добавляем строку в сегодняшнюю смену (не в открытую прошлую)
+      if (status === 'Доставлено' && !editingDate) {
         const autoRow: ShiftRow = {
           id: `auto-${posId}-${Date.now()}`,
           name: posName,
@@ -260,17 +297,21 @@ export default function LogistPortal({ user, logistUser }: Props) {
     if (validRows.length === 0) { showMsg('Добавьте хотя бы одну строку'); return }
     setReportLoading(true)
     try {
+      const reportDay = editingDate || reportDate
       await createDailyReport({
-        date: reportDate, comment: reportComment,
+        date: reportDay, comment: reportComment,
         rows: validRows.map(r => ({
           name: r.name, fromWho: r.fromWho, qtyIn: Number(r.qtyIn) || 0, commentIn: r.commentIn,
           toWho: r.toWho, qtyOut: Number(r.qtyOut) || 0, commentOut: r.commentOut, invoiceNum: r.invoiceNum || '',
         })),
       })
-      // Удаляем черновик после успешной отправки
-      await fetch('/api/reports/draft', { method: 'DELETE' }).catch(() => {})
+      // Удаляем черновик того же дня после успешной отправки
+      await fetch('/api/reports/draft' + (editingDate ? `?date=${editingDate}` : ''), { method: 'DELETE' }).catch(() => {})
       setShiftRows([])
+      setReportComment('')
       setReportSent(true)
+      if (editingDate) { setEditingDate(null); setReportDate(almatyTodayStr()) }
+      loadPast()
       showMsg('✓ Отчёт отправлен в бухгалтерию!')
     } catch (e: any) { showMsg(e.message) }
     finally { setReportLoading(false) }
@@ -413,6 +454,26 @@ export default function LogistPortal({ user, logistUser }: Props) {
             <div style={{ fontSize: 12, color: '#8a847c', marginBottom: 16 }}>
               {new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })} · {new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
             </div>
+
+            {/* Индикатор: редактируем ПРОШЛУЮ смену */}
+            {editingDate && !reportSent && (
+              <div style={{ background: '#fff0ea', border: '1.5px solid #e6c9b8', borderRadius: 10, padding: '10px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <span style={{ fontSize: 13, color: '#c0532a', fontWeight: 600 }}>✎ Смена за {editingDate.split('-').reverse().join('.')}</span>
+                <button onClick={backToToday} style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #e6c9b8', background: '#fff', color: '#c0532a', cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'inherit' }}>← К сегодняшней</button>
+              </div>
+            )}
+
+            {/* Баннер: незакрытые смены за прошлые дни */}
+            {!editingDate && !reportSent && pastDrafts.length > 0 && (
+              <div style={{ background: '#fdf8e1', border: '1.5px solid #f0d98a', borderRadius: 10, padding: '10px 14px', marginBottom: 14 }}>
+                {pastDrafts.map(pd => (
+                  <div key={pd.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '4px 0' }}>
+                    <span style={{ fontSize: 13, color: '#8a6f00', fontWeight: 600 }}>⚠ Незакрытая смена за {fmtAlmatyDate(pd.date)} · {pd.rowCount} строк</span>
+                    <button onClick={() => openPastDraft(pd.date)} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: '#8a6f00', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'inherit', flexShrink: 0 }}>Открыть</button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {reportSent ? (
               <div>

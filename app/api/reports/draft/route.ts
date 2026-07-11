@@ -2,23 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getSessionFromRequest } from '@/lib/auth'
 
-// Границы «сегодня» по Asia/Almaty (UTC+5, без DST), как UTC-инстанты.
-// todayKey = Алматы 00:00 (канонический ключ дня для черновика).
-function almatyDay() {
+// Границы суток по Asia/Almaty (UTC+5, без DST), как UTC-инстанты.
+// dayKey = Алматы 00:00 (канонический ключ дня для черновика).
+// dateStr (опц.) = 'YYYY-MM-DD' по дню Алматы; без него — сегодня.
+function almatyDay(dateStr?: string | null) {
   const OFFSET = 5 * 60 * 60 * 1000
-  const shifted = new Date(Date.now() + OFFSET) // UTC-поля = локальное время Алматы
-  const todayKey = new Date(Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()) - OFFSET)
-  const tomorrowKey = new Date(todayKey.getTime() + 24 * 60 * 60 * 1000)
-  return { todayKey, tomorrowKey }
-}
-
-// Прошлые незакрытые черновики логиста → в бухгалтерию (status='processing').
-// Вчерашнее задним числом редактировать нельзя.
-async function autoCloseOldDrafts(logistId: string, todayKey: Date) {
-  await prisma.dailyReport.updateMany({
-    where: { logistId, status: 'draft', date: { lt: todayKey } },
-    data: { status: 'processing', comment: 'Закрыт автоматически' },
-  })
+  let y: number, m: number, d: number
+  if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const p = dateStr.split('-').map(Number)
+    y = p[0]; m = p[1] - 1; d = p[2]
+  } else {
+    const shifted = new Date(Date.now() + OFFSET) // UTC-поля = локальное время Алматы
+    y = shifted.getUTCFullYear(); m = shifted.getUTCMonth(); d = shifted.getUTCDate()
+  }
+  const dayKey = new Date(Date.UTC(y, m, d) - OFFSET)
+  const nextKey = new Date(dayKey.getTime() + 24 * 60 * 60 * 1000)
+  return { dayKey, nextKey }
 }
 
 function mapRows(rows: any): any[] {
@@ -34,36 +33,47 @@ function mapRows(rows: any): any[] {
   }))
 }
 
-// GET — загрузить черновик смены логиста (только сегодняшний)
+// GET — черновик смены логиста.
+//   без параметров        → сегодняшний черновик (с rows)
+//   ?date=YYYY-MM-DD       → черновик конкретного дня (с rows)
+//   ?scope=past            → список НЕЗАКРЫТЫХ черновиков за прошлые дни [{id,date,rowCount}]
 export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req)
   if (!session) return NextResponse.json(null, { status: 401 })
 
-  const { todayKey, tomorrowKey } = almatyDay()
-  await autoCloseOldDrafts(session.id, todayKey)
+  const { searchParams } = new URL(req.url)
 
+  if (searchParams.get('scope') === 'past') {
+    const { dayKey: todayKey } = almatyDay()
+    const past = await prisma.dailyReport.findMany({
+      where: { logistId: session.id, status: 'draft', date: { lt: todayKey } },
+      include: { _count: { select: { rows: true } } },
+      orderBy: { date: 'desc' },
+    })
+    return NextResponse.json(past.map(p => ({ id: p.id, date: p.date, rowCount: p._count.rows })))
+  }
+
+  const { dayKey, nextKey } = almatyDay(searchParams.get('date'))
   const draft = await prisma.dailyReport.findFirst({
-    where: { logistId: session.id, status: 'draft', date: { gte: todayKey, lt: tomorrowKey } },
+    where: { logistId: session.id, status: 'draft', date: { gte: dayKey, lt: nextKey } },
     include: { rows: true },
     orderBy: { date: 'desc' },
   })
   return NextResponse.json(draft)
 }
 
-// POST — сохранить/обновить сегодняшний черновик
+// POST — сохранить/обновить черновик. body: { rows, date? }
+//   date отсутствует → сегодняшний; date=YYYY-MM-DD → черновик того дня.
 export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req)
   if (!session) return NextResponse.json(null, { status: 401 })
 
-  const { rows } = await req.json()
-  const { todayKey, tomorrowKey } = almatyDay()
-  await autoCloseOldDrafts(session.id, todayKey)
-
+  const { rows, date } = await req.json()
+  const { dayKey, nextKey } = almatyDay(date)
   const rowData = mapRows(rows)
 
-  // Ищем сегодняшний черновик (в пределах суток Алматы)
   const existing = await prisma.dailyReport.findFirst({
-    where: { logistId: session.id, status: 'draft', date: { gte: todayKey, lt: tomorrowKey } },
+    where: { logistId: session.id, status: 'draft', date: { gte: dayKey, lt: nextKey } },
     orderBy: { date: 'desc' },
   })
 
@@ -77,7 +87,7 @@ export async function POST(req: NextRequest) {
     const draft = await prisma.dailyReport.create({
       data: {
         logistId: session.id,
-        date: todayKey, // канонический ключ дня (Алматы 00:00)
+        date: dayKey, // канонический ключ дня (Алматы 00:00)
         status: 'draft',
         comment: '',
         rows: rowData.length > 0 ? { create: rowData } : undefined,
@@ -87,14 +97,15 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE — удалить сегодняшний черновик (после закрытия смены)
+// DELETE — удалить черновик дня. ?date=YYYY-MM-DD (по умолчанию сегодняшний).
 export async function DELETE(req: NextRequest) {
   const session = await getSessionFromRequest(req)
   if (!session) return NextResponse.json(null, { status: 401 })
 
-  const { todayKey, tomorrowKey } = almatyDay()
+  const { searchParams } = new URL(req.url)
+  const { dayKey, nextKey } = almatyDay(searchParams.get('date'))
   await prisma.dailyReport.deleteMany({
-    where: { logistId: session.id, status: 'draft', date: { gte: todayKey, lt: tomorrowKey } },
+    where: { logistId: session.id, status: 'draft', date: { gte: dayKey, lt: nextKey } },
   })
   return NextResponse.json({ ok: true })
 }

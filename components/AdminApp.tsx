@@ -1595,7 +1595,8 @@ export default function AdminApp({ user }: Props) {
             {bookTab === 'reports' && (() => {
               // Фильтрация отчётов
               const filtered = dailyReports.filter(r => {
-                if (reportFilter === 'active' && r.status !== 'processing') return false
+                // «Новые» показывают и отправленные (processing), и незакрытые смены логистов (draft)
+                if (reportFilter === 'active' && r.status !== 'processing' && r.status !== 'draft') return false
                 if (reportFilter === 'done' && r.status !== 'done') return false
                 if (reportFilter === 'archive' && r.status !== 'archive') return false
                 if (reportDateFrom && new Date(r.date) < new Date(reportDateFrom)) return false
@@ -1608,7 +1609,7 @@ export default function AdminApp({ user }: Props) {
                   {/* Фильтры */}
                   <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
                     {([['active', 'Новые'], ['done', 'Принятые'], ['archive', 'Архив']] as const).map(([k, l]) => (
-                      <button key={k} onClick={() => setReportFilter(k)} style={{ padding: '5px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: reportFilter === k ? COLORS.primary : '#fff', color: reportFilter === k ? '#fff' : '#8a847c', boxShadow: '0 0 0 1.5px #e6e2dc' }}>{l} ({dailyReports.filter(r => r.status === (k === 'active' ? 'processing' : k)).length})</button>
+                      <button key={k} onClick={() => setReportFilter(k)} style={{ padding: '5px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: reportFilter === k ? COLORS.primary : '#fff', color: reportFilter === k ? '#fff' : '#8a847c', boxShadow: '0 0 0 1.5px #e6e2dc' }}>{l} ({dailyReports.filter(r => k === 'active' ? (r.status === 'processing' || r.status === 'draft') : r.status === k).length})</button>
                     ))}
                     <div style={{ width: 1, height: 20, background: '#e6e2dc' }} />
                     <input type="date" value={reportDateFrom} onChange={e => setReportDateFrom(e.target.value)} style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #e6e2dc', fontSize: 12, fontFamily: 'inherit' }} />
@@ -1629,7 +1630,7 @@ export default function AdminApp({ user }: Props) {
                             {r.comment && <div style={{ fontSize: 12, color: '#8a847c', marginTop: 2 }}>{r.comment}</div>}
                           </div>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <StatusBadge status={r.status === 'processing' ? 'Новый' : r.status === 'done' ? 'Принят' : 'Архив'} />
+                            <StatusBadge status={r.status === 'draft' ? 'Не закрыта' : r.status === 'processing' ? 'Новый' : r.status === 'done' ? 'Принят' : 'Архив'} />
                             {r.status === 'processing' && (
                               <Btn size="sm" variant="primary" onClick={async () => {
                                 await updateDailyReport(r.id, 'done')
