@@ -13,12 +13,12 @@ export async function GET(req: NextRequest) {
     where: {
       isCancelled: false,
       OR: [
-        // Адресованные мне (legacy branch-as-recipient), кроме архива
-        { to: { equals: myName, mode: 'insensitive' }, screen: { notIn: ['archive'] } },
-        // Мои заявки / переданное дальше (legacy card-level), на всех стадиях
-        { from: { equals: myName, mode: 'insensitive' } },
-        // Per-position: я поставщик хотя бы одной позиции (leg=1 изготовление / leg=2 передано)
+        // ВЫБОРКА карточки — я поставщик хотя бы одной позиции (без leg!). Отображение
+        // и раскладка по вкладкам (Входящие=leg1 / Исходящие=leg2) — на фронте.
         { positions: { some: { supplier: { equals: myName, mode: 'insensitive' } } } },
+        // legacy card-level (адресованные мне / мои заявки), screen НЕ ограничиваем — история до архива
+        { to: { equals: myName, mode: 'insensitive' } },
+        { from: { equals: myName, mode: 'insensitive' } },
       ]
     },
     include: {

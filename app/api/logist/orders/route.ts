@@ -19,16 +19,17 @@ export async function GET(req: NextRequest) {
       isCancelled: false,
       screen: { in: ['outgoing', 'incoming', 'reception'] },
       OR: [
-        // Есть моя позиция второго плеча (leg=2) — первое плечо (leg=1, у филиала) не показываем
-        { positions: { some: { resp: { equals: myName, mode: 'insensitive' }, leg: 2 } } },
+        // ВЫБОРКА карточки — по resp (без leg!). leg решает только ОТОБРАЖЕНИЕ (фронт).
+        { positions: { some: { resp: { equals: myName, mode: 'insensitive' } } } },
         { from: { equals: myName, mode: 'insensitive' } },
         { fromId: myId },
       ]
     },
-    // Возвращаем ТОЛЬКО мои позиции второго плеча — чужие в браузер не уходят.
+    // Возвращаем ТОЛЬКО мои позиции (любого плеча) — чужие в браузер не уходят.
+    // Фронт: активная работа = leg=2, история = Доставлено, leg=1 не показывает.
     include: {
       positions: {
-        where: { resp: { equals: myName, mode: 'insensitive' }, leg: 2 },
+        where: { resp: { equals: myName, mode: 'insensitive' } },
         orderBy: { createdAt: 'asc' },
       },
     },
