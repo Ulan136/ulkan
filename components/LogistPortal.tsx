@@ -8,6 +8,15 @@ const PRIMARY = '#d4613a'
 const DARK    = '#211f1c'
 const DARK2   = '#322f2b'
 
+// Сегодня по Asia/Almaty (UTC+5) — для фильтра доставок текущей смены
+function isAlmatyToday(iso?: string | null): boolean {
+  if (!iso) return false
+  const OFFSET = 5 * 60 * 60 * 1000
+  const d = new Date(new Date(iso).getTime() + OFFSET)
+  const now = new Date(Date.now() + OFFSET)
+  return d.getUTCFullYear() === now.getUTCFullYear() && d.getUTCMonth() === now.getUTCMonth() && d.getUTCDate() === now.getUTCDate()
+}
+
 // ─── Toast ────────────────────────────────────────────────────────────────────
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   useEffect(() => { const t = setTimeout(onClose, 2300); return () => clearTimeout(t) }, [onClose])
@@ -101,10 +110,12 @@ export default function LogistPortal({ user, logistUser }: Props) {
       : []
   )
 
-  // ── История моих действий для отчёта (мои доставленные позиции, leg=2) ──
+  // ── Мои доставленные позиции ЗА СЕГОДНЯ (leg=2) — для автосбора смены ──
+  // Фильтр по updatedAt (момент доставки) в пределах суток Алматы, чтобы вчерашние
+  // доставки не попадали в сегодняшнюю смену.
   const completedToday = orders.flatMap(o =>
     o.positions
-      .filter(p => eqName(p.resp, myName) && p.leg === 2 && p.status === 'Доставлено')
+      .filter(p => eqName(p.resp, myName) && p.leg === 2 && p.status === 'Доставлено' && isAlmatyToday(p.updatedAt))
       .map(p => ({ pos: p, order: o }))
   )
 
