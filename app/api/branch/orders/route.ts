@@ -3,7 +3,8 @@ import prisma from '@/lib/prisma'
 import { requireSession } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
-  const auth = await requireSession(req)
+  // Только филиал — иначе не-branch (напр. админ) получил бы чужую выдачу с пустыми positions.
+  const auth = await requireSession(req, ['branch'])
   if (!auth.ok) return auth.response
   const { session } = auth
 

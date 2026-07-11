@@ -3,7 +3,8 @@ import prisma from '@/lib/prisma'
 import { requireSession } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
-  const auth = await requireSession(req)
+  // Только логист — иначе не-logist получил бы чужую выдачу с пустыми positions.
+  const auth = await requireSession(req, ['logist'])
   if (!auth.ok) return auth.response
   const { session } = auth
 
