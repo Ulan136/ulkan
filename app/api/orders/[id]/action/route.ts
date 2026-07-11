@@ -5,6 +5,7 @@ import { generatePosId } from '@/lib/ids'
 import { notifyAdmins, notify } from '@/lib/notifications'
 import { releaseStock, reserveStock } from '@/lib/stock'
 import { orderInclude } from '@/lib/orderMetrics'
+import { isFirstLeg } from '@/services/legDetection'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireSession(req)
@@ -61,6 +62,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       case 'process': {
         updateData = { screen: 'outgoing', status: 'В работе', block: '' }
         historyText = 'Отправлен в Исходящие'
+        // Первое плечо: если поставщик хотя бы одной позиции — филиал (branch),
+        // карточка сначала идёт к филиалу-изготовителю, логисту пока не видна.
+        updateData.leg = (await isFirstLeg(order.positions)) ? 1 : 2
         // Резервируем позиции с Центр Склад
         const posToReserve = order.positions.filter(p => p.supplier === 'Центр Склад' && p.qty > 0 && p.name1c)
         for (const pos of posToReserve) {
@@ -273,8 +277,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           await reserveStock(newPos.id, payload.name1c || payload.oral, payload.qty)
         }
         historyText = `Добавлена позиция: ${payload.name1c || payload.oral}`
-        // Уведомляем логиста если назначен
-        if (payload.resp) {
+        // Пересчёт плеча: поставщика-филиала могли добавить этой позицией
+        const legAfterAdd = (await isFirstLeg([...existing, newPos])) ? 1 : 2
+        updateData = { leg: legAfterAdd }
+        // Уведомляем логиста только если карточка второго плеча (leg=2) —
+        // при первом плече логист её ещё не видит.
+        if (legAfterAdd === 2 && payload.resp) {
           const logist = await prisma.user.findFirst({ where: { name: payload.resp, role: 'logist' } })
           if (logist) await notify(logist.id, `Вам назначена позиция: ${payload.name1c || payload.oral} по заказу ${id}`, id)
         }
@@ -304,6 +312,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             await updateReserve(posId, oldPos.qty, Number(posData.qty) || 0)
           }
         }
+        // Пересчёт плеча: поставщика-филиала могли назначить/сменить этой правкой
+        const posAfterEdit = await prisma.position.findMany({ where: { cardId: id } })
+        updateData = { leg: (await isFirstLeg(posAfterEdit)) ? 1 : 2 }
         // Не пишем в историю — слишком частые мелкие изменения засоряют ленту
         break
       }

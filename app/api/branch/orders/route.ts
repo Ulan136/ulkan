@@ -17,6 +17,8 @@ export async function GET(req: NextRequest) {
         { to: { equals: myName, mode: 'insensitive' }, screen: { notIn: ['archive'] } },
         // Исходящие — карточки которые я передал дальше
         { from: { equals: myName, mode: 'insensitive' }, screen: { in: ['outgoing', 'incoming'] } },
+        // Первое плечо — я филиал-изготовитель: поставщик позиции = моё имя
+        { leg: 1, positions: { some: { supplier: { equals: myName, mode: 'insensitive' } } } },
       ]
     },
     include: {
