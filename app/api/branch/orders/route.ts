@@ -13,19 +13,17 @@ export async function GET(req: NextRequest) {
     where: {
       isCancelled: false,
       OR: [
-        // Входящие — карточки адресованные мне (в любом статусе кроме архива)
+        // Адресованные мне (legacy branch-as-recipient), кроме архива
         { to: { equals: myName, mode: 'insensitive' }, screen: { notIn: ['archive'] } },
-        // Исходящие — всё, что я отправил/передал дальше. Без ограничения по screen:
-        // карточка едет дальше (incoming → accounting → bookkeeping → archive),
-        // и филиал должен видеть историю своей работы (read-only на фронте).
+        // Мои заявки / переданное дальше (legacy card-level), на всех стадиях
         { from: { equals: myName, mode: 'insensitive' } },
-        // Первое плечо — я филиал-изготовитель: поставщик позиции = моё имя
-        { leg: 1, positions: { some: { supplier: { equals: myName, mode: 'insensitive' } } } },
+        // Per-position: я поставщик хотя бы одной позиции (leg=1 изготовление / leg=2 передано)
+        { positions: { some: { supplier: { equals: myName, mode: 'insensitive' } } } },
       ]
     },
     include: {
       positions: {
-        select: { id: true, cardId: true, name1c: true, oral: true, qty: true, unit: true, status: true, resp: true, supplier: true, payment: true, deadline: true, late: true, createdAt: true, updatedAt: true }
+        select: { id: true, cardId: true, name1c: true, oral: true, qty: true, unit: true, status: true, leg: true, resp: true, supplier: true, payment: true, deadline: true, late: true, createdAt: true, updatedAt: true }
       }
     },
     orderBy: { updatedAt: 'desc' }

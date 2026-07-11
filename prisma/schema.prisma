@@ -79,6 +79,7 @@ model Position {
   supplierId String?
   supplier   String    @default("")
   status     String    @default("В работе")
+  leg        Int       @default(2)  // 1 = первое плечо (у филиала-поставщика), 2 = второе плечо/обычная — per-position
   late       Boolean   @default(false)
   payment    String    @default("")
   deadline   DateTime?

@@ -5,6 +5,7 @@ import { generateCardId, generateTrackingLink, generatePosId } from '@/lib/ids'
 import { notifyAdmins } from '@/lib/notifications'
 import { reserveStock } from '@/lib/stock'
 import { orderInclude } from '@/lib/orderMetrics'
+import { branchNameSet } from '@/services/legDetection'
 
 export async function GET(req: NextRequest) {
   const auth = await requireSession(req)
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
 
     let posData: any[] = []
     if (positions && positions.length > 0) {
+      const branches = await branchNameSet()  // leg per-position: поставщик-филиал → 1
       posData = positions.map((p: any, i: number) => ({
         id: generatePosId(id, i + 1),
         name1c: p.name1c || '',
@@ -51,6 +53,7 @@ export async function POST(req: NextRequest) {
         supplier: p.supplier || '',
         supplierId: p.supplierId || null,
         status: p.status || 'В работе',
+        leg: branches.has((p.supplier || '').trim().toLowerCase()) ? 1 : 2,
         deadline: p.deadline ? new Date(p.deadline) : null,
         payment: p.payment || '',
       }))

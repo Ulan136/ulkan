@@ -1,42 +1,23 @@
 import prisma from '@/lib/prisma'
 
-// Определение «первого плеча» доставки.
-//
-// Бизнес-правило: карточка идёт через филиал ТОЛЬКО если ПОСТАВЩИК
-// какой-либо позиции — пользователь роли branch (филиал-изготовитель).
-// Получатель (order.to) НЕ учитывается: филиал-получатель при обычном
-// поставщике — это простая доставка, логист видит её сразу.
-//
-// isFirstLeg = true, если supplier хотя бы одной позиции совпадает
-// (без учёта регистра/пробелов) с именем пользователя роли branch.
-export async function isFirstLeg(positions: { supplier?: string | null }[]): Promise<boolean> {
-  const suppliers = positions
-    .map(p => (p.supplier || '').trim().toLowerCase())
-    .filter(Boolean)
-  if (suppliers.length === 0) return false
+// Per-position модель плеча: leg живёт на позиции, а не на карточке.
+// Плечо позиции определяется её ПОСТАВЩИКОМ: поставщик-филиал → 1 (первое
+// плечо, изготовление), иначе → 2 (обычная позиция / второе плечо доставки).
 
-  const branchUsers = await prisma.user.findMany({
-    where: { role: 'branch' },
-    select: { name: true },
-  })
-  const branchNames = new Set(branchUsers.map(u => u.name.trim().toLowerCase()))
-
-  return suppliers.some(s => branchNames.has(s))
+// Набор имён пользователей роли branch (нижний регистр, без пробелов).
+export async function branchNameSet(): Promise<Set<string>> {
+  const users = await prisma.user.findMany({ where: { role: 'branch' }, select: { name: true } })
+  return new Set(users.map(u => u.name.trim().toLowerCase()))
 }
 
-// Карточка уже передана логисту на второе плечо (был branchForward).
-// Признак из существующих полей: branchForward ставит from = имя филиала и leg=2,
-// тогда как на первом плече from — это исходный источник (не филиал), а скрытая
-// первым плечом карточка имеет leg=1. Компаунд (leg=2 И from == имя branch-пользователя)
-// надёжно отделяет переданную карточку.
-export async function isForwardedToLogist(order: { leg?: number | null; from?: string | null }): Promise<boolean> {
-  if (order.leg !== 2) return false
-  const from = (order.from || '').trim().toLowerCase()
-  if (!from) return false
+// supplier — это пользователь роли branch (филиал-изготовитель)?
+export async function isBranchSupplier(supplierName?: string | null): Promise<boolean> {
+  const name = (supplierName || '').trim().toLowerCase()
+  if (!name) return false
+  return (await branchNameSet()).has(name)
+}
 
-  const branchUsers = await prisma.user.findMany({
-    where: { role: 'branch' },
-    select: { name: true },
-  })
-  return branchUsers.some(u => u.name.trim().toLowerCase() === from)
+// leg для позиции по её поставщику: филиал → 1, иначе → 2.
+export async function legForSupplier(supplierName?: string | null): Promise<number> {
+  return (await isBranchSupplier(supplierName)) ? 1 : 2
 }

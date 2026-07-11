@@ -9,13 +9,13 @@ const BG = '#f1efec'
 
 interface Position {
   id: string; cardId: string; name1c: string; oral: string
-  qty: number; unit: string; status: string; resp: string; supplier: string
+  qty: number; unit: string; status: string; resp: string; supplier: string; leg?: number
 }
 interface HistoryItem {
   id: string; action: string; userName: string; createdAt: string
 }
 interface Order {
-  id: string; from: string; to: string; screen: string; status: string; leg?: number
+  id: string; from: string; to: string; screen: string; status: string
   deadline?: string; createdAt: string; updatedAt: string
   trackingLink: string; positions: Position[]
   history?: HistoryItem[]
@@ -148,10 +148,13 @@ export default function BranchPortal({ user, branchUser }: Props) {
 
   // Сравнение имён без учёта регистра и лишних пробелов
   const eqName = (a?: string, b?: string) => (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase()
-  // Входящие — адресованные мне + возвращённые мной себе (leg=1, from=я)
-  const incoming = orders.filter(o => eqName(o.to, branchUser.name) || (eqName(o.from, branchUser.name) && o.leg === 1))
-  // Исходящие — переданные логисту / мои заявки (кроме возвращённых себе)
-  const outgoing = orders.filter(o => eqName(o.from, branchUser.name) && o.leg !== 1)
+  // Мои позиции в карточке (я — поставщик)
+  const myPos = (o: Order, leg?: number) => o.positions.filter(p =>
+    eqName(p.supplier, branchUser.name) && (leg === undefined || p.leg === leg))
+  // Входящие — есть моя позиция leg=1 (изготовление) + legacy адресованные мне
+  const incoming = orders.filter(o => myPos(o, 1).length > 0 || eqName(o.to, branchUser.name))
+  // Исходящие — есть моя позиция leg=2 (передал) + legacy мои заявки
+  const outgoing = orders.filter(o => myPos(o, 2).length > 0 || eqName(o.from, branchUser.name))
 
   async function handleAccept(orderId: string) {
     await orderAction(orderId, 'branchAccept', { branchName: branchUser.name })
@@ -196,13 +199,14 @@ export default function BranchPortal({ user, branchUser }: Props) {
   function OrderCard({ o, showActions }: { o: Order; showActions: boolean }) {
     const pct = cardProgress(o)
     const isOpen = selected === o.id
-    const isMine = eqName(o.from, branchUser.name)          // я отправитель (передавал/создавал)
-    const accepted = o.status === 'Принято филиалом'
-    const recalled = isMine && o.leg === 1                  // вернул себе — снова первое плечо
-    const inDelivery = o.positions.some(p => p.status === 'В пути' || p.status === 'Доставлено')
-    const iAmSupplier = o.positions.some(p => eqName(p.supplier, branchUser.name))
-    const canRecall = isMine && o.leg !== 1 && iAmSupplier && !inDelivery  // передана, доставка не начата
-    const editable = recalled && accepted  // возвращена себе → можно править позиции до повторного «К логисту»
+    const mine1 = myPos(o, 1)   // мои позиции первого плеча (изготовление)
+    const mine2 = myPos(o, 2)   // мои позиции, переданные логисту
+    const canAccept  = mine1.some(p => p.status !== 'Принято филиалом')   // есть непринятые leg1
+    const canForward = mine1.some(p => p.status === 'Принято филиалом')   // есть принятые leg1 → к логисту
+    const my2InDelivery = mine2.some(p => p.status === 'В пути' || p.status === 'Доставлено')
+    const canRecall = mine2.length > 0 && !my2InDelivery                  // передал, доставка не начата
+    // Позиция редактируема филиалом: моя, первое плечо (до передачи)
+    const isEditablePos = (p: Position) => eqName(p.supplier, branchUser.name) && p.leg === 1
     const hist = history[o.id] || []
 
     return (
@@ -237,30 +241,27 @@ export default function BranchPortal({ user, branchUser }: Props) {
             {/* Кнопки действий филиала */}
             {showActions && (
               <div style={{ padding: '12px 16px', background: '#f8f6f3', borderBottom: '1px solid #f1efec', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                {/* Первое плечо: принять (адресовано мне, ещё не принято) */}
-                {!accepted && !isMine && (
+                {/* Принять свои позиции первого плеча */}
+                {canAccept && (
                   <button onClick={() => handleAccept(o.id)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1.5px solid #b8e0c8', background: '#e8f5ee', color: '#2e8a5e', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
-                    ✓ Принял
+                    ✓ Принял ({mine1.filter(p => p.status !== 'Принято филиалом').length})
                   </button>
                 )}
-                {/* Принято (первое плечо) ИЛИ возвращено: передать логисту */}
-                {accepted && (!isMine || recalled) && (
-                  <>
-                    <span style={{ fontSize: 12, color: '#2e8a5e', fontWeight: 600 }}>✓ Принято</span>
-                    <button onClick={() => handleForward(o.id)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: PRIMARY, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
-                      К логисту →
-                    </button>
-                  </>
+                {/* Передать логисту свои принятые позиции */}
+                {canForward && (
+                  <button onClick={() => handleForward(o.id)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: PRIMARY, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
+                    К логисту → ({mine1.filter(p => p.status === 'Принято филиалом').length})
+                  </button>
                 )}
-                {/* Передано, доставка не начата: можно вернуть себе для изменений */}
+                {/* Вернуть свои переданные позиции (доставка не начата) */}
                 {canRecall && (
                   <button onClick={() => handleRecall(o.id)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1.5px solid #e6c9b8', background: '#fff0ea', color: '#c0532a', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
-                    ← Вернуть на изготовление
+                    ← Вернуть ({mine2.length})
                   </button>
                 )}
-                {/* Передано, доставка идёт: только просмотр */}
-                {isMine && !recalled && !canRecall && (
-                  <div style={{ fontSize: 12, color: '#8a847c', padding: '8px 0' }}>📦 {inDelivery ? 'Доставка в процессе' : 'Передано логисту'}</div>
+                {/* Мои позиции в доставке — только просмотр */}
+                {mine2.length > 0 && !canRecall && (
+                  <div style={{ fontSize: 12, color: '#8a847c', padding: '8px 0' }}>📦 Доставка в процессе</div>
                 )}
               </div>
             )}
@@ -287,7 +288,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
                         {p.supplier && <div style={{ fontSize: 11, color: '#8a847c' }}>Поставщик: {p.supplier}</div>}
                       </div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-                        {editable
+                        {isEditablePos(p)
                           ? <QtyEditor pos={p} orderId={o.id}
                               onEditing={e => { editingRef.current = e }}
                               onSaved={m => { editingRef.current = false; load(); showMsg(m) }} />

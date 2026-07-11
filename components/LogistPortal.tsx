@@ -83,24 +83,24 @@ export default function LogistPortal({ user, logistUser }: Props) {
     return () => clearInterval(interval)
   }, [load])
 
-  // ── Позиции КО МНЕ (resp = моё имя, статус не Доставлено) ──
+  // ── Позиции КО МНЕ (resp = моё имя, leg=2 — второе плечо, статус не Доставлено) ──
   const posIn = orders.flatMap(o =>
     o.positions
-      .filter(p => eqName(p.resp, myName) && p.status !== 'Доставлено')
+      .filter(p => eqName(p.resp, myName) && p.leg === 2 && p.status !== 'Доставлено')
       .map(p => ({ pos: p, order: o }))
   )
 
-  // ── Позиции ОТ МЕНЯ (только карточки которые Я создал через "Новый") ──
+  // ── Позиции ОТ МЕНЯ (карточки которые Я создал; только leg=2) ──
   const posOut = orders.flatMap(o =>
     eqName(o.from, myName)
-      ? o.positions.map(p => ({ pos: p, order: o }))
+      ? o.positions.filter(p => p.leg === 2).map(p => ({ pos: p, order: o }))
       : []
   )
 
-  // ── История моих действий для отчёта ──
+  // ── История моих действий для отчёта (мои доставленные позиции, leg=2) ──
   const completedToday = orders.flatMap(o =>
     o.positions
-      .filter(p => eqName(p.resp, myName) && p.status === 'Доставлено')
+      .filter(p => eqName(p.resp, myName) && p.leg === 2 && p.status === 'Доставлено')
       .map(p => ({ pos: p, order: o }))
   )
 

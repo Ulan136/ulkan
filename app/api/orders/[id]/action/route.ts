@@ -5,7 +5,7 @@ import { generatePosId } from '@/lib/ids'
 import { notifyAdmins, notify } from '@/lib/notifications'
 import { releaseStock, reserveStock } from '@/lib/stock'
 import { orderInclude } from '@/lib/orderMetrics'
-import { isFirstLeg, isForwardedToLogist } from '@/services/legDetection'
+import { legForSupplier } from '@/services/legDetection'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireSession(req)
@@ -62,9 +62,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       case 'process': {
         updateData = { screen: 'outgoing', status: 'В работе', block: '' }
         historyText = 'Отправлен в Исходящие'
-        // Первое плечо: если поставщик хотя бы одной позиции — филиал (branch),
-        // карточка сначала идёт к филиалу-изготовителю, логисту пока не видна.
-        updateData.leg = (await isFirstLeg(order.positions)) ? 1 : 2
+        // leg — per-position (проставлен при создании позиции), карточку не трогаем.
         // Резервируем позиции с Центр Склад
         const posToReserve = order.positions.filter(p => p.supplier === 'Центр Склад' && p.qty > 0 && p.name1c)
         for (const pos of posToReserve) {
@@ -190,63 +188,52 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         historyText = ''
         break
 
-      // ── Филиал: передать дальше через логиста (плечо 2) ──
+      // ── Филиал: передать логисту ТОЛЬКО свои позиции (плечо 2) ──
       case 'branchForward': {
-        // Плечо 2 стартует заново с "Готово к отгрузке" (60%) — логист получает
-        // карточку готовой к отгрузке, дальше В пути (80%) → Доставлено (100%).
-        await prisma.position.updateMany({
-          where: { cardId: id },
-          data: { status: 'Готово к отгрузке' }
-        })
-        // Меняем from на филиал, карточка снова идёт в исходящие.
-        // leg=2 → теперь карточка видна логисту (второе плечо доставки).
-        updateData = {
-          from: payload.branchName || order.to,
-          screen: 'outgoing',
-          status: 'В работе',
-          toacc: false,
-          delivered: null,
-          leg: 2,
-        }
-        historyText = `Передано филиалом ${payload.branchName || order.to} → передан логисту на доставку`
-        // Уведомляем логистов, назначенных в позициях, что заказ готов к доставке
-        const respNames = [...new Set(order.positions.map(p => p.resp).filter(Boolean))]
-        for (const respName of respNames) {
+        const me = (payload.branchName || session.name || '').trim().toLowerCase()
+        const mine = order.positions.filter(p => (p.supplier || '').trim().toLowerCase() === me && p.leg === 1)
+        if (mine.length === 0) return NextResponse.json({ error: 'Нет позиций для передачи' }, { status: 400 })
+        // Мои позиции → leg=2 (видны логисту), старт плеча 2 = 'Готово к отгрузке' (60%).
+        await prisma.position.updateMany({ where: { id: { in: mine.map(p => p.id) } }, data: { leg: 2, status: 'Готово к отгрузке' } })
+        historyText = `Филиал ${payload.branchName || session.name} передал логисту (${mine.length} поз.)`
+        // Карточку (from, screen, status) НЕ трогаем — другие позиции живут своей жизнью.
+        // Уведомляем логистов ТОЛЬКО моих позиций.
+        const fwdResp = [...new Set(mine.map(p => p.resp).filter(Boolean))]
+        for (const respName of fwdResp) {
           const logist = await prisma.user.findFirst({ where: { name: respName, role: 'logist' } })
           if (logist) await notify(logist.id, `Заказ ${id} готов к доставке`, id)
         }
         break
       }
 
-      // ── Филиал: принял товар ──
-      case 'branchAccept':
-        // Ставим позиции в 'Принято филиалом' (100% в PCT), чтобы прогресс
-        // первого плеча дошёл до конца. branchForward потом сбросит их в 'В работе'.
-        await prisma.position.updateMany({ where: { cardId: id }, data: { status: 'Принято филиалом' } })
-        updateData = { status: 'Принято филиалом' }
-        historyText = `Товар принят филиалом ${payload.branchName || order.to}`
+      // ── Филиал: принял ТОЛЬКО свои позиции (leg=1) ──
+      case 'branchAccept': {
+        const me = (payload.branchName || session.name || '').trim().toLowerCase()
+        const mine = order.positions.filter(p => (p.supplier || '').trim().toLowerCase() === me && p.leg === 1)
+        if (mine.length > 0) {
+          await prisma.position.updateMany({ where: { id: { in: mine.map(p => p.id) } }, data: { status: 'Принято филиалом' } })
+        }
+        historyText = `Товар принят филиалом ${payload.branchName || session.name} (${mine.length} поз.)`
+        // Карточку не трогаем.
         break
+      }
 
-      // ── Филиал: вернуть переданную карточку себе (до начала доставки) ──
+      // ── Филиал: вернуть свои переданные позиции (до начала доставки) ──
       case 'branchRecall': {
-        // Нельзя вернуть, если логист уже начал доставку
-        const inDelivery = order.positions.some(p => p.status === 'В пути' || p.status === 'Доставлено')
-        if (inDelivery) {
+        if (session.role !== 'branch') {
+          return NextResponse.json({ error: 'Возврат доступен только филиалу' }, { status: 403 })
+        }
+        const me = session.name.trim().toLowerCase()
+        const mine = order.positions.filter(p => (p.supplier || '').trim().toLowerCase() === me && p.leg === 2)
+        if (mine.length === 0) return NextResponse.json({ error: 'Нет переданных позиций для возврата' }, { status: 400 })
+        if (mine.some(p => p.status === 'В пути' || p.status === 'Доставлено')) {
           return NextResponse.json({ error: 'Логист уже начал доставку, возврат невозможен' }, { status: 400 })
         }
-        // Вернуть может только филиал-отправитель (роль branch, имя == order.from)
-        const isSenderBranch = session.role === 'branch' &&
-          session.name.trim().toLowerCase() === (order.from || '').trim().toLowerCase()
-        if (!isSenderBranch) {
-          return NextResponse.json({ error: 'Возврат доступен только филиалу-отправителю' }, { status: 403 })
-        }
-        // Позиции обратно в 'Принято филиалом'; карточка снова первое плечо (leg=1 → скрыта от логиста).
-        // from НЕ трогаем — иначе сломается гард isForwardedToLogist и вкладка Исходящие.
-        await prisma.position.updateMany({ where: { cardId: id }, data: { status: 'Принято филиалом' } })
-        updateData = { status: 'Принято филиалом', leg: 1 }
-        historyText = `Возвращена филиалом ${payload.branchName || order.from} для изменений`
-        // Уведомляем логистов из позиций, что заказ отозван
-        const recallResp = [...new Set(order.positions.map(p => p.resp).filter(Boolean))]
+        // Мои позиции обратно: leg=1 (скрыты от логиста), 'Принято филиалом'.
+        await prisma.position.updateMany({ where: { id: { in: mine.map(p => p.id) } }, data: { leg: 1, status: 'Принято филиалом' } })
+        historyText = `Возвращены филиалом ${session.name} для изменений (${mine.length} поз.)`
+        // Уведомляем логистов моих позиций.
+        const recallResp = [...new Set(mine.map(p => p.resp).filter(Boolean))]
         for (const respName of recallResp) {
           const logist = await prisma.user.findFirst({ where: { name: respName, role: 'logist' } })
           if (logist) await notify(logist.id, `Заказ ${id} возвращён филиалом`, id)
@@ -292,6 +279,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       case 'addPos': {
         const existing = await prisma.position.findMany({ where: { cardId: id } })
         const newId = generatePosId(id, existing.length + 1)
+        const posLeg = await legForSupplier(payload.supplier)  // поставщик-филиал → 1
         const newPos = await prisma.position.create({
           data: {
             id: newId, cardId: id,
@@ -300,6 +288,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             price: payload.price || 0, resp: payload.resp || '',
             supplier: payload.supplier || '', supplierId: payload.supplierId || null,
             status: payload.status || 'В работе',
+            leg: posLeg,
             deadline: payload.deadline ? new Date(payload.deadline) : null,
           },
         })
@@ -308,15 +297,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           await reserveStock(newPos.id, payload.name1c || payload.oral, payload.qty)
         }
         historyText = `Добавлена позиция: ${payload.name1c || payload.oral}`
-        // Пересчёт плеча: поставщика-филиала могли добавить этой позицией.
-        // Гард: если карточка уже передана логисту (branchForward) — leg не понижаем.
-        const legAfterAdd = (await isForwardedToLogist(order))
-          ? 2
-          : ((await isFirstLeg([...existing, newPos])) ? 1 : 2)
-        updateData = { leg: legAfterAdd }
-        // Уведомляем логиста только если карточка второго плеча (leg=2) —
-        // при первом плече логист её ещё не видит.
-        if (legAfterAdd === 2 && payload.resp) {
+        // Уведомляем логиста только для позиции второго плеча (leg=2) — при leg=1
+        // позиция ещё у филиала-изготовителя, логист её пока не видит.
+        if (posLeg === 2 && payload.resp) {
           const logist = await prisma.user.findFirst({ where: { name: payload.resp, role: 'logist' } })
           if (logist) await notify(logist.id, `Вам назначена позиция: ${payload.name1c || payload.oral} по заказу ${id}`, id)
         }
@@ -327,8 +310,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       case 'updatePosDetail': {
         const { posId, ...posData } = payload
         const oldPos = order.positions.find(p => p.id === posId)
-        // Частичный payload безопасен: неуказанные поля берём из oldPos, чтобы не
-        // затереть supplier/price/supplierId/deadline (важно для пересчёта leg).
+        // Частичный payload безопасен: неуказанные поля берём из oldPos.
+        // Плечо позиции пересчитываем ТОЛЬКО при смене поставщика (иначе не трогаем —
+        // qty-правка филиала не должна менять leg).
+        const supplierChanged = posData.supplier !== undefined && posData.supplier !== oldPos?.supplier
+        const newLeg = supplierChanged ? await legForSupplier(posData.supplier) : oldPos?.leg
         await prisma.position.update({
           where: { id: posId },
           data: {
@@ -341,6 +327,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             supplier: posData.supplier ?? oldPos?.supplier,
             supplierId: posData.supplierId !== undefined ? (posData.supplierId || null) : oldPos?.supplierId,
             status: posData.status ?? oldPos?.status,
+            leg: newLeg,
             payment: posData.payment ?? oldPos?.payment,
             late: posData.late ?? oldPos?.late,
             deadline: posData.deadline !== undefined ? (posData.deadline ? new Date(posData.deadline) : null) : oldPos?.deadline,
@@ -354,12 +341,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             await updateReserve(posId, oldPos.qty, Number(posData.qty) || 0)
           }
         }
-        // Пересчёт плеча: поставщика-филиала могли назначить/сменить этой правкой.
-        // Гард: если карточка уже передана логисту (branchForward) — leg не понижаем.
-        const legAfterEdit = (await isForwardedToLogist(order))
-          ? 2
-          : ((await isFirstLeg(await prisma.position.findMany({ where: { cardId: id } }))) ? 1 : 2)
-        updateData = { leg: legAfterEdit }
         // Не пишем в историю — слишком частые мелкие изменения засоряют ленту
         break
       }

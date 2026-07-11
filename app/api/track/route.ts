@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { cardProgress, orderInclude } from '@/lib/orderMetrics'
-import { isForwardedToLogist } from '@/services/legDetection'
 
 const STAGES: Record<string, number> = {
   'В ожидании': 1, 'Новая заявка': 1, 'Принят': 2, 'В обработке': 2,
@@ -26,13 +25,9 @@ export async function GET(req: NextRequest) {
   const stage = STAGES[order.status] || 1
   const pct = cardProgress(order)
 
-  // Индикатор плеча для двухплечевых заказов (чтобы откат % не выглядел сбоем)
-  let legStage: string | null = null
-  if (order.leg === 1) {
-    legStage = 'Этап 1 из 2 · Изготовление'
-  } else if (await isForwardedToLogist(order)) {
-    legStage = 'Этап 2 из 2 · Доставка'
-  }
+  // Индикатор изготовления: сколько позиций ещё на первом плече (у филиала)
+  const leg1Count = order.positions.filter(p => p.leg === 1).length
+  const legStage: string | null = leg1Count > 0 ? `Изготовление: ${leg1Count} поз.` : null
 
   const details: Array<{ k: string; v: string }> = [
     { k: 'Номер', v: order.id },

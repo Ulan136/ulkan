@@ -10,6 +10,7 @@ export interface Position {
   supplier: string
   supplierId?: string
   status: string
+  leg?: number
   late: boolean
   payment: string
   deadline?: string
@@ -47,7 +48,6 @@ export interface Order {
   cold: boolean
   trackingLink: string
   sortOrder: number
-  leg?: number
   createdAt: string
   updatedAt: string
   positions: Position[]
