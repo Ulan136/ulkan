@@ -18,12 +18,13 @@ function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
 interface ShiftRow {
   id: string
   name: string       // наименование товара
-  qtyIn: string      // кол-во приход
-  fromWho: string    // от кого
+  qtyIn: string      // кол-во приход (принято у поставщика)
+  fromWho: string    // ОТ КОГО = поставщик позиции (у кого забрал)
   commentIn: string  // комментарий приход
-  toWho: string      // кому
-  qtyOut: string     // кол-во расход
+  toWho: string      // КОМУ = клиент (order.to, куда доставил)
+  qtyOut: string     // кол-во расход (отдано клиенту)
   commentOut: string // комментарий расход
+  invoiceNum: string // № накладной
   auto: boolean      // автоматически добавлена
 }
 
@@ -51,7 +52,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
   const [shiftRows, setShiftRows] = useState<ShiftRow[]>([])
   const [showAddRow, setShowAddRow] = useState(false)
   const [editRow, setEditRow] = useState<ShiftRow | null>(null)
-  const [addData, setAddData] = useState({ name: '', qtyIn: '', fromWho: '', commentIn: '', toWho: '', qtyOut: '', commentOut: '' })
+  const [addData, setAddData] = useState({ name: '', qtyIn: '', fromWho: '', commentIn: '', toWho: '', qtyOut: '', commentOut: '', invoiceNum: '' })
   const [reportSent, setReportSent] = useState(false)
   const [reportLoading, setReportLoading] = useState(false)
 
@@ -145,11 +146,12 @@ export default function LogistPortal({ user, logistUser }: Props) {
           id: `auto-${pos.id}`,
           name: pos.name1c || pos.oral,
           qtyIn: String(pos.qty),
-          fromWho: order.from,
-          commentIn: pos.supplier || '',
-          toWho: order.to || '',
+          fromWho: pos.supplier || order.from,   // ОТ КОГО = поставщик (у кого забрал)
+          commentIn: '',                          // supplier больше НЕ в комментарии
+          toWho: order.to || '',                  // КОМУ = клиент
           qtyOut: String(pos.qty),
           commentOut: '',
+          invoiceNum: '',
           auto: true,
         }))
       if (newRows.length === 0) return prev
@@ -186,11 +188,12 @@ export default function LogistPortal({ user, logistUser }: Props) {
           id: `auto-${posId}-${Date.now()}`,
           name: posName,
           qtyIn: String(qty),
-          fromWho,
+          fromWho,      // передаётся из PosCard = pos.supplier || order.from
           commentIn: '',
           toWho,
           qtyOut: String(qty),
           commentOut: '',
+          invoiceNum: '',
           auto: true,
         }
         setShiftRows(prev => {
@@ -229,13 +232,13 @@ export default function LogistPortal({ user, logistUser }: Props) {
     } else {
       setShiftRows(prev => [...prev, { id: `manual-${Date.now()}`, ...addData, auto: false }])
     }
-    setAddData({ name: '', qtyIn: '', fromWho: '', commentIn: '', toWho: '', qtyOut: '', commentOut: '' })
+    setAddData({ name: '', qtyIn: '', fromWho: '', commentIn: '', toWho: '', qtyOut: '', commentOut: '', invoiceNum: '' })
     setEditRow(null)
     setShowAddRow(false)
   }
 
   function openEdit(row: ShiftRow) {
-    setAddData({ name: row.name, qtyIn: row.qtyIn, fromWho: row.fromWho, commentIn: row.commentIn, toWho: row.toWho, qtyOut: row.qtyOut, commentOut: row.commentOut })
+    setAddData({ name: row.name, qtyIn: row.qtyIn, fromWho: row.fromWho, commentIn: row.commentIn, toWho: row.toWho, qtyOut: row.qtyOut, commentOut: row.commentOut, invoiceNum: row.invoiceNum || '' })
     setEditRow(row)
     setShowAddRow(true)
   }
@@ -250,7 +253,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
         date: reportDate, comment: reportComment,
         rows: validRows.map(r => ({
           name: r.name, fromWho: r.fromWho, qtyIn: Number(r.qtyIn) || 0, commentIn: r.commentIn,
-          toWho: r.toWho, qtyOut: Number(r.qtyOut) || 0, commentOut: r.commentOut, invoiceNum: '',
+          toWho: r.toWho, qtyOut: Number(r.qtyOut) || 0, commentOut: r.commentOut, invoiceNum: r.invoiceNum || '',
         })),
       })
       // Удаляем черновик после успешной отправки
@@ -263,8 +266,8 @@ export default function LogistPortal({ user, logistUser }: Props) {
   }
 
   const shiftTotal = shiftRows.filter(r => r.name).length
-  const shiftIn    = shiftRows.filter(r => r.name && Number(r.qtyIn) > 0).length
-  const shiftOut   = shiftRows.filter(r => r.name && Number(r.qtyOut) > 0).length
+  const shiftIn    = shiftRows.filter(r => r.name).reduce((s, r) => s + (Number(r.qtyIn) || 0), 0)   // Σ приход
+  const shiftOut   = shiftRows.filter(r => r.name).reduce((s, r) => s + (Number(r.qtyOut) || 0), 0)  // Σ расход
 
   const inp: React.CSSProperties = { width: '100%', padding: '10px 13px', borderRadius: 8, fontSize: 14, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }
   const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: '#8a847c', marginBottom: 4, display: 'block', letterSpacing: '.04em' }
@@ -306,7 +309,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
           {pos.late && <span style={{ fontSize: 10, background: '#faeaea', color: '#b03020', padding: '1px 6px', borderRadius: 20, fontWeight: 600 }}>ПРОСРОЧ.</span>}
           <span style={{ fontSize: 10, background: pos.status === 'Доставлено' ? '#e8f5ee' : '#fff0ea', color: pos.status === 'Доставлено' ? '#2e8a5e' : '#c0532a', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{pos.status}</span>
         </div>
-        <StatusBtns cardId={order.id} posId={pos.id} posStatus={pos.status} posName={pos.name1c || pos.oral} fromWho={order.from} toWho={order.to || ''} qty={pos.qty} />
+        <StatusBtns cardId={order.id} posId={pos.id} posStatus={pos.status} posName={pos.name1c || pos.oral} fromWho={pos.supplier || order.from} toWho={order.to || ''} qty={pos.qty} />
       </div>
     )
   }
@@ -411,20 +414,21 @@ export default function LogistPortal({ user, logistUser }: Props) {
                 <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 12, overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 500 }}>
                     <thead><tr style={{ background: '#f8f6f3' }}>
-                      {['НАИМ.', 'ШТ', 'ОТ КОГО', 'КОММ.', 'КОМУ', 'ШТ', 'КОММ.'].map(h => (
-                        <th key={h} style={{ padding: '7px 8px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>{h}</th>
+                      {['НАИМ.', 'ОТ КОГО', 'ШТ', 'КОММ.', 'КОМУ', 'ШТ', 'КОММ.', '№ НАКЛ.'].map(h => (
+                        <th key={h} style={{ padding: '7px 8px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr></thead>
                     <tbody>
                       {shiftRows.filter(r => r.name).map((r, i) => (
                         <tr key={r.id} style={{ borderTop: '1px solid #f1efec' }}>
                           <td style={{ padding: '7px 8px', fontSize: 12, fontWeight: 500 }}>{r.name}</td>
-                          <td style={{ padding: '7px 8px', fontSize: 12 }}>{r.qtyIn || '—'}</td>
                           <td style={{ padding: '7px 8px', fontSize: 12 }}>{r.fromWho || '—'}</td>
+                          <td style={{ padding: '7px 8px', fontSize: 12 }}>{r.qtyIn || '—'}</td>
                           <td style={{ padding: '7px 8px', fontSize: 12, color: '#8a847c' }}>{r.commentIn || '—'}</td>
                           <td style={{ padding: '7px 8px', fontSize: 12 }}>{r.toWho || '—'}</td>
                           <td style={{ padding: '7px 8px', fontSize: 12 }}>{r.qtyOut || '—'}</td>
                           <td style={{ padding: '7px 8px', fontSize: 12, color: '#8a847c' }}>{r.commentOut || '—'}</td>
+                          <td style={{ padding: '7px 8px', fontSize: 12, color: '#8a847c' }}>{r.invoiceNum || '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -456,20 +460,21 @@ export default function LogistPortal({ user, logistUser }: Props) {
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
                         <thead><tr style={{ background: '#f8f6f3' }}>
-                          {['НАИМ.', 'ШТ', 'ОТ КОГО', 'КОММ.', 'КОМУ', 'ШТ', 'КОММ.', ''].map(h => (
-                            <th key={h} style={{ padding: '8px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                          {['НАИМ.', 'ОТ КОГО', 'ШТ', 'КОММ.', 'КОМУ', 'ШТ', 'КОММ.', '№ НАКЛ.', ''].map((h, hi) => (
+                            <th key={hi} style={{ padding: '8px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                           ))}
                         </tr></thead>
                         <tbody>
                           {shiftRows.filter(r => r.name).map(r => (
                             <tr key={r.id} style={{ borderTop: '1px solid #f1efec', background: r.auto ? '#fafff8' : '#fff' }}>
                               <td style={{ padding: '8px', fontSize: 12, fontWeight: 500 }}>{r.name}{r.auto && <span style={{ fontSize: 9, color: '#2e8a5e', marginLeft: 4 }}>авто</span>}</td>
-                              <td style={{ padding: '8px', fontSize: 12 }}>{r.qtyIn || '—'}</td>
                               <td style={{ padding: '8px', fontSize: 12 }}>{r.fromWho || '—'}</td>
+                              <td style={{ padding: '8px', fontSize: 12 }}>{r.qtyIn || '—'}</td>
                               <td style={{ padding: '8px', fontSize: 12, color: '#8a847c' }}>{r.commentIn || '—'}</td>
                               <td style={{ padding: '8px', fontSize: 12 }}>{r.toWho || '—'}</td>
                               <td style={{ padding: '8px', fontSize: 12 }}>{r.qtyOut || '—'}</td>
                               <td style={{ padding: '8px', fontSize: 12, color: '#8a847c' }}>{r.commentOut || '—'}</td>
+                              <td style={{ padding: '8px', fontSize: 12, color: '#8a847c' }}>{r.invoiceNum || '—'}</td>
                               <td style={{ padding: '8px' }}>
                                 <div style={{ display: 'flex', gap: 3 }}>
                                   <button onClick={() => openEdit(r)} style={{ padding: '3px 6px', borderRadius: 5, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 11 }}>✏️</button>
@@ -485,7 +490,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
                 )}
 
                 {/* Добавить строку */}
-                <button onClick={() => { setEditRow(null); setAddData({ name: '', qtyIn: '', fromWho: '', commentIn: '', toWho: '', qtyOut: '', commentOut: '' }); setShowAddRow(true) }}
+                <button onClick={() => { setEditRow(null); setAddData({ name: '', qtyIn: '', fromWho: '', commentIn: '', toWho: '', qtyOut: '', commentOut: '', invoiceNum: '' }); setShowAddRow(true) }}
                   style={{ width: '100%', padding: '11px', border: '2px dashed #d8d3cc', borderRadius: 10, background: 'none', cursor: 'pointer', fontSize: 13, color: '#8a847c', fontFamily: 'inherit', marginBottom: 12 }}>
                   + Добавить строку
                 </button>
@@ -514,9 +519,10 @@ export default function LogistPortal({ user, logistUser }: Props) {
             <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 20 }}>{editRow ? 'Редактировать строку' : 'Новая строка'}</div>
             {/* Порядок: сначала КОМУ → ОТ КОГО → НАИМЕНОВАНИЕ */}
             {[
-              { f: 'toWho',      l: 'КОМУ *',              t: 'text',   p: 'Получатель...' },
-              { f: 'qtyOut',     l: 'КОЛ-ВО (к получателю)', t: 'number', p: '0' },
-              { f: 'commentOut', l: 'КОММЕНТАРИЙ (к получателю)', t: 'text', p: '...' },
+              { f: 'toWho',      l: 'КОМУ (клиент) *',       t: 'text',   p: 'Клиент-получатель...' },
+              { f: 'qtyOut',     l: 'КОЛ-ВО (клиенту)',      t: 'number', p: '0' },
+              { f: 'commentOut', l: 'КОММЕНТАРИЙ (клиенту)', t: 'text',   p: '...' },
+              { f: 'invoiceNum', l: '№ НАКЛАДНОЙ',           t: 'text',   p: '№...' },
             ].map(({ f, l, t, p }) => (
               <div key={f} style={{ marginBottom: 12 }}>
                 <label style={lbl}>{l}</label>
@@ -525,10 +531,10 @@ export default function LogistPortal({ user, logistUser }: Props) {
             ))}
             <div style={{ height: 1, background: '#f1efec', margin: '8px 0 12px' }} />
             {[
-              { f: 'fromWho',   l: 'ОТ КОГО *',           t: 'text',   p: 'Источник...' },
-              { f: 'name',      l: 'НАИМЕНОВАНИЕ ТОВАРА *', t: 'text',   p: 'Товар...' },
-              { f: 'qtyIn',     l: 'КОЛ-ВО (приход)',       t: 'number', p: '0' },
-              { f: 'commentIn', l: 'КОММЕНТАРИЙ (приход)',   t: 'text',   p: '...' },
+              { f: 'fromWho',   l: 'ОТ КОГО (поставщик) *',  t: 'text',   p: 'У кого забрал...' },
+              { f: 'name',      l: 'НАИМЕНОВАНИЕ ТОВАРА *',   t: 'text',   p: 'Товар...' },
+              { f: 'qtyIn',     l: 'КОЛ-ВО (от поставщика)',  t: 'number', p: '0' },
+              { f: 'commentIn', l: 'КОММЕНТАРИЙ (приход)',    t: 'text',   p: '...' },
             ].map(({ f, l, t, p }) => (
               <div key={f} style={{ marginBottom: 12 }}>
                 <label style={lbl}>{l}</label>
