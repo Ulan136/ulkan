@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { cardProgress, orderInclude } from '@/lib/orderMetrics'
 
 const STAGES: Record<string, number> = {
   'В ожидании': 1, 'Новая заявка': 1, 'Принят': 2, 'В обработке': 2,
@@ -14,19 +15,14 @@ export async function GET(req: NextRequest) {
   const order = await prisma.order.findUnique({
     where: { id },
     include: {
-      positions: { orderBy: { createdAt: 'asc' } },
+      ...orderInclude,
       history: { orderBy: { createdAt: 'desc' } },
     },
   })
   if (!order) return NextResponse.json({ error: 'Заказ не найден' }, { status: 404 })
 
   const stage = STAGES[order.status] || 1
-  const pct = order.positions.length > 0
-    ? Math.round(order.positions.reduce((s, p) => {
-        const m: Record<string, number> = { 'В работе': 10, 'Готово к отгрузке': 60, 'В пути': 80, 'Доставлено': 100 }
-        return s + (m[p.status] || 0)
-      }, 0) / order.positions.length)
-    : (order.status === 'Доставлено' ? 100 : 0)
+  const pct = cardProgress(order)
 
   const details: Array<{ k: string; v: string }> = [
     { k: 'Номер', v: order.id },

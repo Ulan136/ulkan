@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getSessionFromRequest } from '@/lib/auth'
+import { orderInclude } from '@/lib/orderMetrics'
 
 export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req)
@@ -23,9 +24,7 @@ export async function GET(req: NextRequest) {
         { fromId: myId },
       ]
     },
-    include: {
-      positions: { orderBy: { createdAt: 'asc' } }
-    },
+    include: orderInclude,
     orderBy: { updatedAt: 'desc' }
   })
 

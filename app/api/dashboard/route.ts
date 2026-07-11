@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getSessionFromRequest } from '@/lib/auth'
+import { posPct } from '@/lib/orderMetrics'
 
 export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req)
@@ -38,10 +39,7 @@ export async function GET(req: NextRequest) {
   const totalPct = workOrders.length > 0
     ? Math.round(workOrders.reduce((s, o) => {
         const pct = o.positions.length > 0
-          ? o.positions.reduce((ps, p) => {
-              const map: Record<string, number> = { 'В работе': 10, 'Готово к отгрузке': 60, 'В пути': 80, 'Доставлено': 100 }
-              return ps + (map[p.status] || 0)
-            }, 0) / o.positions.length
+          ? o.positions.reduce((ps, p) => ps + posPct(p), 0) / o.positions.length
           : (o.status === 'Доставлено' ? 100 : 0)
         return s + pct
       }, 0) / workOrders.length)

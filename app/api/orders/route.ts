@@ -4,13 +4,12 @@ import { getSessionFromRequest } from '@/lib/auth'
 import { generateCardId, generateTrackingLink, generatePosId } from '@/lib/ids'
 import { notifyAdmins } from '@/lib/notifications'
 import { reserveStock } from '@/lib/stock'
-
-const WITH_POSITIONS = { positions: { orderBy: { createdAt: 'asc' as const } } }
+import { orderInclude } from '@/lib/orderMetrics'
 
 export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req)
   if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
-  const orders = await prisma.order.findMany({ include: WITH_POSITIONS, orderBy: { createdAt: 'desc' } })
+  const orders = await prisma.order.findMany({ include: orderInclude, orderBy: { createdAt: 'desc' } })
   return NextResponse.json(orders)
 }
 
@@ -74,7 +73,7 @@ export async function POST(req: NextRequest) {
         history: { create: { action: 'Карточка создана', userName: session.name } },
         positions: posData.length > 0 ? { create: posData } : undefined,
       },
-      include: WITH_POSITIONS,
+      include: orderInclude,
     })
 
     // Резервируем склад для позиций с Центр Склад

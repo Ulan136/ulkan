@@ -4,8 +4,7 @@ import { getSessionFromRequest } from '@/lib/auth'
 import { generatePosId } from '@/lib/ids'
 import { notifyAdmins, notify } from '@/lib/notifications'
 import { releaseStock, reserveStock } from '@/lib/stock'
-
-const WITH_POS = { positions: { orderBy: { createdAt: 'asc' as const } } }
+import { orderInclude } from '@/lib/orderMetrics'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSessionFromRequest(req)
@@ -15,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json()
   const { action, ...payload } = body
 
-  const order = await prisma.order.findUnique({ where: { id }, include: WITH_POS })
+  const order = await prisma.order.findUnique({ where: { id }, include: orderInclude })
   if (!order) return NextResponse.json({ error: 'Карточка не найдена' }, { status: 404 })
 
   let updateData: any = {}
@@ -331,7 +330,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await prisma.history.create({ data: { cardId: id, action: historyText, userName: session.name } })
     }
 
-    const updated = await prisma.order.findUnique({ where: { id }, include: WITH_POS })
+    const updated = await prisma.order.findUnique({ where: { id }, include: orderInclude })
     return NextResponse.json({ success: true, order: updated })
   } catch (e) {
     console.error(e)

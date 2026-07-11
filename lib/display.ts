@@ -1,27 +1,10 @@
 import type React from 'react'
-import { Order, Position } from './types'
+import { Order } from './types'
 import { COLORS } from './colors'
 
-const PCT: Record<string, number> = {
-  'В работе': 10,
-  'Готово к отгрузке': 60,
-  'В пути': 80,
-  'Доставлено': 100,
-  '': 0,
-}
-
-export function posPct(p: Position): number {
-  return PCT[p.status] ?? 0
-}
-
-export function cardProgress(o: Order): number {
-  if (!o.positions.length) return o.status === 'Доставлено' ? 100 : 0
-  return Math.round(o.positions.reduce((s, p) => s + posPct(p), 0) / o.positions.length)
-}
-
-export function cardSum(o: Order): number {
-  return o.positions.reduce((s, p) => s + (p.qty * p.price || 0), 0)
-}
+// Метрики заказа вынесены в серверо-нейтральный модуль; реэкспортируем,
+// чтобы существующие импорты из '@/lib/display' продолжали работать.
+export { PCT, posPct, cardProgress, cardSum } from './orderMetrics'
 
 export function isOverdue(o: Order): boolean {
   return o.positions.some(p => p.late && p.status !== 'Доставлено')
