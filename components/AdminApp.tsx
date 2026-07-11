@@ -247,6 +247,7 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings 
                         <td style={{ padding: '8px 10px', fontSize: 12, color: '#8a847c' }}>{i + 1}</td>
                         <td style={{ padding: '8px 10px' }}>
                           <div style={{ fontWeight: 500, fontSize: 13 }}>{p.name1c || p.oral || '—'}</div>
+                          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#a39c92' }}>{p.id}</div>
                           {p.oral && p.name1c && <div style={{ fontSize: 11, color: '#8a847c' }}>{p.oral}</div>}
                           {p.resp && <div style={{ fontSize: 11, color: '#8a847c' }}>Логист: {p.resp}</div>}
                           {p.supplier && <div style={{ fontSize: 11, color: '#8a847c' }}>Поставщик: {p.supplier}</div>}

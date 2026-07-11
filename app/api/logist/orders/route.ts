@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { requireSession } from '@/lib/auth'
-import { orderInclude } from '@/lib/orderMetrics'
 
 export async function GET(req: NextRequest) {
   const auth = await requireSession(req)
@@ -26,7 +25,13 @@ export async function GET(req: NextRequest) {
         { fromId: myId },
       ]
     },
-    include: orderInclude,
+    // Возвращаем ТОЛЬКО мои позиции второго плеча — чужие в браузер не уходят.
+    include: {
+      positions: {
+        where: { resp: { equals: myName, mode: 'insensitive' }, leg: 2 },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
     orderBy: { updatedAt: 'desc' }
   })
 

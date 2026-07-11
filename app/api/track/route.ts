@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     legStage,
     createdAt: order.createdAt,
     delivered: order.delivered,
-    positions: order.positions.map(p => ({ name: p.name1c || p.oral, qty: p.qty, unit: p.unit, status: p.status })),
+    positions: order.positions.map(p => ({ id: p.id, name: p.name1c || p.oral, qty: p.qty, unit: p.unit, status: p.status })),
     history: order.history.map(h => ({ action: h.action, time: h.createdAt.toISOString() })),
     details,
   })

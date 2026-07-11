@@ -297,8 +297,9 @@ export default function LogistPortal({ user, logistUser }: Props) {
         </div>
         <div style={{ fontSize: 13, color: '#8a847c', marginBottom: 4 }}>{order.from} → {order.to || '—'}</div>
         {order.comment && <div style={{ fontSize: 12, background: '#f8f6f3', borderRadius: 6, padding: '6px 10px', marginBottom: 6 }}>{order.comment.slice(0, 80)}</div>}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: PRIMARY, fontWeight: 600 }}>{order.id}</span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#a39c92' }}>{pos.id}</span>
           {pos.late && <span style={{ fontSize: 10, background: '#faeaea', color: '#b03020', padding: '1px 6px', borderRadius: 20, fontWeight: 600 }}>ПРОСРОЧ.</span>}
           <span style={{ fontSize: 10, background: pos.status === 'Доставлено' ? '#e8f5ee' : '#fff0ea', color: pos.status === 'Доставлено' ? '#2e8a5e' : '#c0532a', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{pos.status}</span>
         </div>

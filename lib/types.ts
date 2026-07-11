@@ -239,7 +239,7 @@ export interface TrackData {
   legStage?: string | null
   createdAt: string
   delivered?: string
-  positions: Array<{ name: string; qty: number; unit: string; status: string }>
+  positions: Array<{ id: string; name: string; qty: number; unit: string; status: string }>
   history: Array<{ action: string; time: string }>
   details: Array<{ k: string; v: string }>
 }

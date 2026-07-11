@@ -243,6 +243,7 @@ export default function TrackingApp() {
                           <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < trackData.positions.length - 1 ? '1px solid #f1efec' : 'none' }}>
                             <div>
                               <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name}</div>
+                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#a39c92' }}>{p.id}</div>
                               <div style={{ fontSize: 12, color: '#8a847c' }}>{p.qty} {p.unit}</div>
                             </div>
                             <StatusBadge status={p.status} />

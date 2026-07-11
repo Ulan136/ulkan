@@ -284,6 +284,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
                     <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f8f6f3' }}>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name1c || p.oral || '—'}</div>
+                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#a39c92' }}>{p.id}</div>
                         {p.resp && <div style={{ fontSize: 11, color: '#8a847c' }}>Логист: {p.resp}</div>}
                         {p.supplier && <div style={{ fontSize: 11, color: '#8a847c' }}>Поставщик: {p.supplier}</div>}
                       </div>

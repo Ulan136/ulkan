@@ -22,7 +22,9 @@ export async function GET(req: NextRequest) {
       ]
     },
     include: {
+      // Возвращаем ТОЛЬКО мои позиции (я — поставщик) — чужие в браузер не уходят.
       positions: {
+        where: { supplier: { equals: myName, mode: 'insensitive' } },
         select: { id: true, cardId: true, name1c: true, oral: true, qty: true, unit: true, status: true, leg: true, resp: true, supplier: true, payment: true, deadline: true, late: true, createdAt: true, updatedAt: true }
       }
     },
