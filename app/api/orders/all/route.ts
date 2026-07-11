@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { getSessionFromRequest } from '@/lib/auth'
+import { requireSession } from '@/lib/auth'
 import { orderInclude } from '@/lib/orderMetrics'
 
 export async function GET(req: NextRequest) {
-  const session = await getSessionFromRequest(req)
-  if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+  const auth = await requireSession(req)
+  if (!auth.ok) return auth.response
 
   const orders = await prisma.order.findMany({
     include: orderInclude,
@@ -16,8 +16,8 @@ export async function GET(req: NextRequest) {
 
 // POST /api/orders/all — провести все в бухгалтерию
 export async function POST(req: NextRequest) {
-  const session = await getSessionFromRequest(req)
-  if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+  const auth = await requireSession(req)
+  if (!auth.ok) return auth.response
 
   const result = await prisma.order.updateMany({
     where: { screen: 'accounting', postponed: false },

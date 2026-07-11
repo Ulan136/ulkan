@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { getSessionFromRequest } from '@/lib/auth'
+import { requireSession } from '@/lib/auth'
 import { generateCardId, generateTrackingLink } from '@/lib/ids'
 import { notifyAdmins } from '@/lib/notifications'
 
 export async function GET(req: NextRequest) {
-  const session = await getSessionFromRequest(req)
-  if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+  const auth = await requireSession(req)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   // Для филиала — показываем и свои заявки и карточки адресованные филиалу
   const isBranch = session.role === 'branch'
@@ -33,8 +34,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getSessionFromRequest(req)
-  if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+  const auth = await requireSession(req)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const { to, deadline, text, comment } = await req.json()
 

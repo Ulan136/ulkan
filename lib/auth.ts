@@ -1,5 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose'
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 const SECRET = new TextEncoder().encode(
   process.env.AUTH_SECRET || 'fallback-secret-min-32-chars-here!!'
@@ -45,4 +45,29 @@ export async function getSession(): Promise<SessionUser | null> {
   const token = cookieStore.get('ukan_session')?.value
   if (!token) return null
   return verifyToken(token)
+}
+
+// Единый гвард для API routes.
+// - нет сессии          → { ok: false, response: 401 "Не авторизован" }
+// - roles задан и не совпал → { ok: false, response: 403 "Нет доступа" }
+// - иначе               → { ok: true, session }
+// Тип задан интерфейсом с опциональными полями (а не discriminated union),
+// потому что в этом проекте strictNullChecks выключен и сужение union по
+// дискриминанту ok не работает. При ok=true присутствует session, при
+// ok=false — response.
+export interface SessionResult {
+  ok: boolean
+  session?: SessionUser
+  response?: NextResponse
+}
+
+export async function requireSession(req: NextRequest, roles?: string[]): Promise<SessionResult> {
+  const session = await getSessionFromRequest(req)
+  if (!session) {
+    return { ok: false, response: NextResponse.json({ error: 'Не авторизован' }, { status: 401 }) }
+  }
+  if (roles && !roles.includes(session.role)) {
+    return { ok: false, response: NextResponse.json({ error: 'Нет доступа' }, { status: 403 }) }
+  }
+  return { ok: true, session }
 }

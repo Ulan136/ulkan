@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { getSessionFromRequest } from '@/lib/auth'
+import { requireSession } from '@/lib/auth'
 import { generateProjectId } from '@/lib/ids'
 
 export async function GET(req: NextRequest) {
-  const session = await getSessionFromRequest(req)
-  if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+  const auth = await requireSession(req)
+  if (!auth.ok) return auth.response
   const projects = await prisma.project.findMany({
     include: { _count: { select: { orders: true } } },
     orderBy: { createdAt: 'desc' },
@@ -14,8 +14,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getSessionFromRequest(req)
-  if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+  const auth = await requireSession(req)
+  if (!auth.ok) return auth.response
   const { name, clientId, description } = await req.json()
   const project = await prisma.project.create({
     data: { id: generateProjectId(await prisma.project.count()), name, clientId: clientId || null, description: description || '' },
@@ -25,8 +25,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const session = await getSessionFromRequest(req)
-  if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+  const auth = await requireSession(req)
+  if (!auth.ok) return auth.response
   const { id, status } = await req.json()
   const project = await prisma.project.update({ where: { id }, data: { status } })
   return NextResponse.json(project)

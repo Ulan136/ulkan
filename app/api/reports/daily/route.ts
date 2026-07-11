@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { getSessionFromRequest } from '@/lib/auth'
+import { requireSession, getSessionFromRequest } from '@/lib/auth'
 import { notifyBookkeepers } from '@/lib/notifications'
 
 export async function GET(req: NextRequest) {
-  const session = await getSessionFromRequest(req)
-  if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
-  if (!['super_admin', 'bookkeeper'].includes(session.role)) return NextResponse.json({ error: 'Нет доступа' }, { status: 403 })
+  const auth = await requireSession(req, ['super_admin', 'bookkeeper'])
+  if (!auth.ok) return auth.response
 
   const reports = await prisma.dailyReport.findMany({
     include: { logist: true, rows: true },

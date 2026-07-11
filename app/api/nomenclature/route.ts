@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { getSessionFromRequest } from '@/lib/auth'
+import { requireSession, getSessionFromRequest } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -10,8 +10,8 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '12')
 
   if (all) {
-    const session = await getSessionFromRequest(req)
-    if (!session) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+    const auth = await requireSession(req)
+    if (!auth.ok) return auth.response
     const items = await prisma.nomenclature.findMany({
       where: group ? { group } : undefined,
       orderBy: [{ group: 'asc' }, { cat: 'asc' }, { name: 'asc' }],
