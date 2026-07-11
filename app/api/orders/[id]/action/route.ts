@@ -327,15 +327,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       case 'updatePosDetail': {
         const { posId, ...posData } = payload
         const oldPos = order.positions.find(p => p.id === posId)
+        // Частичный payload безопасен: неуказанные поля берём из oldPos, чтобы не
+        // затереть supplier/price/supplierId/deadline (важно для пересчёта leg).
         await prisma.position.update({
           where: { id: posId },
           data: {
-            name1c: posData.name1c, oral: posData.oral,
-            qty: Number(posData.qty) || 0, unit: posData.unit,
-            price: Number(posData.price) || 0, resp: posData.resp,
-            supplier: posData.supplier, supplierId: posData.supplierId || null,
-            status: posData.status, payment: posData.payment,
-            late: posData.late, deadline: posData.deadline ? new Date(posData.deadline) : null,
+            name1c: posData.name1c ?? oldPos?.name1c,
+            oral: posData.oral ?? oldPos?.oral,
+            qty: posData.qty !== undefined ? (Number(posData.qty) || 0) : oldPos?.qty,
+            unit: posData.unit ?? oldPos?.unit,
+            price: posData.price !== undefined ? (Number(posData.price) || 0) : oldPos?.price,
+            resp: posData.resp ?? oldPos?.resp,
+            supplier: posData.supplier ?? oldPos?.supplier,
+            supplierId: posData.supplierId !== undefined ? (posData.supplierId || null) : oldPos?.supplierId,
+            status: posData.status ?? oldPos?.status,
+            payment: posData.payment ?? oldPos?.payment,
+            late: posData.late ?? oldPos?.late,
+            deadline: posData.deadline !== undefined ? (posData.deadline ? new Date(posData.deadline) : null) : oldPos?.deadline,
           },
         })
         // Обновляем резерв если поставщик Центр Склад

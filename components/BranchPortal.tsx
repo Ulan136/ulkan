@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { orderAction, logout } from '@/lib/api'
 import { SessionUser } from '@/lib/types'
 import { cardProgress } from '@/lib/display'
@@ -52,6 +52,45 @@ function fmtTime(d?: string | null) {
     dt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 }
 
+// Редактор количества/единицы позиции (для возвращённых карточек).
+// Модуль-компонент с локальным state — ввод не дёргает родителя.
+function QtyEditor({ pos, orderId, onEditing, onSaved }: {
+  pos: { id: string; qty: number; unit: string }
+  orderId: string
+  onEditing: (editing: boolean) => void
+  onSaved: (msg: string) => void
+}) {
+  const [qty, setQty] = useState(String(pos.qty ?? ''))
+  const [unit, setUnit] = useState(pos.unit || 'шт')
+  const [saving, setSaving] = useState(false)
+  const dirty = (Number(qty) || 0) !== pos.qty || unit !== (pos.unit || 'шт')
+
+  async function save() {
+    setSaving(true)
+    try {
+      await orderAction(orderId, 'updatePosDetail', { posId: pos.id, qty: Number(qty) || 0, unit })
+      onEditing(false)
+      onSaved('✓ Позиция обновлена')
+    } catch (e: any) {
+      setSaving(false)
+      onSaved(e.message || 'Ошибка сохранения')
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      <input type="number" value={qty} onFocus={() => onEditing(true)} onChange={e => setQty(e.target.value)}
+        style={{ width: 60, padding: '5px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', fontSize: 13, fontFamily: 'inherit', textAlign: 'right' }} />
+      <input value={unit} onFocus={() => onEditing(true)} onChange={e => setUnit(e.target.value)}
+        style={{ width: 48, padding: '5px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', fontSize: 13, fontFamily: 'inherit' }} />
+      <button onClick={save} disabled={saving || !dirty}
+        style={{ padding: '5px 10px', borderRadius: 6, border: 'none', background: dirty ? PRIMARY : '#e6e2dc', color: dirty ? '#fff' : '#8a847c', cursor: dirty ? 'pointer' : 'default', fontWeight: 600, fontSize: 12, fontFamily: 'inherit', flexShrink: 0 }}>
+        {saving ? '...' : 'Сохранить'}
+      </button>
+    </div>
+  )
+}
+
 interface Props { user: SessionUser; branchUser: { name: string; slug: string; phone?: string } }
 
 export default function BranchPortal({ user, branchUser }: Props) {
@@ -71,6 +110,10 @@ export default function BranchPortal({ user, branchUser }: Props) {
 
   function showMsg(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
+  // Пока филиал редактирует количество позиции — не перезагружаем список
+  // (иначе карточка перерисуется и потеряется ввод/фокус). Ref, чтобы не ре-рендерить.
+  const editingRef = useRef(false)
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
@@ -83,7 +126,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
 
   useEffect(() => { load() }, [load])
   useEffect(() => {
-    const t = setInterval(load, 5000)
+    const t = setInterval(() => { if (!editingRef.current) load() }, 5000)
     return () => clearInterval(t)
   }, [load])
 
@@ -159,6 +202,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
     const inDelivery = o.positions.some(p => p.status === 'В пути' || p.status === 'Доставлено')
     const iAmSupplier = o.positions.some(p => eqName(p.supplier, branchUser.name))
     const canRecall = isMine && o.leg !== 1 && iAmSupplier && !inDelivery  // передана, доставка не начата
+    const editable = recalled && accepted  // возвращена себе → можно править позиции до повторного «К логисту»
     const hist = history[o.id] || []
 
     return (
@@ -243,7 +287,11 @@ export default function BranchPortal({ user, branchUser }: Props) {
                         {p.supplier && <div style={{ fontSize: 11, color: '#8a847c' }}>Поставщик: {p.supplier}</div>}
                       </div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-                        <span style={{ fontSize: 12, color: '#8a847c' }}>{p.qty > 0 ? `${p.qty} ${p.unit}` : '—'}</span>
+                        {editable
+                          ? <QtyEditor pos={p} orderId={o.id}
+                              onEditing={e => { editingRef.current = e }}
+                              onSaved={m => { editingRef.current = false; load(); showMsg(m) }} />
+                          : <span style={{ fontSize: 12, color: '#8a847c' }}>{p.qty > 0 ? `${p.qty} ${p.unit}` : '—'}</span>}
                         <StatusBadge status={p.status} />
                       </div>
                     </div>
