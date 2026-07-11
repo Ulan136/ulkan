@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { createToken } from '@/lib/auth'
 import { normalizePhone } from '@/lib/ids'
+import { phoneSchema } from '@/lib/dto/auth.dto'
 
 export async function POST(req: NextRequest) {
   try {
-    const { phone } = await req.json()
-    if (!phone) return NextResponse.json({ error: 'Телефон обязателен' }, { status: 400 })
+    const parsed = phoneSchema.safeParse(await req.json().catch(() => null))
+    if (!parsed.success) return NextResponse.json({ error: 'Телефон обязателен' }, { status: 400 })
+    const { phone } = parsed.data
 
     const normPhone = normalizePhone(phone)
     const user = await prisma.user.findUnique({ where: { phone: normPhone } })

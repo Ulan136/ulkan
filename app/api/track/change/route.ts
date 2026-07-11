@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { notifyAdmins } from '@/lib/notifications'
+import { changeSchema } from '@/lib/dto/track.dto'
 
 export async function POST(req: NextRequest) {
   try {
-    const { cardId, changeText, changePhone } = await req.json()
-    if (!cardId) return NextResponse.json({ error: 'cardId обязателен' }, { status: 400 })
+    const parsed = changeSchema.safeParse(await req.json().catch(() => null))
+    if (!parsed.success) return NextResponse.json({ error: 'cardId обязателен' }, { status: 400 })
+    const { cardId, changeText, changePhone } = parsed.data
 
     await prisma.order.update({
       where: { id: cardId },

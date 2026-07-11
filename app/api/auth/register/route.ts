@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { createToken } from '@/lib/auth'
 import { normalizePhone, generateSlug } from '@/lib/ids'
+import { registerSchema } from '@/lib/dto/auth.dto'
 
 // POST /api/auth/register — регистрация нового клиента
 export async function POST(req: NextRequest) {
   try {
-    const { name, phone, email } = await req.json()
-    if (!name || !phone) return NextResponse.json({ error: 'Имя и телефон обязательны' }, { status: 400 })
+    const parsed = registerSchema.safeParse(await req.json().catch(() => null))
+    if (!parsed.success) return NextResponse.json({ error: 'Имя и телефон обязательны' }, { status: 400 })
+    const { name, phone, email } = parsed.data
 
     const normPhone = normalizePhone(phone)
     const existing = await prisma.user.findUnique({ where: { phone: normPhone } })

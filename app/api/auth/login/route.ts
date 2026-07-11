@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import prisma from '@/lib/prisma'
 import { createToken } from '@/lib/auth'
+import { loginSchema } from '@/lib/dto/auth.dto'
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json()
-    if (!email || !password) return NextResponse.json({ error: 'Email и пароль обязательны' }, { status: 400 })
+    const parsed = loginSchema.safeParse(await req.json().catch(() => null))
+    if (!parsed.success) return NextResponse.json({ error: 'Email и пароль обязательны' }, { status: 400 })
+    const { email, password } = parsed.data
 
     const user = await prisma.user.findUnique({ where: { email } })
     if (!user || !user.password) return NextResponse.json({ error: 'Неверный email или пароль' }, { status: 401 })

@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { generateCardId, generateTrackingLink, generateSlug, normalizePhone } from '@/lib/ids'
 import { notifyAdmins } from '@/lib/notifications'
+import { submitSchema } from '@/lib/dto/track.dto'
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, phone, text } = await req.json()
-    if (!name || !phone || !text) return NextResponse.json({ error: 'Все поля обязательны' }, { status: 400 })
+    const parsed = submitSchema.safeParse(await req.json().catch(() => null))
+    if (!parsed.success) return NextResponse.json({ error: 'Все поля обязательны' }, { status: 400 })
+    const { name, phone, text } = parsed.data
 
     const normPhone = normalizePhone(phone)
     let user = await prisma.user.findUnique({ where: { phone: normPhone } })
