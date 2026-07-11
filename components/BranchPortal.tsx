@@ -113,11 +113,13 @@ export default function BranchPortal({ user, branchUser }: Props) {
   // Пока филиал редактирует количество позиции — не перезагружаем список
   // (иначе карточка перерисуется и потеряется ввод/фокус). Ref, чтобы не ре-рендерить.
   const editingRef = useRef(false)
+  const [sessionExpired, setSessionExpired] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const res = await fetch('/api/branch/orders')
+      if (res.status === 401 || res.status === 403) { setSessionExpired(true); return }
       const data = await res.json()
       setOrders(Array.isArray(data) ? data : [])
     } catch {}
@@ -328,6 +330,21 @@ export default function BranchPortal({ user, branchUser }: Props) {
             </div>
           </div>
         )}
+      </div>
+    )
+  }
+
+  if (sessionExpired) {
+    return (
+      <div style={{ minHeight: '100vh', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: "'Golos Text', system-ui, sans-serif" }}>
+        <div style={{ background: '#fff', borderRadius: 14, padding: 28, maxWidth: 340, textAlign: 'center', boxShadow: '0 8px 40px rgba(0,0,0,.15)' }}>
+          <div style={{ fontSize: 34, marginBottom: 10 }}>🔒</div>
+          <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 6 }}>Сессия устарела</div>
+          <div style={{ color: '#8a847c', fontSize: 14, marginBottom: 18 }}>Войдите заново, чтобы продолжить.</div>
+          <button onClick={() => logout()} style={{ padding: '11px 24px', background: PRIMARY, color: '#fff', border: 'none', borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Выйти и войти заново
+          </button>
+        </div>
       </div>
     )
   }

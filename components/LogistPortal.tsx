@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { fetchLogistOrders, orderAction, createOrder, createDailyReport, logout } from '@/lib/api'
+import { orderAction, createOrder, createDailyReport, logout } from '@/lib/api'
 import InstallPrompt from '@/components/InstallPrompt'
 import { Order, SessionUser } from '@/lib/types'
 
@@ -37,6 +37,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
   const [updating, setUpdating] = useState<string | null>(null)
+  const [sessionExpired, setSessionExpired] = useState(false)
 
   // Новый заказ
   const [newTo, setNewTo] = useState('')
@@ -63,8 +64,10 @@ export default function LogistPortal({ user, logistUser }: Props) {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await fetchLogistOrders() as Order[]
-      setOrders(data)
+      const res = await fetch('/api/logist/orders')
+      if (res.status === 401 || res.status === 403) { setSessionExpired(true); return }
+      const data = await res.json()
+      setOrders(Array.isArray(data) ? data : [])
     } catch (e: any) {
       // Тихая ошибка при polling — не показываем toast
       console.error('load error:', e.message)
@@ -304,6 +307,21 @@ export default function LogistPortal({ user, logistUser }: Props) {
           <span style={{ fontSize: 10, background: pos.status === 'Доставлено' ? '#e8f5ee' : '#fff0ea', color: pos.status === 'Доставлено' ? '#2e8a5e' : '#c0532a', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{pos.status}</span>
         </div>
         <StatusBtns cardId={order.id} posId={pos.id} posStatus={pos.status} posName={pos.name1c || pos.oral} fromWho={order.from} toWho={order.to || ''} qty={pos.qty} />
+      </div>
+    )
+  }
+
+  if (sessionExpired) {
+    return (
+      <div style={{ background: '#dedbd6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: "'Golos Text', system-ui, sans-serif" }}>
+        <div style={{ background: '#fff', borderRadius: 14, padding: 28, maxWidth: 340, textAlign: 'center', boxShadow: '0 8px 40px rgba(0,0,0,.15)' }}>
+          <div style={{ fontSize: 34, marginBottom: 10 }}>🔒</div>
+          <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 6 }}>Сессия устарела</div>
+          <div style={{ color: '#8a847c', fontSize: 14, marginBottom: 18 }}>Войдите заново, чтобы продолжить.</div>
+          <button onClick={() => logout()} style={{ padding: '11px 24px', background: PRIMARY, color: '#fff', border: 'none', borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Выйти и войти заново
+          </button>
+        </div>
       </div>
     )
   }

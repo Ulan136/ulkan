@@ -66,6 +66,16 @@ export async function requireSession(req: NextRequest, roles?: string[]): Promis
   if (!session) {
     return { ok: false, response: NextResponse.json({ error: 'Не авторизован' }, { status: 401 }) }
   }
+  // Fallback для старых JWT без role: подтягиваем роль из БД по id.
+  // Prisma импортируем динамически — эта функция вызывается только в API-роутах (Node),
+  // а middleware (Edge) использует getSessionFromRequest напрямую и prisma не тянет.
+  if (!session.role && session.id) {
+    try {
+      const { default: prisma } = await import('./prisma')
+      const user = await prisma.user.findUnique({ where: { id: session.id }, select: { role: true } })
+      if (user) session.role = user.role
+    } catch { /* если БД недоступна — оставляем как есть */ }
+  }
   if (roles && !roles.includes(session.role)) {
     return { ok: false, response: NextResponse.json({ error: 'Нет доступа' }, { status: 403 }) }
   }

@@ -54,13 +54,16 @@ export default function ClientApp({ user, clientUser }: Props) {
   const [newDeadline, setNewDeadline] = useState('')
   const [newLoading, setNewLoading] = useState(false)
   const [newResult, setNewResult] = useState<{ order: Order; trackingUrl: string } | null>(null)
+  const [sessionExpired, setSessionExpired] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const [ord, notifs] = await Promise.all([fetchClientOrders() as any, fetchNotifications() as any])
       setOrders(ord); setNotifications(notifs)
-    } catch {}
+    } catch (e: any) {
+      if (e?.message === 'Не авторизован' || e?.message === 'Нет доступа') setSessionExpired(true)
+    }
     finally { setLoading(false) }
   }, [])
 
@@ -100,6 +103,21 @@ export default function ClientApp({ user, clientUser }: Props) {
   }
 
   const inp: React.CSSProperties = { width: '100%', padding: '10px 14px', borderRadius: 8, fontSize: 14, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit' }
+
+  if (sessionExpired) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#f1efec', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: "'Golos Text', system-ui, sans-serif" }}>
+        <div style={{ background: '#fff', borderRadius: 14, padding: 28, maxWidth: 340, textAlign: 'center', boxShadow: '0 8px 40px rgba(0,0,0,.15)' }}>
+          <div style={{ fontSize: 34, marginBottom: 10 }}>🔒</div>
+          <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 6 }}>Сессия устарела</div>
+          <div style={{ color: '#8a847c', fontSize: 14, marginBottom: 18 }}>Войдите заново, чтобы продолжить.</div>
+          <button onClick={() => logout()} style={{ padding: '11px 24px', background: '#d4613a', color: '#fff', border: 'none', borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Выйти и войти заново
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#f1efec', fontFamily: "'Golos Text', system-ui, sans-serif" }}>
