@@ -15,7 +15,7 @@ interface HistoryItem {
   id: string; action: string; userName: string; createdAt: string
 }
 interface Order {
-  id: string; from: string; to: string; screen: string; status: string
+  id: string; from: string; to: string; screen: string; status: string; leg?: number
   deadline?: string; createdAt: string; updatedAt: string
   trackingLink: string; positions: Position[]
   history?: HistoryItem[]
@@ -105,10 +105,10 @@ export default function BranchPortal({ user, branchUser }: Props) {
 
   // Сравнение имён без учёта регистра и лишних пробелов
   const eqName = (a?: string, b?: string) => (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase()
-  // Входящие — карточки адресованные мне
-  const incoming = orders.filter(o => eqName(o.to, branchUser.name))
-  // Исходящие — карточки которые я передал логисту
-  const outgoing = orders.filter(o => eqName(o.from, branchUser.name))
+  // Входящие — адресованные мне + возвращённые мной себе (leg=1, from=я)
+  const incoming = orders.filter(o => eqName(o.to, branchUser.name) || (eqName(o.from, branchUser.name) && o.leg === 1))
+  // Исходящие — переданные логисту / мои заявки (кроме возвращённых себе)
+  const outgoing = orders.filter(o => eqName(o.from, branchUser.name) && o.leg !== 1)
 
   async function handleAccept(orderId: string) {
     await orderAction(orderId, 'branchAccept', { branchName: branchUser.name })
@@ -118,6 +118,13 @@ export default function BranchPortal({ user, branchUser }: Props) {
   async function handleForward(orderId: string) {
     await orderAction(orderId, 'branchForward', { branchName: branchUser.name })
     load(); showMsg('✓ Передано логисту для доставки')
+  }
+
+  async function handleRecall(orderId: string) {
+    try {
+      await orderAction(orderId, 'branchRecall', { branchName: branchUser.name })
+      load(); showMsg('✓ Возвращена — можно изменить и передать снова')
+    } catch (e: any) { showMsg(e.message) }
   }
 
   async function handleNewOrder(e: React.FormEvent) {
@@ -146,8 +153,12 @@ export default function BranchPortal({ user, branchUser }: Props) {
   function OrderCard({ o, showActions }: { o: Order; showActions: boolean }) {
     const pct = cardProgress(o)
     const isOpen = selected === o.id
+    const isMine = eqName(o.from, branchUser.name)          // я отправитель (передавал/создавал)
     const accepted = o.status === 'Принято филиалом'
-    const forwarded = eqName(o.from, branchUser.name) && o.screen === 'outgoing'
+    const recalled = isMine && o.leg === 1                  // вернул себе — снова первое плечо
+    const inDelivery = o.positions.some(p => p.status === 'В пути' || p.status === 'Доставлено')
+    const iAmSupplier = o.positions.some(p => eqName(p.supplier, branchUser.name))
+    const canRecall = isMine && o.leg !== 1 && iAmSupplier && !inDelivery  // передана, доставка не начата
     const hist = history[o.id] || []
 
     return (
@@ -181,15 +192,15 @@ export default function BranchPortal({ user, branchUser }: Props) {
           <div style={{ borderTop: '1px solid #f1efec' }}>
             {/* Кнопки действий филиала */}
             {showActions && (
-              <div style={{ padding: '12px 16px', background: '#f8f6f3', borderBottom: '1px solid #f1efec', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {/* Шаг 1: Принять */}
-                {o.status !== 'Принято филиалом' && !eqName(o.from, branchUser.name) && (
+              <div style={{ padding: '12px 16px', background: '#f8f6f3', borderBottom: '1px solid #f1efec', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {/* Первое плечо: принять (адресовано мне, ещё не принято) */}
+                {!accepted && !isMine && (
                   <button onClick={() => handleAccept(o.id)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1.5px solid #b8e0c8', background: '#e8f5ee', color: '#2e8a5e', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
                     ✓ Принял
                   </button>
                 )}
-                {/* Шаг 2: К логисту */}
-                {o.status === 'Принято филиалом' && !eqName(o.from, branchUser.name) && (
+                {/* Принято (первое плечо) ИЛИ возвращено: передать логисту */}
+                {accepted && (!isMine || recalled) && (
                   <>
                     <span style={{ fontSize: 12, color: '#2e8a5e', fontWeight: 600 }}>✓ Принято</span>
                     <button onClick={() => handleForward(o.id)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: PRIMARY, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
@@ -197,9 +208,15 @@ export default function BranchPortal({ user, branchUser }: Props) {
                     </button>
                   </>
                 )}
-                {/* Шаг 3: Передано */}
-                {eqName(o.from, branchUser.name) && (
-                  <div style={{ fontSize: 12, color: '#8a847c', padding: '8px 0' }}>📦 Передано логисту для доставки</div>
+                {/* Передано, доставка не начата: можно вернуть себе для изменений */}
+                {canRecall && (
+                  <button onClick={() => handleRecall(o.id)} style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1.5px solid #e6c9b8', background: '#fff0ea', color: '#c0532a', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
+                    ← Вернуть на изготовление
+                  </button>
+                )}
+                {/* Передано, доставка идёт: только просмотр */}
+                {isMine && !recalled && !canRecall && (
+                  <div style={{ fontSize: 12, color: '#8a847c', padding: '8px 0' }}>📦 {inDelivery ? 'Доставка в процессе' : 'Передано логисту'}</div>
                 )}
               </div>
             )}
@@ -316,7 +333,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
                   <div style={{ fontSize: 32, marginBottom: 10 }}>📤</div>
                   <div style={{ fontWeight: 600, marginBottom: 6 }}>Нет исходящих</div>
                 </div>
-              : outgoing.map(o => <OrderCard key={o.id} o={o} showActions={false} />)
+              : outgoing.map(o => <OrderCard key={o.id} o={o} showActions={true} />)
             }
           </div>
         )}

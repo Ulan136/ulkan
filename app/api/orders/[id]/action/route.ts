@@ -227,6 +227,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         historyText = `Товар принят филиалом ${payload.branchName || order.to}`
         break
 
+      // ── Филиал: вернуть переданную карточку себе (до начала доставки) ──
+      case 'branchRecall': {
+        // Нельзя вернуть, если логист уже начал доставку
+        const inDelivery = order.positions.some(p => p.status === 'В пути' || p.status === 'Доставлено')
+        if (inDelivery) {
+          return NextResponse.json({ error: 'Логист уже начал доставку, возврат невозможен' }, { status: 400 })
+        }
+        // Вернуть может только филиал-отправитель (роль branch, имя == order.from)
+        const isSenderBranch = session.role === 'branch' &&
+          session.name.trim().toLowerCase() === (order.from || '').trim().toLowerCase()
+        if (!isSenderBranch) {
+          return NextResponse.json({ error: 'Возврат доступен только филиалу-отправителю' }, { status: 403 })
+        }
+        // Позиции обратно в 'Принято филиалом'; карточка снова первое плечо (leg=1 → скрыта от логиста).
+        // from НЕ трогаем — иначе сломается гард isForwardedToLogist и вкладка Исходящие.
+        await prisma.position.updateMany({ where: { cardId: id }, data: { status: 'Принято филиалом' } })
+        updateData = { status: 'Принято филиалом', leg: 1 }
+        historyText = `Возвращена филиалом ${payload.branchName || order.from} для изменений`
+        // Уведомляем логистов из позиций, что заказ отозван
+        const recallResp = [...new Set(order.positions.map(p => p.resp).filter(Boolean))]
+        for (const respName of recallResp) {
+          const logist = await prisma.user.findFirst({ where: { name: respName, role: 'logist' } })
+          if (logist) await notify(logist.id, `Заказ ${id} возвращён филиалом`, id)
+        }
+        break
+      }
+
       case 'confirmChg':
         updateData = { isChanged: false }
         historyText = 'Изменение подтверждено'
