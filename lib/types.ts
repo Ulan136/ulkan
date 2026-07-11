@@ -47,6 +47,7 @@ export interface Order {
   cold: boolean
   trackingLink: string
   sortOrder: number
+  leg?: number
   createdAt: string
   updatedAt: string
   positions: Position[]

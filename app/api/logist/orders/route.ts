@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
   const orders = await prisma.order.findMany({
     where: {
       isCancelled: false,
+      leg: 2, // первое плечо (leg=1, ещё у филиала/поставщика) логисту не показываем
       screen: { in: ['outgoing', 'incoming', 'reception'] },
       OR: [
         { positions: { some: { resp: { equals: myName, mode: 'insensitive' } } } },

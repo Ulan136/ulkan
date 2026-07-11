@@ -38,6 +38,19 @@ export async function POST(req: NextRequest) {
     const id = generateCardId(count)
     const trackingLink = generateTrackingLink(id)
 
+    // Первое плечо: карточка адресована филиалу (роль branch), который сам
+    // примет товар (branchAccept) и передаст логисту (branchForward). До передачи
+    // логист её видеть не должен → leg=1. Иначе обычная карточка → leg=2.
+    // Только branch: у него есть рабочий путь accept→forward (BranchPortal).
+    // supplier_client такого пути не имеет — пометка leg=1 заперла бы карточку.
+    let leg = 2
+    if (to) {
+      const branch = await prisma.user.findFirst({
+        where: { name: { equals: to, mode: 'insensitive' }, role: 'branch' },
+      })
+      if (branch) leg = 1
+    }
+
     let posData: any[] = []
     if (positions && positions.length > 0) {
       posData = positions.map((p: any, i: number) => ({
@@ -71,6 +84,7 @@ export async function POST(req: NextRequest) {
         source: source || 'admin_manual',
         isDraft: isDraft || false,
         trackingLink,
+        leg,
         history: { create: { action: 'Карточка создана', userName: session.name } },
         positions: posData.length > 0 ? { create: posData } : undefined,
       },

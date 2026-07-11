@@ -193,15 +193,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           where: { cardId: id },
           data: { status: 'В работе' }
         })
-        // Меняем from на филиал, карточка снова идёт в исходящие
+        // Меняем from на филиал, карточка снова идёт в исходящие.
+        // leg=2 → теперь карточка видна логисту (второе плечо доставки).
         updateData = {
           from: payload.branchName || order.to,
           screen: 'outgoing',
           status: 'В работе',
           toacc: false,
           delivered: null,
+          leg: 2,
         }
         historyText = `Передано филиалом ${payload.branchName || order.to} → второе плечо доставки`
+        // Уведомляем логистов, назначенных в позициях, что заказ готов к доставке
+        const respNames = [...new Set(order.positions.map(p => p.resp).filter(Boolean))]
+        for (const respName of respNames) {
+          const logist = await prisma.user.findFirst({ where: { name: respName, role: 'logist' } })
+          if (logist) await notify(logist.id, `Заказ ${id} готов к доставке`, id)
+        }
         break
       }
 
