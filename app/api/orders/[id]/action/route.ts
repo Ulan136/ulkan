@@ -5,7 +5,7 @@ import { generatePosId } from '@/lib/ids'
 import { notifyAdmins, notify } from '@/lib/notifications'
 import { releaseStock, reserveStock } from '@/lib/stock'
 import { orderInclude } from '@/lib/orderMetrics'
-import { isFirstLeg } from '@/services/legDetection'
+import { isFirstLeg, isForwardedToLogist } from '@/services/legDetection'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireSession(req)
@@ -277,8 +277,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           await reserveStock(newPos.id, payload.name1c || payload.oral, payload.qty)
         }
         historyText = `Добавлена позиция: ${payload.name1c || payload.oral}`
-        // Пересчёт плеча: поставщика-филиала могли добавить этой позицией
-        const legAfterAdd = (await isFirstLeg([...existing, newPos])) ? 1 : 2
+        // Пересчёт плеча: поставщика-филиала могли добавить этой позицией.
+        // Гард: если карточка уже передана логисту (branchForward) — leg не понижаем.
+        const legAfterAdd = (await isForwardedToLogist(order))
+          ? 2
+          : ((await isFirstLeg([...existing, newPos])) ? 1 : 2)
         updateData = { leg: legAfterAdd }
         // Уведомляем логиста только если карточка второго плеча (leg=2) —
         // при первом плече логист её ещё не видит.
@@ -312,9 +315,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             await updateReserve(posId, oldPos.qty, Number(posData.qty) || 0)
           }
         }
-        // Пересчёт плеча: поставщика-филиала могли назначить/сменить этой правкой
-        const posAfterEdit = await prisma.position.findMany({ where: { cardId: id } })
-        updateData = { leg: (await isFirstLeg(posAfterEdit)) ? 1 : 2 }
+        // Пересчёт плеча: поставщика-филиала могли назначить/сменить этой правкой.
+        // Гард: если карточка уже передана логисту (branchForward) — leg не понижаем.
+        const legAfterEdit = (await isForwardedToLogist(order))
+          ? 2
+          : ((await isFirstLeg(await prisma.position.findMany({ where: { cardId: id } }))) ? 1 : 2)
+        updateData = { leg: legAfterEdit }
         // Не пишем в историю — слишком частые мелкие изменения засоряют ленту
         break
       }

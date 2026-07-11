@@ -23,3 +23,20 @@ export async function isFirstLeg(positions: { supplier?: string | null }[]): Pro
 
   return suppliers.some(s => branchNames.has(s))
 }
+
+// Карточка уже передана логисту на второе плечо (был branchForward).
+// Признак из существующих полей: branchForward ставит from = имя филиала и leg=2,
+// тогда как на первом плече from — это исходный источник (не филиал), а скрытая
+// первым плечом карточка имеет leg=1. Компаунд (leg=2 И from == имя branch-пользователя)
+// надёжно отделяет переданную карточку.
+export async function isForwardedToLogist(order: { leg?: number | null; from?: string | null }): Promise<boolean> {
+  if (order.leg !== 2) return false
+  const from = (order.from || '').trim().toLowerCase()
+  if (!from) return false
+
+  const branchUsers = await prisma.user.findMany({
+    where: { role: 'branch' },
+    select: { name: true },
+  })
+  return branchUsers.some(u => u.name.trim().toLowerCase() === from)
+}
