@@ -15,8 +15,10 @@ export async function GET(req: NextRequest) {
       OR: [
         // Входящие — карточки адресованные мне (в любом статусе кроме архива)
         { to: { equals: myName, mode: 'insensitive' }, screen: { notIn: ['archive'] } },
-        // Исходящие — карточки которые я передал дальше
-        { from: { equals: myName, mode: 'insensitive' }, screen: { in: ['outgoing', 'incoming'] } },
+        // Исходящие — всё, что я отправил/передал дальше. Без ограничения по screen:
+        // карточка едет дальше (incoming → accounting → bookkeeping → archive),
+        // и филиал должен видеть историю своей работы (read-only на фронте).
+        { from: { equals: myName, mode: 'insensitive' } },
         // Первое плечо — я филиал-изготовитель: поставщик позиции = моё имя
         { leg: 1, positions: { some: { supplier: { equals: myName, mode: 'insensitive' } } } },
       ]
