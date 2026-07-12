@@ -4,6 +4,7 @@ import { orderAction, createOrder, createDailyReport, logout, fetchSettings } fr
 import { useLiveData } from '@/lib/live'
 import { PositionEditor, AddPositionForm, editBtn } from '@/components/PositionEditors'
 import CardChat from '@/components/CardChat'
+import ChatWidget from '@/components/ChatWidget'
 import InstallPrompt from '@/components/InstallPrompt'
 import { Order, SessionUser } from '@/lib/types'
 
@@ -675,6 +676,9 @@ export default function LogistPortal({ user, logistUser }: Props) {
           </div>
         </div>
       )}
+
+      {/* Плавающий чат-виджет (поднят над нижним меню) */}
+      <ChatWidget myId={user.id} bottomOffset={84} />
 
       {/* ── Нижнее меню ── */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: DARK, padding: '10px 0 16px', zIndex: 100 }}>

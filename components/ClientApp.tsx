@@ -6,6 +6,7 @@ import { cardProgress } from '@/lib/display'
 import { todayLocal } from '@/lib/dates'
 import { useLiveData } from '@/lib/live'
 import CardChat from '@/components/CardChat'
+import ChatWidget from '@/components/ChatWidget'
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   useEffect(() => { const t = setTimeout(onClose, 2300); return () => clearTimeout(t) }, [onClose])
@@ -135,6 +136,7 @@ export default function ClientApp({ user, clientUser }: Props) {
   return (
     <div style={{ minHeight: '100vh', background: '#f1efec', fontFamily: "'Golos Text', system-ui, sans-serif" }}>
       {toast && <Toast msg={toast} onClose={() => setToast('')} />}
+      <ChatWidget myId={user.id} />
 
       {/* Шапка */}
       <div style={{ background: '#fff', borderBottom: '1px solid #e6e2dc', padding: '0 20px' }}>

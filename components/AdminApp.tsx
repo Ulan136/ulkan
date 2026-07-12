@@ -21,6 +21,7 @@ import WarehouseScreen from '@/components/WarehouseScreen'
 import NomSearch from '@/components/NomSearch'
 import NomenclatureScreen from '@/components/NomenclatureScreen'
 import CardChat from '@/components/CardChat'
+import ChatWidget from '@/components/ChatWidget'
 
 // ─── Утилиты v2.2 ───────────────────────────────────────────────────────────
 
@@ -2084,6 +2085,9 @@ export default function AdminApp({ user }: Props) {
           myId={user.id}
         />
       )}
+
+      {/* Плавающий чат-виджет */}
+      <ChatWidget myId={user.id} />
 
       {/* Модалка создания пользователя */}
       {showCreateUser && (

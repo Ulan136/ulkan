@@ -6,6 +6,7 @@ import { cardProgress } from '@/lib/display'
 import { useLiveData } from '@/lib/live'
 import { PositionEditor, AddPositionForm, editBtn } from '@/components/PositionEditors'
 import CardChat from '@/components/CardChat'
+import ChatWidget from '@/components/ChatWidget'
 import { POS_STATUS } from '@/lib/orderStatus'
 import { isHandedOff, isInDelivery, myActivePos, myHandedPos, eqName } from '@/lib/positionState'
 
@@ -444,6 +445,9 @@ export default function BranchPortal({ user, branchUser }: Props) {
           </div>
         )}
       </div>
+
+      {/* Плавающий чат-виджет (поднят над нижним меню) */}
+      <ChatWidget myId={user.id} bottomOffset={80} />
 
       {/* Нижнее меню */}
       <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, background: '#211f1c', borderTop: '1px solid #333', display: 'flex' }}>

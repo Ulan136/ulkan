@@ -31,12 +31,14 @@ function fmtTime(iso: string) {
 // myId — id текущего пользователя (свои сообщения справа/акцентом).
 // onCount — сообщает число сообщений родителю (для бейджа вкладки).
 export default function CardChat({ cardId, myId, height = 300, onCount }: {
-  cardId: string; myId: string; height?: number; onCount?: (n: number) => void
+  cardId: string; myId: string; height?: number | string; onCount?: (n: number) => void
 }) {
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [denied, setDenied] = useState(false) // 401/403 — вход в чат закрыт
   const editingRef = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const onCountRef = useRef(onCount); onCountRef.current = onCount
@@ -44,12 +46,13 @@ export default function CardChat({ cardId, myId, height = 300, onCount }: {
   const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/orders/${cardId}/messages`)
-      if (!res.ok) return
+      if (res.status === 401 || res.status === 403) { setDenied(true); setError('Чат доступен только участникам заказа'); return }
+      if (!res.ok) { setError('Не удалось загрузить чат'); return }
       const data = await res.json()
       const arr: Msg[] = Array.isArray(data) ? data : []
-      setMsgs(arr)
+      setDenied(false); setError(null); setMsgs(arr)
       onCountRef.current?.(arr.length)
-    } catch {} finally { setLoaded(true) }
+    } catch { setError('Нет связи. Обновите страницу.') } finally { setLoaded(true) }
   }, [cardId])
 
   // Пауза live пока набирают текст — сигнал копится, ввод не сбрасывается.
@@ -68,7 +71,9 @@ export default function CardChat({ cardId, myId, height = 300, onCount }: {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: t }),
       })
       if (res.ok) { setText(''); editingRef.current = false; await load() }
-    } catch {} finally { setSending(false) }
+      else if (res.status === 401 || res.status === 403) { setDenied(true); setError('Чат доступен только участникам заказа') }
+      else { setError('Не удалось отправить сообщение') }
+    } catch { setError('Нет связи. Попробуйте ещё раз.') } finally { setSending(false) }
   }
 
   function onKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -79,6 +84,8 @@ export default function CardChat({ cardId, myId, height = 300, onCount }: {
     <div style={{ display: 'flex', flexDirection: 'column', height }}>
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '4px 2px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         {!loaded ? <div style={{ color: '#8a847c', fontSize: 13, textAlign: 'center', padding: 20 }}>Загрузка…</div>
+          : denied ? <div style={{ color: '#b03020', fontSize: 13, textAlign: 'center', padding: 20 }}>🔒 Чат доступен только участникам заказа</div>
+          : error ? <div style={{ color: '#b03020', fontSize: 13, textAlign: 'center', padding: 20 }}>{error}</div>
           : msgs.length === 0 ? <div style={{ color: '#8a847c', fontSize: 13, textAlign: 'center', padding: 20 }}>Сообщений пока нет. Напишите первым.</div>
           : msgs.map(m => {
             const mine = m.userId === myId
@@ -95,13 +102,15 @@ export default function CardChat({ cardId, myId, height = 300, onCount }: {
             )
           })}
       </div>
-      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', paddingTop: 8, borderTop: '1px solid #f1efec', marginTop: 6 }}>
-        <textarea value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey}
-          placeholder="Сообщение по заказу..." rows={1}
-          style={{ flex: 1, resize: 'none', padding: '8px 10px', borderRadius: 8, border: '1.5px solid #e6e2dc', fontSize: 13, fontFamily: 'inherit', maxHeight: 90, outline: 'none', boxSizing: 'border-box' }} />
-        <button onClick={send} disabled={sending || !text.trim()} title="Отправить (Enter)"
-          style={{ padding: '9px 14px', borderRadius: 8, border: 'none', background: PRIMARY, color: '#fff', fontWeight: 700, fontSize: 14, cursor: sending || !text.trim() ? 'not-allowed' : 'pointer', opacity: sending || !text.trim() ? 0.5 : 1, fontFamily: 'inherit', flexShrink: 0 }}>➤</button>
-      </div>
+      {!denied && (
+        <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', paddingTop: 8, borderTop: '1px solid #f1efec', marginTop: 6 }}>
+          <textarea value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey}
+            placeholder="Сообщение по заказу..." rows={1}
+            style={{ flex: 1, resize: 'none', padding: '8px 10px', borderRadius: 8, border: '1.5px solid #e6e2dc', fontSize: 13, fontFamily: 'inherit', maxHeight: 90, outline: 'none', boxSizing: 'border-box' }} />
+          <button onClick={send} disabled={sending || !text.trim()} title="Отправить (Enter)"
+            style={{ padding: '9px 14px', borderRadius: 8, border: 'none', background: PRIMARY, color: '#fff', fontWeight: 700, fontSize: 14, cursor: sending || !text.trim() ? 'not-allowed' : 'pointer', opacity: sending || !text.trim() ? 0.5 : 1, fontFamily: 'inherit', flexShrink: 0 }}>➤</button>
+        </div>
+      )}
     </div>
   )
 }
