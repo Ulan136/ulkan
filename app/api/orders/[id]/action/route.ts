@@ -6,6 +6,7 @@ import { notifyAdmins, notify } from '@/lib/notifications'
 import { releaseStock, reserveStock } from '@/lib/stock'
 import { orderInclude } from '@/lib/orderMetrics'
 import { legForSupplier } from '@/services/legDetection'
+import { pushSignal } from '@/lib/pusherServer'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireSession(req)
@@ -390,6 +391,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const updated = await prisma.order.findUnique({ where: { id }, include: orderInclude })
+    pushSignal('orders')
     return NextResponse.json({ success: true, order: updated })
   } catch (e) {
     console.error(e)

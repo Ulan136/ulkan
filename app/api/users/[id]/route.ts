@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import prisma from '@/lib/prisma'
 import { getSessionFromRequest } from '@/lib/auth'
 import { normalizePhone } from '@/lib/ids'
+import { pushSignal } from '@/lib/pusherServer'
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSessionFromRequest(req)
@@ -48,6 +49,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       ])
     }
 
+    pushSignal('orders')  // переименование каскадит в from/to/resp карточек
     return NextResponse.json(user)
   } catch (e: any) {
     if (e.code === 'P2002') return NextResponse.json({ error: 'Email или телефон уже существует' }, { status: 409 })

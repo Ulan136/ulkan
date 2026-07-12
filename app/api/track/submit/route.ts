@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma'
 import { generateCardId, generateTrackingLink, generateSlug, normalizePhone } from '@/lib/ids'
 import { notifyAdmins } from '@/lib/notifications'
 import { submitSchema } from '@/lib/dto/track.dto'
+import { pushSignal } from '@/lib/pusherServer'
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
     })
 
     await notifyAdmins(`Внешняя заявка ${cardId} от ${name} (${normPhone})`, cardId)
+    pushSignal('orders')
 
     return NextResponse.json({ cardId, trackingUrl: trackingLink, clientUrl }, { status: 201 })
   } catch (e) {

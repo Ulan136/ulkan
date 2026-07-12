@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { orderAction, createOrder, createDailyReport, logout } from '@/lib/api'
+import { useLiveData } from '@/lib/live'
 import InstallPrompt from '@/components/InstallPrompt'
 import { Order, SessionUser } from '@/lib/types'
 
@@ -106,16 +107,8 @@ export default function LogistPortal({ user, logistUser }: Props) {
     finally { setLoading(false) }
   }, [])
 
-  // Загрузка при монтировании
-  useEffect(() => { load() }, [load])
-
-  // Автообновление каждые 30 секунд
-  useEffect(() => {
-    const interval = setInterval(() => {
-      load()
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [load])
+  // Realtime канал 'orders' (+ polling-fallback). Загрузка при монтировании и по сигналу.
+  useLiveData('orders', load, [])
 
   // ── Позиции КО МНЕ (resp = моё имя, leg=2 — второе плечо, статус не Доставлено) ──
   const posIn = orders.flatMap(o =>

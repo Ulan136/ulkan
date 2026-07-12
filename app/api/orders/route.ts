@@ -6,6 +6,7 @@ import { notifyAdmins } from '@/lib/notifications'
 import { reserveStock } from '@/lib/stock'
 import { orderInclude } from '@/lib/orderMetrics'
 import { branchNameSet } from '@/services/legDetection'
+import { pushSignal } from '@/lib/pusherServer'
 
 export async function GET(req: NextRequest) {
   const auth = await requireSession(req)
@@ -88,6 +89,7 @@ export async function POST(req: NextRequest) {
     }
 
     await notifyAdmins(`Новая карточка ${id} от ${from}`, id)
+    pushSignal('orders')
     return NextResponse.json(order, { status: 201 })
   } catch (e) {
     console.error(e)

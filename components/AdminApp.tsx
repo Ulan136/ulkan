@@ -14,6 +14,7 @@ import {
 } from '@/lib/types'
 import { cardProgress, posPct, cardSum, isOverdue, barColor, statusStyle, sourceStyle, sourceLabel, fmtMoney, fmtDate, fmtDateTime } from '@/lib/display'
 import { todayLocal } from '@/lib/dates'
+import { useLiveData } from '@/lib/live'
 import { COLORS } from '@/lib/colors'
 import FilterScreen from '@/components/FilterScreen'
 import WarehouseScreen from '@/components/WarehouseScreen'
@@ -592,9 +593,20 @@ export default function AdminApp({ user }: Props) {
     try { setNotifications(await fetchNotifications() as Notification[]) } catch {}
   }, [])
 
-  useEffect(() => {
-    loadOrders(); loadDashboard(); loadSettings(); loadNotifs()
-  }, [loadOrders, loadDashboard, loadSettings, loadNotifs])
+  // Realtime: канал 'orders' обновляет карточки + уведомления + дашборд.
+  const loadLive = useCallback(() => { loadOrders(); loadNotifs(); loadDashboard() }, [loadOrders, loadNotifs, loadDashboard])
+  useLiveData('orders', loadLive, [])
+
+  // Настройки грузим один раз при монтировании (не real-time данные)
+  useEffect(() => { loadSettings() }, [loadSettings])
+
+  // Realtime 'reports' — только когда открыт экран бухгалтерии
+  const screenRef = useRef(screen)
+  screenRef.current = screen
+  const loadReports = useCallback(() => {
+    if (screenRef.current === 'bookkeeping') fetchDailyReports().then(r => setDailyReports(r as DailyReport[])).catch(() => {})
+  }, [])
+  useLiveData('reports', loadReports, [])
 
   useEffect(() => {
     if (screen === 'warehouse') { fetchStock().then(s => setStock(s as any[])).catch(() => {}); fetchStockMovements().then(m => setStockMovements(m as any[])).catch(() => {}) }

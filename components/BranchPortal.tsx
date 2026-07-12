@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { orderAction, logout } from '@/lib/api'
 import { SessionUser } from '@/lib/types'
 import { cardProgress } from '@/lib/display'
+import { useLiveData } from '@/lib/live'
 import NomSearch from '@/components/NomSearch'
 
 const PRIMARY = '#d4613a'
@@ -166,11 +167,9 @@ export default function BranchPortal({ user, branchUser }: Props) {
     finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { load() }, [load])
-  useEffect(() => {
-    const t = setInterval(() => { if (!editingRef.current) load() }, 5000)
-    return () => clearInterval(t)
-  }, [load])
+  // Realtime канал 'orders' (+ polling-fallback). editingRef паузит обновление
+  // во время редактирования позиции — сигнал копится и применяется после.
+  useLiveData('orders', load, [], editingRef)
 
   async function loadHistory(orderId: string) {
     if (history[orderId]) return

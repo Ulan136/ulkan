@@ -4,6 +4,7 @@ import { fetchClientOrders, createClientOrder, fetchNotifications, markNotificat
 import { Order, SessionUser, Notification } from '@/lib/types'
 import { cardProgress } from '@/lib/display'
 import { todayLocal } from '@/lib/dates'
+import { useLiveData } from '@/lib/live'
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   useEffect(() => { const t = setTimeout(onClose, 2300); return () => clearTimeout(t) }, [onClose])
@@ -67,19 +68,14 @@ export default function ClientApp({ user, clientUser }: Props) {
     finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  // Realtime канал 'orders' (+ polling-fallback). Загрузка при монтировании и по сигналу.
+  useLiveData('orders', load, [])
 
   // Дефолт «Желаемая дата» = сегодня при открытии вкладки «Новая заявка»
   // (в момент открытия, не при монтировании; пустое поле — не перетираем введённое)
   useEffect(() => {
     if (tab === 'new') setNewDeadline(d => d || todayLocal())
   }, [tab])
-
-  // Автообновление каждые 30 секунд
-  useEffect(() => {
-    const interval = setInterval(() => { load() }, 5000)
-    return () => clearInterval(interval)
-  }, [load])
 
   const unread = notifications.filter(n => !n.read).length
   // Для филиала — входящие карточки (адресованные мне)

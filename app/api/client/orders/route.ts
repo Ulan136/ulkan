@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma'
 import { requireSession } from '@/lib/auth'
 import { generateCardId, generateTrackingLink } from '@/lib/ids'
 import { notifyAdmins } from '@/lib/notifications'
+import { pushSignal } from '@/lib/pusherServer'
 
 export async function GET(req: NextRequest) {
   const auth = await requireSession(req)
@@ -57,5 +58,6 @@ export async function POST(req: NextRequest) {
   })
 
   await notifyAdmins(`Новая заявка ${cardId} от ${session.name}`, cardId)
+  pushSignal('orders')
   return NextResponse.json({ order, trackingUrl: trackingLink }, { status: 201 })
 }

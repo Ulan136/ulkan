@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { requireSession, getSessionFromRequest } from '@/lib/auth'
 import { notifyBookkeepers } from '@/lib/notifications'
+import { pushSignal } from '@/lib/pusherServer'
 
 export async function GET(req: NextRequest) {
   const auth = await requireSession(req, ['super_admin', 'bookkeeper'])
@@ -28,5 +29,6 @@ export async function POST(req: NextRequest) {
   })
 
   await notifyBookkeepers(`Новый отчёт от ${session.name} за ${new Date(date).toLocaleDateString('ru-RU')}`)
+  pushSignal('reports')
   return NextResponse.json(report, { status: 201 })
 }

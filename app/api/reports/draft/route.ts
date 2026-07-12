@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getSessionFromRequest } from '@/lib/auth'
+import { pushSignal } from '@/lib/pusherServer'
 
 // Границы суток по Asia/Almaty (UTC+5, без DST), как UTC-инстанты.
 // dayKey = Алматы 00:00 (канонический ключ дня для черновика).
@@ -82,6 +83,7 @@ export async function POST(req: NextRequest) {
     if (rowData.length > 0) {
       await prisma.dailyReportRow.createMany({ data: rowData.map(d => ({ ...d, reportId: existing.id })) })
     }
+    pushSignal('reports')
     return NextResponse.json({ ok: true })
   } else {
     const draft = await prisma.dailyReport.create({
@@ -93,6 +95,7 @@ export async function POST(req: NextRequest) {
         rows: rowData.length > 0 ? { create: rowData } : undefined,
       },
     })
+    pushSignal('reports')
     return NextResponse.json({ ok: true, id: draft.id })
   }
 }
@@ -107,5 +110,6 @@ export async function DELETE(req: NextRequest) {
   await prisma.dailyReport.deleteMany({
     where: { logistId: session.id, status: 'draft', date: { gte: dayKey, lt: nextKey } },
   })
+  pushSignal('reports')
   return NextResponse.json({ ok: true })
 }
