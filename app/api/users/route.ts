@@ -4,10 +4,13 @@ import prisma from '@/lib/prisma'
 import { requireSession, getSessionFromRequest } from '@/lib/auth'
 import { generateSlug, normalizePhone } from '@/lib/ids'
 
+// Безопасный набор полей пользователя (без password-хэша).
+const USER_PUBLIC = { id: true, name: true, phone: true, email: true, role: true, companyId: true, slug: true, active: true, createdAt: true } as const
+
 export async function GET(req: NextRequest) {
-  const auth = await requireSession(req)
+  const auth = await requireSession(req, ['super_admin', 'bookkeeper'])
   if (!auth.ok) return auth.response
-  const users = await prisma.user.findMany({ orderBy: { createdAt: 'asc' } })
+  const users = await prisma.user.findMany({ select: USER_PUBLIC, orderBy: { createdAt: 'asc' } })
   return NextResponse.json(users)
 }
 

@@ -7,6 +7,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!auth.ok) return auth.response
 
   const { id } = await params
-  await prisma.notification.update({ where: { id }, data: { read: true } })
+  // updateMany со scope по userId: чужое уведомление не пометить (count=0, без throw).
+  await prisma.notification.updateMany({ where: { id, userId: auth.session?.id }, data: { read: true } })
   return NextResponse.json({ ok: true })
 }

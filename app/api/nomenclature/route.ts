@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { requireSession, getSessionFromRequest } from '@/lib/auth'
+import { requireSession } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -70,8 +70,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getSessionFromRequest(req)
-  if (!session) return NextResponse.json({ error: 'Нет доступа' }, { status: 403 })
+  const auth = await requireSession(req, ['super_admin', 'bookkeeper'])
+  if (!auth.ok) return auth.response
   const { name, unit, cat, group, subgroup } = await req.json()
   if (!name) return NextResponse.json({ error: 'Название обязательно' }, { status: 400 })
   const item = await prisma.nomenclature.create({
@@ -81,8 +81,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const session = await getSessionFromRequest(req)
-  if (!session) return NextResponse.json({ error: 'Нет доступа' }, { status: 403 })
+  const auth = await requireSession(req, ['super_admin', 'bookkeeper'])
+  if (!auth.ok) return auth.response
   const { id, name, unit, cat, group, subgroup } = await req.json()
   if (!id) return NextResponse.json({ error: 'ID обязателен' }, { status: 400 })
   const item = await prisma.nomenclature.update({
@@ -92,8 +92,8 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = await getSessionFromRequest(req)
-  if (!session) return NextResponse.json({ error: 'Нет доступа' }, { status: 403 })
+  const auth = await requireSession(req, ['super_admin', 'bookkeeper'])
+  if (!auth.ok) return auth.response
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'ID обязателен' }, { status: 400 })

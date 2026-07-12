@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireSession(req)
+  const auth = await requireSession(req, ['super_admin', 'bookkeeper'])
   if (!auth.ok) return auth.response
   const { name, clientId, description } = await req.json()
   const project = await prisma.project.create({
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const auth = await requireSession(req)
+  const auth = await requireSession(req, ['super_admin', 'bookkeeper'])
   if (!auth.ok) return auth.response
   const { id, status } = await req.json()
   const project = await prisma.project.update({ where: { id }, data: { status } })
