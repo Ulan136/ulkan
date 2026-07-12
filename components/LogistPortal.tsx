@@ -473,7 +473,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
           <div>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>➕ Новый заказ</div>
             <div style={{ background: '#fff', borderRadius: 14, padding: 20 }}>
-              <div style={{ marginBottom: 14 }}><label style={lbl}>ОТ КОГО</label><input style={{ ...inp, background: '#f8f6f3', color: '#8a847c' }} value={myName} disabled /></div>
+              {/* «От кого» не спрашиваем — источник = сам логист (from=myName в handleNew) */}
               <div style={{ marginBottom: 14 }}><label style={lbl}>КОМУ *</label><input style={inp} value={newTo} onChange={e => setNewTo(e.target.value)} placeholder="Получатель..." /></div>
               <div style={{ marginBottom: 14 }}><label style={lbl}>НАИМЕНОВАНИЕ *</label><input style={inp} value={newName} onChange={e => setNewName(e.target.value)} placeholder="Товар..." /></div>
               <div style={{ marginBottom: 20 }}><label style={lbl}>КОЛ-ВО *</label><input style={inp} type="number" value={newQty} onChange={e => setNewQty(e.target.value)} /></div>

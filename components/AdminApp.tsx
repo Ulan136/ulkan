@@ -493,7 +493,6 @@ export default function AdminApp({ user }: Props) {
 
   // ── Приёмка: стейт формы создания ──
   const [recFormOpen, setRecFormOpen] = useState(false)
-  const [recFrom, setRecFrom] = useState('')
   const [recTo, setRecTo] = useState('')
   const [recProject, setRecProject] = useState('')
   const [recSpec, setRecSpec] = useState('')
@@ -536,7 +535,6 @@ export default function AdminApp({ user }: Props) {
     setEditingPositions(p => { const n = { ...p }; delete n[posId]; return n })
   }
   async function handleRecSubmit(isDraft: boolean) {
-    if (!recFrom) { showToast('Укажите от кого'); return }
     try {
       const positions = recPositions.filter(p => p.name1c || p.oral).map(p => ({
         name1c: p.name1c, oral: p.oral, qty: Number(p.qty) || 0, unit: p.unit,
@@ -550,18 +548,23 @@ export default function AdminApp({ user }: Props) {
         if (!recTo || !recTo.trim()) { showToast('Укажите получателя (Кому)'); return }
         if (positions.some(p => !(p.resp || '').trim())) { showToast('Назначьте логиста всем позициям'); return }
       }
-      const fromUser = settings?.users.find(u => u.id === recFrom)
+      // «От кого» не спрашиваем: источник = создатель (админ). Клиент, для которого
+      // собирается заказ, берётся из «К кому»: если это пользователь-клиент — его id
+      // идёт в fromId (привязка к кабинету) и contactId (уведомления). Явно выбранный
+      // контакт (суб-пользователь) переопределяет contactId.
+      const toUser = settings?.users.find(u => u.name === recTo)
+      const clientId = toUser && ['client', 'supplier_client', 'branch'].includes(toUser.role) ? toUser.id : undefined
       await createOrder({
-        from: fromUser?.name || recFrom, fromId: recFrom,
+        from: user.name, fromId: clientId,
         to: recTo, phone: recPhone, deadline: recDeadline || undefined,
         comment: recComment, projectId: recProject || undefined,
-        specProjectId: recSpec || undefined, contactId: recContact || undefined,
+        specProjectId: recSpec || undefined, contactId: recContact || clientId || undefined,
         source: 'admin_manual', isDraft,
         screen: isDraft ? 'incoming' : 'outgoing',
         positions,
       })
       setRecFormOpen(false)
-      setRecFrom(''); setRecTo(''); setRecProject(''); setRecSpec('')
+      setRecTo(''); setRecProject(''); setRecSpec('')
       setRecContact(''); setRecPhone(''); setRecDeadline(''); setRecComment('')
       setRecPositions([{ name1c: '', oral: '', qty: '', unit: 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: '', payment: '' }])
       setRecShowPayment([])
@@ -983,8 +986,8 @@ export default function AdminApp({ user }: Props) {
         const activeSpecs = settings?.specProjects.filter(s => s.status === 'active') || []
         const suppliersList = settings?.suppliers || []
 
-        // Контакты (суб-пользователи выбранного клиента)
-        const selectedClient = settings?.users.find(u => u.id === recFrom)
+        // Контакты (суб-пользователи выбранного клиента) — теперь зависят от «К кому»
+        const selectedClient = settings?.users.find(u => u.name === recTo)
         const subUsers = selectedClient ? (settings?.users.filter(u => u.companyId === selectedClient.id) || []) : []
 
         const inpSm: React.CSSProperties = { padding: '7px 10px', borderRadius: 6, fontSize: 12, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', width: '100%' }
@@ -1034,12 +1037,8 @@ export default function AdminApp({ user }: Props) {
                   {/* Основные поля */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
                     <div>
-                      <label style={LBL}>ОТ КОГО *</label>
-                      <UnifiedSelect value={recFrom} onChange={v => { setRecFrom(v); setRecContact('') }} placeholder="— выберите клиента —" settings={settings} />
-                    </div>
-                    <div>
-                      <label style={LBL}>К КОМУ / КУДА</label>
-                      <UnifiedSelect value={recTo} onChange={setRecTo} placeholder="— логист/направление —" settings={settings} />
+                      <label style={LBL}>К КОМУ (КЛИЕНТ) *</label>
+                      <UnifiedSelect value={recTo} onChange={v => { setRecTo(v); setRecContact('') }} placeholder="— выберите клиента —" settings={settings} />
                     </div>
                     {subUsers.length > 0 && (
                       <div>
