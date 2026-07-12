@@ -31,14 +31,10 @@ export const createUser = (data: Record<string, unknown>) => req('/users', { met
 export const updateUser = (id: string, data: Record<string, unknown>) => req(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) })
 
 // Проекты
-export const fetchProjects = () => req('/projects')
 export const createProject = (data: Record<string, unknown>) => req('/projects', { method: 'POST', body: JSON.stringify(data) })
-export const updateProject = (data: Record<string, unknown>) => req('/projects', { method: 'PUT', body: JSON.stringify(data) })
 
 // СпецПроекты
-export const fetchSpecProjects = () => req('/spec-projects')
 export const createSpecProject = (data: Record<string, unknown>) => req('/spec-projects', { method: 'POST', body: JSON.stringify(data) })
-export const updateSpecProject = (data: Record<string, unknown>) => req('/spec-projects', { method: 'PUT', body: JSON.stringify(data) })
 export const fetchSpecProjectAnalysis = (id: string) => req(`/spec-projects/${id}/analysis`)
 
 // Склад

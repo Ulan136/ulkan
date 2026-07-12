@@ -10,17 +10,6 @@ export function isOverdue(o: Order): boolean {
   return o.positions.some(p => p.late && p.status !== 'Доставлено')
 }
 
-export function primaryResp(o: Order): string {
-  const c: Record<string, number> = {}
-  let best = '—', n = 0
-  o.positions.forEach(p => {
-    if (!p.resp) return
-    c[p.resp] = (c[p.resp] || 0) + 1
-    if (c[p.resp] > n) { n = c[p.resp]; best = p.resp }
-  })
-  return best
-}
-
 export function barColor(pct: number): string {
   return pct >= 100 ? COLORS.progress.high
     : pct >= 60 ? COLORS.progress.mid

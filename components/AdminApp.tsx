@@ -2,8 +2,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   fetchAllOrders, fetchDashboard, fetchSettings, createOrder, orderAction, postAll,
-  fetchHistory, createUser, updateUser, createProject, updateProject,
-  createSpecProject, updateSpecProject, fetchSpecProjectAnalysis,
+  fetchHistory, createUser, updateUser, createProject,
+  createSpecProject, fetchSpecProjectAnalysis,
   fetchStock, fetchStockMovements, fetchDailyReports, updateDailyReport, logout,
   fetchNotifications, markNotificationRead,
 } from '@/lib/api'
@@ -456,66 +456,12 @@ export default function AdminApp({ user }: Props) {
   const [search, setSearch] = useState('')
 
   // Модалки создания
-  const [showCreateCard, setShowCreateCard] = useState(false)
   const [showCreateProject, setShowCreateProject] = useState(false)
   const [showCreateSpec, setShowCreateSpec] = useState(false)
   const [showCreateUser, setShowCreateUser] = useState(false)
   const [showUserResult, setShowUserResult] = useState<{ user: any; accessUrl: string } | null>(null)
   const [showSpecAnalysis, setShowSpecAnalysis] = useState<{ sp: SpecProject; analysis: AnalysisRow[] } | null>(null)
-  const [editingSpec, setEditingSpec] = useState<SpecProject | null>(null)
 
-  // Номенклатура — управление
-  const [nomSearch, setNomSearch] = useState('')
-  const [nomGroup, setNomGroup] = useState('')
-  const [nomEditItem, setNomEditItem] = useState<any | null>(null)
-  const [nomNewItem, setNomNewItem] = useState({ name: '', unit: 'шт', cat: '', group: '' })
-  const [showNomAdd, setShowNomAdd] = useState(false)
-  const [nomList, setNomList] = useState<any[]>([])
-
-  const NOM_GROUPS = ['Водосток', 'Готовая продукция', 'Материалы', 'Товары', 'Услуги', 'Доборные элементы', 'Кровля', 'Крепёж', 'Прочее']
-
-  async function loadNomList(group?: string) {
-    try {
-      const params = new URLSearchParams({ all: '1' })
-      const g = group !== undefined ? group : nomGroup
-      if (g) params.set('group', g)
-      const res = await fetch(`/api/nomenclature?${params}`)
-      if (!res.ok) { console.error('nom error', res.status); return }
-      const data = await res.json()
-      setNomList(Array.isArray(data) ? data : [])
-    } catch (e) { console.error('loadNomList:', e) }
-  }
-
-  async function handleNomCreate() {
-    if (!nomNewItem.name) { showToast('Введите название'); return }
-    try {
-      await fetch('/api/nomenclature', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(nomNewItem) })
-      setShowNomAdd(false)
-      setNomNewItem({ name: '', unit: 'шт', cat: '', group: '' })
-      loadNomList()
-      showToast('✓ Добавлено')
-    } catch (e: any) { showToast(e.message) }
-  }
-
-  async function handleNomUpdate() {
-    if (!nomEditItem) return
-    try {
-      await fetch('/api/nomenclature', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(nomEditItem) })
-      setNomEditItem(null)
-      loadNomList()
-      showToast('✓ Обновлено')
-    } catch (e: any) { showToast(e.message) }
-  }
-
-  async function handleNomDelete(id: string) {
-    if (!confirm('Удалить позицию?')) return
-    try {
-      await fetch(`/api/nomenclature?id=${id}`, { method: 'DELETE' })
-      loadNomList()
-      showToast('✓ Удалено')
-    } catch (e: any) { showToast(e.message) }
-  }
-  const [showProjectDetail, setShowProjectDetail] = useState<Project | null>(null)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [dailyReports, setDailyReports] = useState<DailyReport[]>([])
   const [reportFilter, setReportFilter] = useState<'active' | 'done' | 'archive'>('active')
@@ -525,9 +471,6 @@ export default function AdminApp({ user }: Props) {
   // Склад
   const [stock, setStock] = useState<any[]>([])
   const [stockMovements, setStockMovements] = useState<any[]>([])
-
-  // Форма создания карточки (модалка)
-  const [newCard, setNewCard] = useState({ from: '', to: '', comment: '', phone: '', deadline: '', projectId: '', specProjectId: '', contactId: '', source: 'admin_manual', isDraft: false })
 
   // ── Приёмка: стейт формы создания ──
   const [recFormOpen, setRecFormOpen] = useState(false)
@@ -550,10 +493,6 @@ export default function AdminApp({ user }: Props) {
   function recUpdatePos(i: number, field: string, val: string) {
     setRecPositions(p => p.map((x, idx) => idx === i ? { ...x, [field]: val } : x))
   }
-  // Дефолт «Срок» = сегодня при открытии модалки «Создать карточку»
-  useEffect(() => {
-    if (showCreateCard) setNewCard(c => ({ ...c, deadline: c.deadline || todayLocal() }))
-  }, [showCreateCard])
   function recRemovePos(i: number) {
     setRecPositions(p => p.filter((_, idx) => idx !== i))
   }
@@ -659,7 +598,6 @@ export default function AdminApp({ user }: Props) {
   useEffect(() => {
     if (screen === 'warehouse') { fetchStock().then(s => setStock(s as any[])).catch(() => {}); fetchStockMovements().then(m => setStockMovements(m as any[])).catch(() => {}) }
     if (screen === 'bookkeeping') { fetchDailyReports().then(r => setDailyReports(r as DailyReport[])).catch(() => {}) }
-    if (screen === 'nomenclature') loadNomList('')
   }, [screen])
 
   // Обновить карточку в локальном стейте после action
@@ -672,18 +610,6 @@ export default function AdminApp({ user }: Props) {
       }
       showToast('Готово!')
     } catch (e: any) { showToast(e.message || 'Ошибка') }
-  }
-
-  // Создать карточку
-  async function handleCreateCard(e: React.FormEvent) {
-    e.preventDefault()
-    try {
-      const o = await createOrder({ ...newCard, projectId: newCard.projectId || undefined, specProjectId: newCard.specProjectId || undefined, contactId: newCard.contactId || undefined }) as Order
-      setOrders(prev => [o, ...prev])
-      setShowCreateCard(false)
-      setNewCard({ from: '', to: '', comment: '', phone: '', deadline: '', projectId: '', specProjectId: '', contactId: '', source: 'admin_manual', isDraft: false })
-      showToast(`Карточка ${o.id} создана`)
-    } catch (e: any) { showToast(e.message) }
   }
 
   // Создать пользователя
@@ -1949,7 +1875,7 @@ export default function AdminApp({ user }: Props) {
                         {['ID', 'НАЗВАНИЕ', 'ТИП', 'ЗАКАЗЧИК', 'КАРТОЧЕК', 'СТАТУС'].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>{h}</th>)}
                       </tr></thead>
                       <tbody>{settings.projects.map((p, i) => (
-                        <tr key={p.id} style={{ borderTop: i > 0 ? '1px solid #f1efec' : 'none', cursor: 'pointer' }} onClick={() => setShowProjectDetail(p)}>
+                        <tr key={p.id} style={{ borderTop: i > 0 ? '1px solid #f1efec' : 'none' }}>
                           <td style={{ padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: COLORS.primary }}>{p.id}</td>
                           <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13 }}>{p.name}</td>
                           <td style={{ padding: '10px 14px', fontSize: 12, color: '#8a847c' }}>Проект</td>
@@ -2146,42 +2072,6 @@ export default function AdminApp({ user }: Props) {
         />
       )}
 
-      {/* Модалка создания карточки */}
-      {showCreateCard && (
-        <div onClick={() => setShowCreateCard(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div onClick={e => e.stopPropagation()} className="anim-pop" style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 520 }}>
-            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 20 }}>Создать карточку</div>
-            <form onSubmit={handleCreateCard} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div><label style={LBL}>ОТ КОГО *</label><input style={INP} value={newCard.from} onChange={e => setNewCard(p => ({ ...p, from: e.target.value }))} required /></div>
-                <div><label style={LBL}>КУДА</label><input style={INP} value={newCard.to} onChange={e => setNewCard(p => ({ ...p, to: e.target.value }))} /></div>
-                <div><label style={LBL}>ТЕЛЕФОН</label><input style={INP} value={newCard.phone} onChange={e => setNewCard(p => ({ ...p, phone: e.target.value }))} /></div>
-                <div><label style={LBL}>СРОК</label><input style={INP} type="date" value={newCard.deadline} onChange={e => setNewCard(p => ({ ...p, deadline: e.target.value }))} /></div>
-                <div>
-                  <label style={LBL}>ЗАКАЗЧИК</label>
-                  <select style={INP} value={newCard.contactId} onChange={e => setNewCard(p => ({ ...p, contactId: e.target.value }))}>
-                    <option value="">—</option>
-                    {settings?.users.filter(u => u.role === 'client' || u.role === 'supplier_client').map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={LBL}>ПРОЕКТ</label>
-                  <select style={INP} value={newCard.projectId} onChange={e => setNewCard(p => ({ ...p, projectId: e.target.value }))}>
-                    <option value="">—</option>
-                    {settings?.projects.filter(p => p.status === 'active').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div><label style={LBL}>КОММЕНТАРИЙ / ЗАЯВКА</label><textarea style={{ ...INP, minHeight: 80, resize: 'vertical' }} value={newCard.comment} onChange={e => setNewCard(p => ({ ...p, comment: e.target.value }))} /></div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <Btn onClick={() => setShowCreateCard(false)}>Отмена</Btn>
-                <Btn variant="primary" onClick={() => {}}>Создать →</Btn>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Модалка создания пользователя */}
       {showCreateUser && (
         <div onClick={() => setShowCreateUser(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -2320,32 +2210,6 @@ export default function AdminApp({ user }: Props) {
                 <Btn variant="primary">Сохранить СпецПроект →</Btn>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Добавить номенклатуру */}
-      {showNomAdd && (
-        <div onClick={() => setShowNomAdd(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div onClick={e => e.stopPropagation()} className="anim-pop" style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 440 }}>
-            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 20 }}>Добавить в номенклатуру</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div><label style={LBL}>НАИМЕНОВАНИЕ *</label><input style={INP} value={nomNewItem.name} onChange={e => setNomNewItem(p => ({ ...p, name: e.target.value }))} placeholder="Название позиции..." /></div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div><label style={LBL}>ЕД. ИЗМЕРЕНИЯ</label><input style={INP} value={nomNewItem.unit} onChange={e => setNomNewItem(p => ({ ...p, unit: e.target.value }))} placeholder="шт" /></div>
-                <div><label style={LBL}>ГРУППА</label>
-                  <select style={INP} value={nomNewItem.group} onChange={e => setNomNewItem(p => ({ ...p, group: e.target.value }))}>
-                    <option value="">— без группы —</option>
-                    {NOM_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div><label style={LBL}>КАТЕГОРИЯ (опционально)</label><input style={INP} value={nomNewItem.cat} onChange={e => setNomNewItem(p => ({ ...p, cat: e.target.value }))} placeholder="Подкатегория..." /></div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
-              <Btn onClick={() => setShowNomAdd(false)}>Отмена</Btn>
-              <Btn variant="primary" onClick={handleNomCreate}>Добавить →</Btn>
-            </div>
           </div>
         </div>
       )}
