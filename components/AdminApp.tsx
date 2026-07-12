@@ -86,20 +86,23 @@ const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: '#8a847
 
 // ─── Модалка деталей карточки ────────────────────────────────────────────────
 
-function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings, userRole }: {
+function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings }: {
   order: Order; onClose: () => void
   onAction: (id: string, action: string, payload?: Record<string, unknown>) => Promise<void>
   suppliers: { id: string; name: string }[]; toast: (m: string) => void
   settings: SettingsData | null
-  userRole: string
 }) {
   const [history, setHistory] = useState<any[]>([])
   const [tab, setTab] = useState<'positions' | 'history' | null>(null)
   const [editPos, setEditPos] = useState<string | null>(null)
   const [priceEdit, setPriceEdit] = useState<{ qty: string; price: string }>({ qty: '', price: '' })
-  // Правка цены/кол-ва позиций разрешена super_admin и bookkeeper на экранах
-  // К учёту (accounting) и Бухгалтерии (bookkeeping). Реюз действия updatePosDetail.
-  const canEditMoney = (order.screen === 'accounting' || order.screen === 'bookkeeping') && ['super_admin', 'bookkeeper'].includes(userRole)
+  // Правка цены/кол-ва позиций на экранах К учёту (accounting) и Бухгалтерии
+  // (bookkeeping). Реюз действия updatePosDetail. Гейт только по экрану:
+  // AdminApp — админская оболочка (super_admin/bookkeeper), порталы branch/
+  // logist/client её не рендерят; ролью не режем, т.к. у старых JWT role
+  // может быть пустой (getSession не подтягивает роль из БД) — это и мешало
+  // редактированию. Философия владельца: никаких блокировок.
+  const canEditMoney = order.screen === 'accounting' || order.screen === 'bookkeeping'
   function startMoneyEdit(p: any) { setEditPos(p.id); setPriceEdit({ qty: String(p.qty ?? ''), price: String(p.price ?? '') }) }
   async function saveMoneyEdit(posId: string) {
     await onAction(order.id, 'updatePosDetail', { posId, qty: Number(priceEdit.qty) || 0, price: Number(priceEdit.price) || 0 })
@@ -2068,7 +2071,6 @@ export default function AdminApp({ user }: Props) {
           suppliers={settings?.suppliers || []}
           toast={showToast}
           settings={settings}
-          userRole={user.role}
         />
       )}
 
