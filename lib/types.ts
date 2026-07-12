@@ -235,6 +235,8 @@ export interface TrackData {
   to: string
   status: string
   stage: number
+  cancelled?: boolean
+  cancelReason?: string
   progress: number
   legStage?: string | null
   createdAt: string

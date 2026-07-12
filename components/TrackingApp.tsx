@@ -190,7 +190,7 @@ export default function TrackingApp() {
                 <div style={{ background: '#fff', borderRadius: 14, padding: 24, marginBottom: 16, boxShadow: '0 0 0 1px #e6e2dc' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{ fontSize: 32 }}>{trackData.stage >= 5 ? '✅' : trackData.stage >= 3 ? '🚚' : '🏗'}</div>
+                      <div style={{ fontSize: 32 }}>{trackData.cancelled ? '❌' : trackData.stage >= 5 ? '✅' : trackData.stage >= 3 ? '🚚' : '🏗'}</div>
                       <div>
                         <StatusBadge status={trackData.status} />
                         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: 18, marginTop: 4 }}>{trackData.id}</div>
@@ -212,7 +212,12 @@ export default function TrackingApp() {
                     <div style={{ height: '100%', width: `${trackData.progress}%`, background: barColor(trackData.progress), transition: 'width .5s ease', borderRadius: 4 }} />
                   </div>
 
-                  {/* Timeline шаги */}
+                  {/* Timeline шаги (или баннер отмены) */}
+                  {trackData.cancelled ? (
+                    <div style={{ background: '#faeaea', color: '#b03020', borderRadius: 10, padding: '12px 16px', fontSize: 14, fontWeight: 600 }}>
+                      ❌ Заказ отменён{trackData.cancelReason ? `: ${trackData.cancelReason}` : ''}
+                    </div>
+                  ) : (
                   <div style={{ display: 'flex', gap: 0 }}>
                     {STEPS.map((step, i) => {
                       const done = i + 1 < trackData.stage
@@ -228,6 +233,7 @@ export default function TrackingApp() {
                       )
                     })}
                   </div>
+                  )}
                 </div>
 
                 {/* Сетка: позиции + детали */}

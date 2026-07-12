@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import prisma from '@/lib/prisma'
 import { requireSession, getSessionFromRequest } from '@/lib/auth'
 import { generateSlug, normalizePhone } from '@/lib/ids'
+import { pushSignal } from '@/lib/pusherServer'
 
 // Безопасный набор полей пользователя (без password-хэша).
 const USER_PUBLIC = { id: true, name: true, phone: true, email: true, role: true, companyId: true, slug: true, active: true, createdAt: true } as const
@@ -48,6 +49,7 @@ export async function POST(req: NextRequest) {
     if (role === 'client' || role === 'supplier_client') accessUrl = `${base}/client/${user.slug}`
     else if (role === 'logist') accessUrl = `${base}/rsp/${user.slug}`
 
+    await pushSignal('settings')
     return NextResponse.json({ user, accessUrl }, { status: 201 })
   } catch (e: any) {
     if (e.code === 'P2002') return NextResponse.json({ error: 'Email или телефон уже существует' }, { status: 409 })

@@ -49,7 +49,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       ])
     }
 
-    await pushSignal('orders')  // переименование каскадит в from/to/resp карточек
+    await pushSignal('orders')    // переименование каскадит в from/to/resp карточек
+    await pushSignal('settings')  // список пользователей в админке
     return NextResponse.json(user)
   } catch (e: any) {
     if (e.code === 'P2002') return NextResponse.json({ error: 'Email или телефон уже существует' }, { status: 409 })
@@ -78,6 +79,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       prisma.user.updateMany({ where: { companyId: id }, data: { companyId: null } }),  // подпользователи
       prisma.user.delete({ where: { id } }),
     ])
+    await pushSignal('orders')    // отвязан контакт заказа
+    await pushSignal('reports')   // удалены смены логиста
+    await pushSignal('settings')  // список пользователей в админке
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     if (e.code === 'P2003') {

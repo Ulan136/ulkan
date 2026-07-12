@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { requireSession } from '@/lib/auth'
+import { pushSignal } from '@/lib/pusherServer'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -77,6 +78,7 @@ export async function POST(req: NextRequest) {
   const item = await prisma.nomenclature.create({
     data: { name, unit: unit || 'шт', cat: cat || '', group: group || '', subgroup: subgroup || '' }
   })
+  await pushSignal('settings')
   return NextResponse.json(item, { status: 201 })
 }
 
@@ -88,6 +90,7 @@ export async function PUT(req: NextRequest) {
   const item = await prisma.nomenclature.update({
     where: { id }, data: { name, unit, cat, group, subgroup: subgroup || '' }
   })
+  await pushSignal('settings')
   return NextResponse.json(item)
 }
 
@@ -98,5 +101,6 @@ export async function DELETE(req: NextRequest) {
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'ID обязателен' }, { status: 400 })
   await prisma.nomenclature.delete({ where: { id } })
+  await pushSignal('settings')
   return NextResponse.json({ ok: true })
 }

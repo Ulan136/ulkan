@@ -1,11 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { cardProgress, orderInclude } from '@/lib/orderMetrics'
+import { POS_STATUS, CARD_STATUS } from '@/lib/orderStatus'
 
+// Публичная стадия трекинга (1..5) по статусу заказа. Ключи — из orderStatus.
+// К учёту/Бухгалтерия/Архив для клиента = завершено (стадия 5 «Доставлено»),
+// а не «Заявка». Отменённый заказ обрабатывается отдельно (cancelled в ответе).
 const STAGES: Record<string, number> = {
-  'В ожидании': 1, 'Новая заявка': 1, 'Принят': 2, 'В обработке': 2,
-  'В работе': 3, 'Готово к отгрузке': 4, 'В пути': 4,
-  'Принято филиалом': 5, 'Доставлено': 5, 'Архив': 5,
+  [CARD_STATUS.waiting]: 1,          // В ожидании
+  'Новая заявка': 1,                 // legacy-статус старых заявок с трекинга
+  [CARD_STATUS.accepted]: 2,         // Принят
+  [CARD_STATUS.processing]: 2,       // В обработке
+  [CARD_STATUS.working]: 3,          // В работе
+  [POS_STATUS.readyToShip]: 4,       // Готово к отгрузке
+  [POS_STATUS.inTransit]: 4,         // В пути
+  [POS_STATUS.acceptedByBranch]: 5,  // Принято филиалом
+  [CARD_STATUS.delivered]: 5,        // Доставлено
+  [CARD_STATUS.toAccount]: 5,        // К учёту → для клиента завершено
+  [CARD_STATUS.bookkeeping]: 5,      // Бухгалтерия → для клиента завершено
+  [CARD_STATUS.archive]: 5,          // Архив
 }
 
 export async function GET(req: NextRequest) {
@@ -43,6 +56,8 @@ export async function GET(req: NextRequest) {
     to: order.to,
     status: order.status,
     stage,
+    cancelled: order.isCancelled,
+    cancelReason: order.cancelReason || '',
     progress: pct,
     legStage,
     createdAt: order.createdAt,

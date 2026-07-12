@@ -644,8 +644,9 @@ export default function AdminApp({ user }: Props) {
   const loadLive = useCallback(() => { loadOrders(); loadNotifs(); loadDashboard() }, [loadOrders, loadNotifs, loadDashboard])
   useLiveData('orders', loadLive, [])
 
-  // Настройки грузим один раз при монтировании (не real-time данные)
-  useEffect(() => { loadSettings() }, [loadSettings])
+  // Настройки (пользователи/проекты/спецпроекты/поставщики) — канал 'settings':
+  // загрузка при монтировании + при мутациях справочников/пользователей.
+  useLiveData('settings', loadSettings, [])
 
   // Realtime 'reports' — только когда открыт экран бухгалтерии
   const screenRef = useRef(screen)

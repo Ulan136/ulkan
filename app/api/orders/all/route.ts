@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { requireSession } from '@/lib/auth'
 import { orderInclude } from '@/lib/orderMetrics'
+import { pushSignal } from '@/lib/pusherServer'
 
 export async function GET(req: NextRequest) {
   const auth = await requireSession(req)
@@ -23,5 +24,6 @@ export async function POST(req: NextRequest) {
     where: { screen: 'accounting', postponed: false },
     data: { screen: 'bookkeeping', status: 'Бухгалтерия', toacc: false },
   })
+  await pushSignal('orders')
   return NextResponse.json({ success: true, count: result.count })
 }

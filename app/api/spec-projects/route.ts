@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { requireSession } from '@/lib/auth'
 import { generateSpecProjectId } from '@/lib/ids'
+import { pushSignal } from '@/lib/pusherServer'
 
 export async function GET(req: NextRequest) {
   const auth = await requireSession(req)
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
     },
     include: { items: true, _count: { select: { orders: true } } },
   })
+  await pushSignal('settings')
   return NextResponse.json(sp, { status: 201 })
 }
 
@@ -37,5 +39,6 @@ export async function PUT(req: NextRequest) {
   if (!auth.ok) return auth.response
   const { id, status } = await req.json()
   const sp = await prisma.specProject.update({ where: { id }, data: { status } })
+  await pushSignal('settings')
   return NextResponse.json(sp)
 }

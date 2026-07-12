@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { notifyAdmins } from '@/lib/notifications'
 import { changeSchema } from '@/lib/dto/track.dto'
+import { pushSignal } from '@/lib/pusherServer'
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,6 +16,7 @@ export async function POST(req: NextRequest) {
     })
     await prisma.history.create({ data: { cardId, action: 'Клиент внёс изменение', detail: changeText || '', userName: 'Клиент' } })
     await notifyAdmins(`Клиент изменил заказ ${cardId}: ${changeText}`, cardId)
+    await pushSignal('orders')  // бейдж «изменение» и уведомление — в реалтайме
 
     return NextResponse.json({ ok: true })
   } catch (e) {
