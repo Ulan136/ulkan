@@ -544,6 +544,12 @@ export default function AdminApp({ user }: Props) {
         supplierId: p.supplierId || undefined, status: 'В работе',
         deadline: p.deadline || undefined, payment: p.payment,
       }))
+      // Отправка сразу в «Исходящие» (не черновик) требует комплектности:
+      // получатель назначен и логист у каждой позиции. Черновик — без ограничений.
+      if (!isDraft) {
+        if (!recTo || !recTo.trim()) { showToast('Укажите получателя (Кому)'); return }
+        if (positions.some(p => !(p.resp || '').trim())) { showToast('Назначьте логиста всем позициям'); return }
+      }
       const fromUser = settings?.users.find(u => u.id === recFrom)
       await createOrder({
         from: fromUser?.name || recFrom, fromId: recFrom,
@@ -1232,6 +1238,20 @@ export default function AdminApp({ user }: Props) {
                             })
                             if (noName.length > 0) {
                               showToast(`⚠️ Заполните НАИМ. 1С у ${noName.length} позиций`)
+                              return
+                            }
+                            // Комплектность: получатель назначен
+                            if (!((latest?.to ?? order.to) || '').trim()) {
+                              showToast('Укажите получателя (Кому)')
+                              return
+                            }
+                            // Комплектность: логист у каждой позиции (с учётом черновиков редактора)
+                            const noResp = positions.filter(p => {
+                              const ed = editingPositions[p.id]
+                              return !(((ed?.resp ?? p.resp) as string) || '').trim()
+                            })
+                            if (noResp.length > 0) {
+                              showToast('Назначьте логиста всем позициям')
                               return
                             }
                             // 3. Отправляем в исходящие

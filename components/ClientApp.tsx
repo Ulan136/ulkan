@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchClientOrders, createClientOrder, fetchNotifications, markNotificationRead, logout, orderAction } from '@/lib/api'
 import { Order, SessionUser, Notification } from '@/lib/types'
 import { cardProgress } from '@/lib/display'
@@ -57,19 +57,28 @@ export default function ClientApp({ user, clientUser }: Props) {
   const [newResult, setNewResult] = useState<{ order: Order; trackingUrl: string } | null>(null)
   const [sessionExpired, setSessionExpired] = useState(false)
 
+  // Лоадер показываем только на первой загрузке. Фоновые live-обновления не
+  // трогают loading — иначе каждый сигнал перерисовывал бы весь кабинет
+  // (мигание «Загрузка…»), из-за чего клик по вкладке мог теряться.
+  const didInit = useRef(false)
   const load = useCallback(async () => {
-    setLoading(true)
+    if (!didInit.current) setLoading(true)
     try {
       const [ord, notifs] = await Promise.all([fetchClientOrders() as any, fetchNotifications() as any])
       setOrders(ord); setNotifications(notifs)
     } catch (e: any) {
       if (e?.message === 'Не авторизован' || e?.message === 'Нет доступа') setSessionExpired(true)
     }
-    finally { setLoading(false) }
+    finally { didInit.current = true; setLoading(false) }
   }, [])
 
+  // Пока открыта форма «Новая заявка» — паузим live-обновление (как editingRef
+  // в порталах): входящий сигнал не перерисовывает форму и не сбрасывает ввод.
+  const formPausedRef = useRef(false)
+  formPausedRef.current = tab === 'new' && !newResult
+
   // Realtime канал 'orders' (+ polling-fallback). Загрузка при монтировании и по сигналу.
-  useLiveData('orders', load, [])
+  useLiveData('orders', load, [], formPausedRef)
 
   // Дефолт «Желаемая дата» = сегодня при открытии вкладки «Новая заявка»
   // (в момент открытия, не при монтировании; пустое поле — не перетираем введённое)

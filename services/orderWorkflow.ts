@@ -70,6 +70,12 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
 
   // ── Приёмка: отправить в исходящие (+резерв склада) ──
   process: {
+    // Комплектность перед отправкой: назначен получатель и логист у каждой позиции.
+    guard: ({ order }) => {
+      if (!(order.to || '').trim()) return 'Укажите получателя (Кому)'
+      if (order.positions.some(p => !(p.resp || '').trim())) return 'Назначьте логиста всем позициям'
+      return null
+    },
     patch: () => ({ screen: SCREENS.outgoing, status: CARD_STATUS.working, block: '' }),
     effects: async (ctx) => {
       ctx.scratch.reserved = await reserveCenterSkladPositions(ctx.order.positions)

@@ -60,6 +60,13 @@ export async function POST(req: NextRequest) {
       }))
     }
 
+    // Комплектность при создании сразу в «Исходящие» (не черновик): получатель
+    // назначен и логист у каждой позиции. Те же проверки, что и у action=process.
+    if (screen === 'outgoing') {
+      if (!(to || '').trim()) return NextResponse.json({ error: 'Укажите получателя (Кому)' }, { status: 400 })
+      if (posData.some(p => !(p.resp || '').trim())) return NextResponse.json({ error: 'Назначьте логиста всем позициям' }, { status: 400 })
+    }
+
     const order = await prisma.order.create({
       data: {
         id, from,
