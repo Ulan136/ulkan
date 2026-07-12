@@ -7,6 +7,11 @@ import { legForSupplier } from '@/services/legDetection'
 import { updateReserve } from '@/lib/stock'
 import { reserveCenterSkladPositions, incomeOnDeliveryToCenter, releaseDeliveredPosition, CENTER_SKLAD } from '@/services/stockOps'
 import { POS_STATUS, CARD_STATUS, SCREENS } from '@/lib/orderStatus'
+import { almatyDay } from '@/lib/reportDay'
+
+// Порядок статусов позиции для определения движения назад (revert).
+const STATUS_ORDER = [POS_STATUS.working, POS_STATUS.readyToShip, POS_STATUS.inTransit, POS_STATUS.delivered]
+const statusRank = (s: string): number => { const i = STATUS_ORDER.indexOf(s as any); return i === -1 ? 0 : i }
 
 // ── Декларативная карта переходов заказа ──
 // Роут /api/orders/:id/action — тонкий диспетчер: находит TransitionDef по
@@ -42,12 +47,14 @@ export interface TransitionDef {
 export const TRANSITIONS: Record<string, TransitionDef> = {
   // ── Приёмка: принять → ожидание ──
   accept: {
+    guard: ({ order }) => order.screen === SCREENS.incoming ? null : 'Карточка не во Входящих',
     patch: () => ({ screen: SCREENS.reception, block: 'waiting', status: CARD_STATUS.accepted }),
     history: () => 'Принят в приёмку',
   },
 
   // ── Приёмка: взять в обработку (парсинг comment в позиции) ──
   take: {
+    guard: ({ order }) => (order.screen === SCREENS.reception && order.block === 'waiting') ? null : 'Карточка не в приёмке (ожидание)',
     patch: () => ({ status: CARD_STATUS.processing, block: 'processing' }),
     effects: async ({ order, prisma }) => {
       if (order.positions.length === 0 && order.comment) {
@@ -70,8 +77,9 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
 
   // ── Приёмка: отправить в исходящие (+резерв склада) ──
   process: {
-    // Комплектность перед отправкой: назначен получатель и логист у каждой позиции.
+    // Только из приёмки; комплектность: получатель и логист у каждой позиции.
     guard: ({ order }) => {
+      if (order.screen !== SCREENS.reception) return 'Карточка не в приёмке'
       if (!(order.to || '').trim()) return 'Укажите получателя (Кому)'
       if (order.positions.some(p => !(p.resp || '').trim())) return 'Назначьте логиста всем позициям'
       return null
@@ -85,7 +93,7 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
       : 'Отправлен в Исходящие',
   },
 
-  // ── Обновить статус одной позиции (+авто-правило «все доставлены») ──
+  // ── Обновить статус одной позиции (+авто-правило «все доставлены», +откат назад) ──
   updatePos: {
     effects: async (ctx) => {
       const { order, payload, prisma, scratch } = ctx
@@ -94,21 +102,50 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
       scratch.pos = pos
       scratch.oldStatus = pos?.status
       scratch.newStatus = posStatus
+      // Движение назад по шкале В работе → Готово → В пути → Доставлено
+      const backward = !!pos && statusRank(posStatus) < statusRank(pos.status)
+      scratch.backward = backward
+      const wasDelivered = !!pos && pos.status === POS_STATUS.delivered
       await prisma.position.update({ where: { id: posId }, data: { status: posStatus } })
 
-      // Позиция Центр Склад → Доставлено — списываем со склада
+      // Позиция Центр Склад → Доставлено — списываем со склада (только вперёд).
+      // 3c: при откате назад склад НЕ откатываем — физическое списание/приход
+      // уже случились; резервы у владельца «спят». (заготовка для будущего отката)
       if (pos && posStatus === POS_STATUS.delivered) {
         await releaseDeliveredPosition(pos)
       }
 
-      // Уведомляем клиента о смене статуса позиции
-      if (order.contactId && pos) {
+      // Уведомляем клиента о смене статуса позиции — 3d: при откате НЕ шлём (не пугаем)
+      if (order.contactId && pos && !backward) {
         const statusMsg: Record<string, string> = {
           [POS_STATUS.readyToShip]: `Позиция "${pos.name1c || pos.oral}" готова к отгрузке`,
           [POS_STATUS.inTransit]: `Позиция "${pos.name1c || pos.oral}" в пути`,
           [POS_STATUS.delivered]: `Позиция "${pos.name1c || pos.oral}" доставлена`,
         }
         if (statusMsg[posStatus]) await notify(order.contactId, statusMsg[posStatus], order.id)
+      }
+
+      // 3a: позиция была доставлена и уходит назад — убрать её авто-строку из
+      // сегодняшнего draft-отчёта смены логиста (по имени/получателю). Если смена
+      // уже закрыта (не draft) — строку не трогаем, помечаем в History.
+      if (wasDelivered && backward && pos) {
+        const logistUser = await prisma.user.findFirst({ where: { name: pos.resp, role: 'logist' } })
+        if (logistUser) {
+          const { dayKey, nextKey } = almatyDay()
+          const draft = await prisma.dailyReport.findFirst({
+            where: { logistId: logistUser.id, status: 'draft', date: { gte: dayKey, lt: nextKey } },
+          })
+          if (draft) {
+            await prisma.dailyReportRow.deleteMany({
+              where: { reportId: draft.id, name: pos.name1c || pos.oral, toWho: order.to || '' },
+            })
+          } else {
+            const closed = await prisma.dailyReport.findFirst({
+              where: { logistId: logistUser.id, status: { not: 'draft' }, date: { gte: dayKey, lt: nextKey } },
+            })
+            if (closed) scratch.shiftClosed = true
+          }
+        }
       }
 
       // Авто-правило «все позиции доставлены»
@@ -120,10 +157,16 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
         await notifyAdmins(`Заказ ${order.id} полностью доставлен`, order.id)
         scratch.incomed = await incomeOnDeliveryToCenter(order, updatedPositions)
       }
+
+      // 3b: карточка была автопереведена в Доставлено, а теперь не все доставлены —
+      // возвращаем её в Исходящие (отмена доставки).
+      scratch.revertCard = wasDelivered && backward && !allDone && order.status === CARD_STATUS.delivered
     },
-    patch: (ctx) => ctx.scratch.allDone
-      ? { screen: SCREENS.incoming, status: CARD_STATUS.delivered, toacc: true, delivered: new Date() }
-      : null,
+    patch: (ctx) => {
+      if (ctx.scratch.allDone) return { screen: SCREENS.incoming, status: CARD_STATUS.delivered, toacc: true, delivered: new Date() }
+      if (ctx.scratch.revertCard) return { screen: SCREENS.outgoing, status: CARD_STATUS.working, toacc: false, delivered: null }
+      return null
+    },
     history: (ctx) => {
       const { scratch, session } = ctx
       if (scratch.allDone) {
@@ -131,12 +174,19 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
           ? `Все позиции доставлены → приход на склад (${scratch.incomed} позиций)`
           : 'Все позиции доставлены'
       }
-      if (session.role === 'logist' && scratch.pos) {
-        return `Логист ${session.name}: ${scratch.pos.name1c || scratch.pos.oral} → ${scratch.newStatus}`
+      let base: string
+      if (scratch.revertCard) {
+        base = `Доставка отменена: позиция ${scratch.pos.name1c || scratch.pos.oral} → ${scratch.newStatus}`
+      } else if (session.role === 'logist' && scratch.pos) {
+        base = `Логист ${session.name}: ${scratch.pos.name1c || scratch.pos.oral} → ${scratch.newStatus}`
+      } else if (scratch.pos) {
+        // fix #6: частичное обновление статуса не-логистом теперь журналируется
+        base = `Позиция ${scratch.pos.id}: ${scratch.oldStatus} → ${scratch.newStatus}`
+      } else {
+        return null
       }
-      // fix #6: частичное обновление статуса не-логистом теперь журналируется
-      if (scratch.pos) return `Позиция ${scratch.pos.id}: ${scratch.oldStatus} → ${scratch.newStatus}`
-      return null
+      if (scratch.shiftClosed) base += ' (смена уже закрыта)'
+      return base
     },
   },
 
@@ -162,23 +212,70 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
   },
 
   sendAcc: {
+    guard: ({ order }) => (order.screen === SCREENS.incoming && order.toacc) ? null : 'Карточка не готова к учёту',
     patch: () => ({ screen: SCREENS.accounting, status: CARD_STATUS.toAccount }),
     history: () => 'Отправлен к учёту',
   },
 
   postAcc: {
+    guard: ({ order }) => order.screen === SCREENS.accounting ? null : 'Карточка не в К учёту',
     patch: () => ({ screen: SCREENS.bookkeeping, status: CARD_STATUS.bookkeeping, toacc: false }),
     history: () => 'Проведён в бухгалтерию',
   },
 
+  // ── Возврат: Исходящие → Входящие (сброс позиций, кроме leg=1; склад не откатываем) ──
   returnOut: {
-    patch: () => ({ screen: SCREENS.incoming, status: CARD_STATUS.waiting, block: '', toacc: false }),
-    history: () => 'Возвращён из исходящих',
+    guard: ({ order }) => order.screen === SCREENS.outgoing ? null : 'Карточка не в Исходящих',
+    effects: async ({ order, prisma, scratch }) => {
+      const r = await prisma.position.updateMany({
+        where: { cardId: order.id, leg: { not: 1 } },
+        data: { status: POS_STATUS.working },
+      })
+      scratch.reset = r.count
+    },
+    patch: () => ({ screen: SCREENS.incoming, status: CARD_STATUS.waiting, block: '', toacc: false, delivered: null }),
+    history: () => 'Возвращён из исходящих, позиции сброшены',
   },
 
+  // ── Возврат: Исходящие → стол приёмки (позиции сброшены, кроме leg=1) ──
+  returnToReception: {
+    guard: ({ order }) => order.screen === SCREENS.outgoing ? null : 'Карточка не в Исходящих',
+    effects: async ({ order, prisma, scratch }) => {
+      const r = await prisma.position.updateMany({
+        where: { cardId: order.id, leg: { not: 1 } },
+        data: { status: POS_STATUS.working },
+      })
+      scratch.reset = r.count
+    },
+    patch: () => ({ screen: SCREENS.reception, block: 'processing', status: CARD_STATUS.processing, toacc: false, delivered: null }),
+    history: () => 'Возвращён на стол приёмки',
+  },
+
+  // ── Возврат: Бухгалтерия → К учёту (позиции и флаги документов не трогаем) ──
   returnToAcc: {
+    guard: ({ order }) => order.screen === SCREENS.bookkeeping ? null : 'Карточка не в бухгалтерии',
     patch: () => ({ screen: SCREENS.accounting, status: CARD_STATUS.toAccount, toacc: true }),
     history: () => 'Возвращён к учёту',
+  },
+
+  // ── Шаг назад на один экран (кнопки «← Вернуть» вне канонических возвратов) ──
+  // reception / accounting → Входящие (В ожидании). Без guard состояния.
+  returnToIncoming: {
+    patch: () => ({ screen: SCREENS.incoming, status: CARD_STATUS.waiting, block: '', toacc: false }),
+    history: () => 'Возвращён во Входящие',
+  },
+
+  // ── Переоткрыть доставку: Входящие(доставлено) → Исходящие (сброс позиций, кроме leg=1) ──
+  reopenOutgoing: {
+    effects: async ({ order, prisma, scratch }) => {
+      const r = await prisma.position.updateMany({
+        where: { cardId: order.id, leg: { not: 1 } },
+        data: { status: POS_STATUS.working },
+      })
+      scratch.reset = r.count
+    },
+    patch: () => ({ screen: SCREENS.outgoing, status: CARD_STATUS.working, toacc: false, delivered: null }),
+    history: () => 'Возвращён в Исходящие',
   },
 
   cancel: {
@@ -291,9 +388,20 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
   },
 
   sendArchive: {
-    guard: ({ order }) => order.posted1C ? null : 'Сначала проведите в 1С',
+    guard: ({ order }) => {
+      if (order.screen !== SCREENS.bookkeeping) return 'Карточка не в бухгалтерии'
+      if (!order.posted1C) return 'Сначала проведите в 1С'
+      return null
+    },
     patch: () => ({ screen: SCREENS.archive, status: CARD_STATUS.archive }),
     history: () => 'Отправлен в архив',
+  },
+
+  // ── Возврат из архива → Бухгалтерия (posted1C остаётся — проведение в 1С факт) ──
+  unarchive: {
+    guard: ({ order }) => order.screen === SCREENS.archive ? null : 'Карточка не в архиве',
+    patch: () => ({ screen: SCREENS.bookkeeping, status: CARD_STATUS.bookkeeping, cold: false }),
+    history: () => 'Возвращён из архива',
   },
 
   changeOrder: {

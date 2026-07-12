@@ -169,6 +169,7 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings 
               <>
                 <Btn size="sm" onClick={() => handleStatusChange(order.id, 'markAll')}>✓ Все доставлены</Btn>
                 <Btn size="sm" onClick={() => handleStatusChange(order.id, 'returnOut')}>← Вернуть</Btn>
+                <Btn size="sm" onClick={() => handleStatusChange(order.id, 'returnToReception')}>← На стол приёмки</Btn>
               </>
             )}
             {order.screen === 'incoming' && order.toacc && (
@@ -178,11 +179,12 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings 
               <>
                 <Btn variant="primary" size="sm" onClick={() => handleStatusChange(order.id, 'postAcc')}>→ Бухгалтерия</Btn>
                 <Btn size="sm" onClick={() => handleStatusChange(order.id, 'postpone')}>{order.postponed ? 'Снять откл.' : 'Отложить'}</Btn>
-                <Btn size="sm" onClick={() => handleStatusChange(order.id, 'returnToAcc')}>← Вернуть</Btn>
+                <Btn size="sm" onClick={() => handleStatusChange(order.id, 'returnToIncoming')}>← Вернуть</Btn>
               </>
             )}
             {order.screen === 'bookkeeping' && (
               <>
+                <Btn size="sm" onClick={() => handleStatusChange(order.id, 'returnToAcc')}>← К учёту</Btn>
                 <Btn size="sm" onClick={() => handleStatusChange(order.id, 'createDoc', { type: 'invoice' })} disabled={order.invoice}>
                   {order.invoice ? '✓ Счёт' : '↓ Счёт'}
                 </Btn>
@@ -204,7 +206,7 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings 
               <Btn size="sm" onClick={() => handleStatusChange(order.id, 'restore')}>Восстановить</Btn>
             )}
             {order.screen === 'archive' && (
-              <Btn size="sm" onClick={() => handleStatusChange(order.id, 'returnOut')}>↺ Вернуть из архива</Btn>
+              <Btn size="sm" onClick={() => handleStatusChange(order.id, 'unarchive')}>↺ Вернуть из архива</Btn>
             )}
           </div>
 
@@ -948,7 +950,7 @@ export default function AdminApp({ user }: Props) {
                           )}
                           {incTab === 'toacc' && (
                             <>
-                              <Btn size="sm" onClick={() => handleAction(o.id, 'returnOut')}>← В Исходящие</Btn>
+                              <Btn size="sm" onClick={() => handleAction(o.id, 'reopenOutgoing')}>← В Исходящие</Btn>
                               <Btn size="sm" variant="primary" onClick={() => handleAction(o.id, 'sendAcc')}>Отправить в К Учёту →</Btn>
                             </>
                           )}
@@ -1204,7 +1206,7 @@ export default function AdminApp({ user }: Props) {
                         />
                         {order.deadline && <span style={{ fontSize: 12, color: '#8a847c' }}>срок {fmtDate(order.deadline)}</span>}
                         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-                          <Btn size="sm" onClick={() => handleAction(order.id, 'returnOut')}>← Вернуть</Btn>
+                          <Btn size="sm" onClick={() => handleAction(order.id, 'returnToIncoming')}>← Вернуть</Btn>
                           <Btn size="sm" variant="primary" onClick={async () => {
                             // 1. Сначала сохраняем все несохранённые изменения позиций
                             const drafts = Object.entries(editingPositions)
@@ -1549,6 +1551,7 @@ export default function AdminApp({ user }: Props) {
                             <Btn size="sm" onClick={() => setSelectedOrder(o)}>Открыть</Btn>
                             <Btn size="sm" onClick={() => { navigator.clipboard.writeText(o.trackingLink); showToast('Ссылка скопирована!') }}>📎 Ссылка клиенту</Btn>
                             <Btn size="sm" onClick={() => handleAction(o.id, 'returnOut')}>← Вернуть</Btn>
+                            <Btn size="sm" onClick={() => handleAction(o.id, 'returnToReception')}>← На стол приёмки</Btn>
                             <Btn size="sm" variant="primary" onClick={() => handleAction(o.id, 'markAll')}>✓ Всё выполнено</Btn>
                             {o.toacc && <Btn size="sm" variant="primary" onClick={() => handleAction(o.id, 'sendAcc')}>Отправить в К Учёту →</Btn>}
                           </div>
@@ -1585,7 +1588,7 @@ export default function AdminApp({ user }: Props) {
                   <OrderCard order={o} onClick={() => setSelectedOrder(o)} />
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: -4, marginBottom: 12, paddingRight: 4 }}>
                     <Btn size="sm" onClick={() => handleAction(o.id, 'postpone')}>{o.postponed ? 'Снять откл.' : 'Отложить'}</Btn>
-                    <Btn size="sm" onClick={() => handleAction(o.id, 'returnToAcc')}>← Вернуть</Btn>
+                    <Btn size="sm" onClick={() => handleAction(o.id, 'returnToIncoming')}>← Вернуть</Btn>
                     <Btn size="sm" variant="primary" onClick={() => handleAction(o.id, 'postAcc')}>→ Бухгалтерия</Btn>
                   </div>
                 </div>
@@ -1630,6 +1633,7 @@ export default function AdminApp({ user }: Props) {
                   <div key={o.id}>
                     <OrderCard order={o} onClick={() => setSelectedOrder(o)} />
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: -4, marginBottom: 12, paddingRight: 4 }}>
+                      <Btn size="sm" onClick={() => handleAction(o.id, 'returnToAcc')}>← К учёту</Btn>
                       {!o.invoice && <Btn size="sm" onClick={() => handleAction(o.id, 'createDoc', { type: 'invoice' })}>↓ Счёт</Btn>}
                       {!o.fact && <Btn size="sm" onClick={() => handleAction(o.id, 'createDoc', { type: 'fact' })}>↓ Счёт-фактура</Btn>}
                       {!o.posted1C && <Btn size="sm" onClick={() => handleAction(o.id, 'post1C')}>Провести 1С</Btn>}
