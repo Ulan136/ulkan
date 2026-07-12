@@ -49,7 +49,6 @@ export default function ClientApp({ user, clientUser }: Props) {
   const [copied, setCopied] = useState('')
 
   // Новая заявка
-  const [newTo, setNewTo] = useState('')
   const [newText, setNewText] = useState('')
   const [newDeadline, setNewDeadline] = useState('')
   const [newLoading, setNewLoading] = useState(false)
@@ -91,7 +90,8 @@ export default function ClientApp({ user, clientUser }: Props) {
     e.preventDefault()
     setNewLoading(true)
     try {
-      const r = await createClientOrder({ to: newTo, text: newText, deadline: newDeadline || undefined }) as any
+      // Получателя ("to") клиент не указывает — приёмка проставит его на столе приёмки
+      const r = await createClientOrder({ text: newText, deadline: newDeadline || undefined }) as any
       setNewResult(r); load()
     } catch (e: any) { setToast(e.message) }
     finally { setNewLoading(false) }
@@ -195,7 +195,7 @@ export default function ClientApp({ user, clientUser }: Props) {
                         <span style={{ fontSize: 12, color: '#8a847c' }}>{fmtDate(o.createdAt)}</span>
                       </div>
                       <div style={{ fontSize: 13, color: '#26231f', marginBottom: 6 }}>
-                        {o.from} → <strong>{o.to}</strong>
+                        {o.from} → <strong>{o.to || 'не распределено'}</strong>
                         {o.deadline && <span style={{ color: '#8a847c', marginLeft: 8 }}>до {fmtDate(o.deadline)}</span>}
                       </div>
                       {/* Прогресс */}
@@ -287,7 +287,7 @@ export default function ClientApp({ user, clientUser }: Props) {
                           <span style={{ marginLeft: 'auto', fontSize: 12, color: '#8a847c' }}>{fmtDate(o.createdAt)}</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: o.positions.length > 0 ? 10 : 0 }}>
-                          <span style={{ fontSize: 13, fontWeight: 500 }}>→ {o.to || '—'}</span>
+                          <span style={{ fontSize: 13, fontWeight: 500, color: o.to ? undefined : '#a39c92' }}>→ {o.to || 'не распределено'}</span>
                           {o.deadline && <span style={{ fontSize: 12, color: '#8a847c' }}>до {fmtDate(o.deadline)}</span>}
                           <span style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 700, color: barColor(pct) }}>{pct}%</span>
                         </div>
@@ -372,7 +372,7 @@ export default function ClientApp({ user, clientUser }: Props) {
                 <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
                 <div style={{ fontWeight: 700, fontSize: 20, color: '#2e8a5e', marginBottom: 8 }}>Заявка {newResult.order.id} создана!</div>
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16 }}>
-                  <button onClick={() => { setNewResult(null); setNewTo(''); setNewText(''); setNewDeadline(''); setTab('orders') }} style={{ padding: '10px 20px', background: '#fff', border: '1.5px solid #e6e2dc', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>Мои заявки</button>
+                  <button onClick={() => { setNewResult(null); setNewText(''); setNewDeadline(''); setTab('orders') }} style={{ padding: '10px 20px', background: '#fff', border: '1.5px solid #e6e2dc', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>Мои заявки</button>
                   <a href={newResult.trackingUrl} target="_blank" rel="noreferrer" style={{ padding: '10px 20px', background: '#d4613a', color: '#fff', borderRadius: 8, fontWeight: 600, textDecoration: 'none', fontSize: 14 }}>Отслеживать →</a>
                 </div>
               </div>
@@ -381,10 +381,6 @@ export default function ClientApp({ user, clientUser }: Props) {
                 <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 4 }}>Новая заявка</div>
                 <div style={{ color: '#8a847c', fontSize: 13, marginBottom: 24 }}>Заполните форму — менеджер свяжется с вами</div>
                 <form onSubmit={handleNewOrder} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 4, display: 'block' }}>ПОЛУЧАТЕЛЬ / КУДА</label>
-                    <input style={inp} value={newTo} onChange={e => setNewTo(e.target.value)} placeholder="Нипа Базар, Алматы" />
-                  </div>
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 4, display: 'block' }}>ОПИСАНИЕ ЗАЯВКИ *</label>
                     <textarea style={{ ...inp, minHeight: 100, resize: 'vertical' }} value={newText} onChange={e => setNewText(e.target.value)} placeholder="Что нужно заказать, в каком количестве..." required />

@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   const details: Array<{ k: string; v: string }> = [
     { k: 'Номер', v: order.id },
     { k: 'Заказчик', v: order.from },
-    { k: 'Получатель', v: order.to || '—' },
+    { k: 'Получатель', v: order.to || 'не распределено' },
     { k: 'Позиций', v: String(order.positions.length) },
   ]
   if (order.deadline) details.push({ k: 'Срок', v: new Date(order.deadline).toLocaleDateString('ru-RU') })

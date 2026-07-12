@@ -277,6 +277,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
       // ── Добавить позицию ──
       case 'addPos': {
+        // Филиал: может добавлять ТОЛЬКО свою позицию (supplier = его имя) и только в
+        // карточку, где он уже поставщик хотя бы одной позиции. Админ — без ограничений.
+        if (session.role === 'branch') {
+          const me = session.name.trim().toLowerCase()
+          const already = order.positions.some(p => (p.supplier || '').trim().toLowerCase() === me)
+          if (!already || (payload.supplier || '').trim().toLowerCase() !== me) {
+            return NextResponse.json({ error: 'Филиал может добавлять только свои позиции' }, { status: 403 })
+          }
+        }
         const existing = await prisma.position.findMany({ where: { cardId: id } })
         const newId = generatePosId(id, existing.length + 1)
         const posLeg = await legForSupplier(payload.supplier)  // поставщик-филиал → 1
@@ -310,6 +319,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       case 'updatePosDetail': {
         const { posId, ...posData } = payload
         const oldPos = order.positions.find(p => p.id === posId)
+        // Филиал может менять только свои позиции (supplier = его имя).
+        if (session.role === 'branch' && (oldPos?.supplier || '').trim().toLowerCase() !== session.name.trim().toLowerCase()) {
+          return NextResponse.json({ error: 'Филиал может менять только свои позиции' }, { status: 403 })
+        }
         // Частичный payload безопасен: неуказанные поля берём из oldPos.
         // Плечо позиции пересчитываем ТОЛЬКО при смене поставщика (иначе не трогаем —
         // qty-правка филиала не должна менять leg).

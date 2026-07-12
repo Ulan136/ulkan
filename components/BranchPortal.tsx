@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { orderAction, logout } from '@/lib/api'
 import { SessionUser } from '@/lib/types'
 import { cardProgress } from '@/lib/display'
+import NomSearch from '@/components/NomSearch'
 
 const PRIMARY = '#d4613a'
 const BG = '#f1efec'
@@ -52,41 +53,76 @@ function fmtTime(d?: string | null) {
     dt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 }
 
-// Редактор количества/единицы позиции (для возвращённых карточек).
+const editInp: React.CSSProperties = { padding: '6px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }
+const editBtn = (primary: boolean): React.CSSProperties => ({ padding: '6px 12px', borderRadius: 6, border: primary ? 'none' : '1.5px solid #e6e2dc', background: primary ? PRIMARY : '#fff', color: primary ? '#fff' : '#8a847c', cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'inherit', flexShrink: 0 })
+
+// Редактор состава позиции: поиск по номенклатуре + количество + ед. (без цен).
 // Модуль-компонент с локальным state — ввод не дёргает родителя.
-function QtyEditor({ pos, orderId, onEditing, onSaved }: {
-  pos: { id: string; qty: number; unit: string }
+function PositionEditor({ pos, orderId, onEditing, onSaved, onCancel }: {
+  pos: { id: string; name1c: string; oral: string; qty: number; unit: string }
   orderId: string
   onEditing: (editing: boolean) => void
   onSaved: (msg: string) => void
+  onCancel: () => void
 }) {
-  const [qty, setQty] = useState(String(pos.qty ?? ''))
+  const [name, setName] = useState(pos.name1c || pos.oral || '')
   const [unit, setUnit] = useState(pos.unit || 'шт')
+  const [qty, setQty] = useState(String(pos.qty ?? ''))
   const [saving, setSaving] = useState(false)
-  const dirty = (Number(qty) || 0) !== pos.qty || unit !== (pos.unit || 'шт')
 
   async function save() {
+    if (!name.trim()) return
     setSaving(true)
     try {
-      await orderAction(orderId, 'updatePosDetail', { posId: pos.id, qty: Number(qty) || 0, unit })
-      onEditing(false)
+      await orderAction(orderId, 'updatePosDetail', { posId: pos.id, name1c: name, oral: name, qty: Number(qty) || 0, unit })
       onSaved('✓ Позиция обновлена')
-    } catch (e: any) {
-      setSaving(false)
-      onSaved(e.message || 'Ошибка сохранения')
-    }
+    } catch (e: any) { setSaving(false); onSaved(e.message || 'Ошибка сохранения') }
   }
 
   return (
-    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-      <input type="number" value={qty} onFocus={() => onEditing(true)} onChange={e => setQty(e.target.value)}
-        style={{ width: 60, padding: '5px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', fontSize: 13, fontFamily: 'inherit', textAlign: 'right' }} />
-      <input value={unit} onFocus={() => onEditing(true)} onChange={e => setUnit(e.target.value)}
-        style={{ width: 48, padding: '5px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', fontSize: 13, fontFamily: 'inherit' }} />
-      <button onClick={save} disabled={saving || !dirty}
-        style={{ padding: '5px 10px', borderRadius: 6, border: 'none', background: dirty ? PRIMARY : '#e6e2dc', color: dirty ? '#fff' : '#8a847c', cursor: dirty ? 'pointer' : 'default', fontWeight: 600, fontSize: 12, fontFamily: 'inherit', flexShrink: 0 }}>
-        {saving ? '...' : 'Сохранить'}
-      </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+      <NomSearch value={name} placeholder="Поиск по номенклатуре..." onChange={(n, u) => { setName(n); if (u) setUnit(u); onEditing(true) }} style={{ fontSize: 13 }} />
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <input type="number" inputMode="decimal" value={qty} placeholder="Кол-во" onFocus={() => onEditing(true)} onChange={e => setQty(e.target.value)} style={{ ...editInp, width: 80, textAlign: 'right' }} />
+        <input value={unit} placeholder="ед." onFocus={() => onEditing(true)} onChange={e => setUnit(e.target.value)} style={{ ...editInp, width: 56 }} />
+        <button onClick={save} disabled={saving || !name.trim()} style={{ ...editBtn(true), opacity: saving || !name.trim() ? .5 : 1 }}>{saving ? '...' : 'Сохранить'}</button>
+        <button onClick={onCancel} style={editBtn(false)}>Отмена</button>
+      </div>
+    </div>
+  )
+}
+
+// Форма добавления позиции филиалом (supplier = имя филиала, resp копируется).
+function AddPositionForm({ orderId, supplierName, resp, onEditing, onAdded, onCancel }: {
+  orderId: string; supplierName: string; resp: string
+  onEditing: (editing: boolean) => void
+  onAdded: (msg: string) => void
+  onCancel: () => void
+}) {
+  const [name, setName] = useState('')
+  const [unit, setUnit] = useState('шт')
+  const [qty, setQty] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function add() {
+    if (!name.trim()) return
+    setSaving(true)
+    try {
+      await orderAction(orderId, 'addPos', { name1c: name, oral: name, qty: Number(qty) || 0, unit, supplier: supplierName, resp })
+      onAdded('✓ Позиция добавлена')
+    } catch (e: any) { setSaving(false); onAdded(e.message || 'Ошибка') }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', background: '#f8f6f3', borderRadius: 8, padding: 10, marginTop: 8 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#8a847c' }}>НОВАЯ ПОЗИЦИЯ</div>
+      <NomSearch value={name} placeholder="Поиск по номенклатуре..." onChange={(n, u) => { setName(n); if (u) setUnit(u); onEditing(true) }} style={{ fontSize: 13 }} />
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <input type="number" inputMode="decimal" value={qty} placeholder="Кол-во" onFocus={() => onEditing(true)} onChange={e => setQty(e.target.value)} style={{ ...editInp, width: 80, textAlign: 'right' }} />
+        <input value={unit} placeholder="ед." onFocus={() => onEditing(true)} onChange={e => setUnit(e.target.value)} style={{ ...editInp, width: 56 }} />
+        <button onClick={add} disabled={saving || !name.trim()} style={{ ...editBtn(true), opacity: saving || !name.trim() ? .5 : 1 }}>{saving ? '...' : 'Добавить'}</button>
+        <button onClick={onCancel} style={editBtn(false)}>Отмена</button>
+      </div>
     </div>
   )
 }
@@ -114,6 +150,8 @@ export default function BranchPortal({ user, branchUser }: Props) {
   // (иначе карточка перерисуется и потеряется ввод/фокус). Ref, чтобы не ре-рендерить.
   const editingRef = useRef(false)
   const [sessionExpired, setSessionExpired] = useState(false)
+  const [editPosId, setEditPosId] = useState<string | null>(null)     // редактируемая позиция
+  const [addingCardId, setAddingCardId] = useState<string | null>(null) // карточка, куда добавляем
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -225,7 +263,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
           <div style={{ fontSize: 13, marginBottom: 8 }}>
             <span style={{ color: '#8a847c' }}>{o.from}</span>
             <span style={{ color: '#8a847c', margin: '0 4px' }}>→</span>
-            <strong>{o.to}</strong>
+            <strong>{o.to || 'не распределено'}</strong>
             {o.deadline && <span style={{ color: '#8a847c', fontSize: 12, marginLeft: 8 }}>до {fmtDate(o.deadline)}</span>}
           </div>
           {/* Прогресс бар */}
@@ -283,24 +321,48 @@ export default function BranchPortal({ user, branchUser }: Props) {
                 {o.positions.length === 0
                   ? <div style={{ fontSize: 13, color: '#8a847c', padding: '8px 0' }}>Нет позиций</div>
                   : o.positions.map(p => (
-                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f8f6f3' }}>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name1c || p.oral || '—'}</div>
-                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#a39c92' }}>{p.id}</div>
-                        {p.resp && <div style={{ fontSize: 11, color: '#8a847c' }}>Логист: {p.resp}</div>}
-                        {p.supplier && <div style={{ fontSize: 11, color: '#8a847c' }}>Поставщик: {p.supplier}</div>}
-                      </div>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-                        {isEditablePos(p)
-                          ? <QtyEditor pos={p} orderId={o.id}
-                              onEditing={e => { editingRef.current = e }}
-                              onSaved={m => { editingRef.current = false; load(); showMsg(m) }} />
-                          : <span style={{ fontSize: 12, color: '#8a847c' }}>{p.qty > 0 ? `${p.qty} ${p.unit}` : '—'}</span>}
-                        <StatusBadge status={p.status} />
-                      </div>
+                    <div key={p.id} style={{ padding: '8px 0', borderBottom: '1px solid #f8f6f3' }}>
+                      {editPosId === p.id ? (
+                        <PositionEditor pos={p} orderId={o.id}
+                          onEditing={e => { editingRef.current = e }}
+                          onSaved={m => { editingRef.current = false; setEditPosId(null); load(); showMsg(m) }}
+                          onCancel={() => { editingRef.current = false; setEditPosId(null) }} />
+                      ) : (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name1c || p.oral || '—'}</div>
+                            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#a39c92' }}>{p.id}</div>
+                            {p.resp && <div style={{ fontSize: 11, color: '#8a847c' }}>Логист: {p.resp}</div>}
+                            {p.supplier && <div style={{ fontSize: 11, color: '#8a847c' }}>Поставщик: {p.supplier}</div>}
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+                            <span style={{ fontSize: 12, color: '#8a847c' }}>{p.qty > 0 ? `${p.qty} ${p.unit}` : '—'}</span>
+                            <StatusBadge status={p.status} />
+                            {isEditablePos(p) && (
+                              <button onClick={() => { editingRef.current = true; setEditPosId(p.id) }} style={editBtn(false)}>Изменить</button>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))
                 }
+
+                {/* Добавить позицию (только пока мои позиции первого плеча) */}
+                {o.positions.some(p => isEditablePos(p)) && (
+                  addingCardId === o.id ? (
+                    <AddPositionForm orderId={o.id} supplierName={branchUser.name}
+                      resp={o.positions.find(p => eqName(p.supplier, branchUser.name) && p.resp)?.resp || ''}
+                      onEditing={e => { editingRef.current = e }}
+                      onAdded={m => { editingRef.current = false; setAddingCardId(null); load(); showMsg(m) }}
+                      onCancel={() => { editingRef.current = false; setAddingCardId(null) }} />
+                  ) : (
+                    <button onClick={() => { editingRef.current = true; setAddingCardId(o.id) }}
+                      style={{ marginTop: 10, width: '100%', padding: '9px', border: '1.5px dashed #d8d3cc', borderRadius: 8, background: 'none', cursor: 'pointer', fontSize: 13, color: '#8a847c', fontFamily: 'inherit', fontWeight: 600 }}>
+                      ＋ Добавить позицию
+                    </button>
+                  )
+                )}
               </div>
             )}
 
