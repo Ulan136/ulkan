@@ -10,19 +10,16 @@ export const CENTER_SKLAD = 'Центр Склад'
 
 type ReservePos = { id: string; supplier: string; qty: number; name1c: string; oral: string }
 
-// Резервирует на складе позиции с поставщиком «Центр Склад» (qty > 0).
+// Резервирует на складе позиции с поставщиком «Центр Склад» (qty > 0 и name1c).
 // Возвращает число зарезервированных позиций (нужно для текста History у process).
-// requireName1c: process пропускает позиции с пустым name1c, а orders POST /
-// addPos — нет. Историческое расхождение копий, сохранено флагом (см. отчёт 4b).
-export async function reserveCenterSkladPositions(
-  positions: ReservePos[],
-  opts?: { requireName1c?: boolean },
-): Promise<number> {
+// Резервируем только при наличии name1c: позиция без имени 1С не может быть
+// осмысленно зарезервирована/оприходована (единое поведение с 4c — раньше
+// orders POST / addPos резервировали и без name1c, теперь выровнено).
+export async function reserveCenterSkladPositions(positions: ReservePos[]): Promise<number> {
   let n = 0
   for (const pos of positions) {
-    if (pos.supplier !== CENTER_SKLAD || !(pos.qty > 0)) continue
-    if (opts?.requireName1c && !pos.name1c) continue
-    await reserveStock(pos.id, pos.name1c || pos.oral, pos.qty)
+    if (pos.supplier !== CENTER_SKLAD || !(pos.qty > 0) || !pos.name1c) continue
+    await reserveStock(pos.id, pos.name1c, pos.qty)
     n++
   }
   return n

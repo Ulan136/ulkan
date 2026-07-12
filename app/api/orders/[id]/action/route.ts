@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { requireSession } from '@/lib/auth'
-import { generatePosId } from '@/lib/ids'
-import { notifyAdmins, notify } from '@/lib/notifications'
-import { reserveCenterSkladPositions, incomeOnDeliveryToCenter, releaseDeliveredPosition, CENTER_SKLAD } from '@/services/stockOps'
 import { orderInclude } from '@/lib/orderMetrics'
-import { legForSupplier } from '@/services/legDetection'
 import { pushSignal } from '@/lib/pusherServer'
+import { TRANSITIONS, WorkflowCtx } from '@/services/orderWorkflow'
 
+// Тонкий диспетчер: находит TransitionDef по action, проверяет roles/guard,
+// выполняет effects, применяет patch и пишет History. Вся бизнес-логика
+// переходов — в services/orderWorkflow.ts (декларативная карта TRANSITIONS).
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireSession(req)
   if (!auth.ok) return auth.response
@@ -20,369 +20,40 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const order = await prisma.order.findUnique({ where: { id }, include: orderInclude })
   if (!order) return NextResponse.json({ error: 'Карточка не найдена' }, { status: 404 })
 
-  let updateData: any = {}
-  let historyText = ''
-
   try {
-    switch (action) {
+    const def = TRANSITIONS[action]
+    if (!def) return NextResponse.json({ error: `Неизвестный action: ${action}` }, { status: 400 })
 
-      // ── Приёмка: принять → ожидание ──
-      case 'accept':
-        updateData = { screen: 'reception', block: 'waiting', status: 'Принят' }
-        historyText = 'Принят в приёмку'
-        break
-
-      // ── Приёмка: взять в обработку (парсинг comment) ──
-      case 'take':
-        updateData = { status: 'В обработке', block: 'processing' }
-        historyText = 'Взят в обработку'
-        if (order.positions.length === 0 && order.comment) {
-          const lines = order.comment.split('\n').filter(l => l.trim())
-          if (lines.length > 0) {
-            await prisma.position.createMany({
-              data: lines.map((line, i) => {
-                const trimmed = line.trim()
-                const qtyMatch = trimmed.match(/(\d+(?:[.,]\d+)?)\s*(шт|м2|м\u00b2|кв\.?м|кг|рулон|усл)\b/i)
-                const qty = qtyMatch ? parseFloat(qtyMatch[1].replace(',', '.')) : 0
-                const unit = qtyMatch ? qtyMatch[2].toLowerCase().replace('кв.м', 'м2').replace('м\u00b2', 'м2') : 'шт'
-                return {
-                  id: generatePosId(id, i + 1),
-                  cardId: id,
-                  oral: trimmed,
-                  qty,
-                  unit,
-                  status: 'В работе',
-                }
-              })
-            })
-          }
-        }
-        break
-
-      // ── Приёмка Блок 2: отправить в исходящие ──
-      case 'process': {
-        updateData = { screen: 'outgoing', status: 'В работе', block: '' }
-        historyText = 'Отправлен в Исходящие'
-        // leg — per-position (проставлен при создании позиции), карточку не трогаем.
-        // Резервируем позиции с Центр Склад (process исторически требует name1c)
-        const reserved = await reserveCenterSkladPositions(order.positions, { requireName1c: true })
-        if (reserved > 0) {
-          historyText = `Отправлен в Исходящие (зарезервировано ${reserved} позиций на складе)`
-        }
-        break
-      }
-
-      // ── Обновить статус позиции ──
-      case 'updatePos': {
-        const { posId, status: posStatus } = payload
-        await prisma.position.update({ where: { id: posId }, data: { status: posStatus } })
-
-        // Если позиция с Центр Склад → Доставлено — списываем
-        const pos = order.positions.find(p => p.id === posId)
-        if (pos && posStatus === 'Доставлено') {
-          await releaseDeliveredPosition(pos)
-        }
-
-        // Сохраняем историю логиста — строка смены
-        if (session.role === 'logist' && pos) {
-          historyText = `Логист ${session.name}: ${pos.name1c || pos.oral} → ${posStatus}`
-        }
-
-        // Уведомляем клиента о каждом изменении статуса позиции
-        if (order.contactId && pos) {
-          const statusMsg: Record<string, string> = {
-            'Готово к отгрузке': `Позиция "${pos.name1c || pos.oral}" готова к отгрузке`,
-            'В пути': `Позиция "${pos.name1c || pos.oral}" в пути`,
-            'Доставлено': `Позиция "${pos.name1c || pos.oral}" доставлена`,
-          }
-          if (statusMsg[posStatus]) {
-            await notify(order.contactId, statusMsg[posStatus], id)
-          }
-        }
-
-        // Проверяем все ли позиции доставлены
-        const updatedPositions = await prisma.position.findMany({ where: { cardId: id } })
-        const allDone = updatedPositions.every(p => p.status === 'Доставлено')
-        if (allDone && updatedPositions.length > 0) {
-          updateData = { screen: 'incoming', status: 'Доставлено', toacc: true, delivered: new Date() }
-          historyText = 'Все позиции доставлены'
-          if (order.contactId) await notify(order.contactId, `✅ Заказ ${id} полностью доставлен!`, id)
-          await notifyAdmins(`Заказ ${id} полностью доставлен`, id)
-
-          // Если получатель = Центр Склад → автоматический приход на склад
-          const incomed = await incomeOnDeliveryToCenter(order, updatedPositions)
-          if (incomed !== null) {
-            historyText = `Все позиции доставлены → приход на склад (${incomed} позиций)`
-          }
-        }
-        break
-      }
-
-      // ── Все позиции доставлены ──
-      case 'markAll': {
-        const allPositions = await prisma.position.findMany({ where: { cardId: id } })
-        await prisma.position.updateMany({ where: { cardId: id }, data: { status: 'Доставлено' } })
-        updateData = { screen: 'incoming', status: 'Доставлено', toacc: true, delivered: new Date() }
-        historyText = 'Все позиции доставлены'
-        if (order.contactId) await notify(order.contactId, `Заказ ${id} доставлен!`, id)
-
-        // Если получатель = Центр Склад → автоматический приход на склад
-        const incomedAll = await incomeOnDeliveryToCenter(order, allPositions)
-        if (incomedAll !== null) {
-          historyText = `Все позиции доставлены → приход на склад (${incomedAll} позиций)`
-        }
-        break
-      }
-
-      case 'sendAcc':
-        updateData = { screen: 'accounting', status: 'К учёту' }
-        historyText = 'Отправлен к учёту'
-        break
-
-      case 'postAcc':
-        updateData = { screen: 'bookkeeping', status: 'Бухгалтерия', toacc: false }
-        historyText = 'Проведён в бухгалтерию'
-        break
-
-      case 'returnOut':
-        updateData = { screen: 'incoming', status: 'В ожидании', block: '', toacc: false }
-        historyText = 'Возвращён из исходящих'
-        break
-
-      case 'returnToAcc':
-        updateData = { screen: 'accounting', status: 'К учёту', toacc: true }
-        historyText = 'Возвращён к учёту'
-        break
-
-      case 'cancel':
-        updateData = { isCancelled: true, status: 'Отменён', screen: 'incoming', cancelReason: payload.reason || '' }
-        historyText = 'Отменён' + (payload.reason ? `: ${payload.reason}` : '')
-        break
-
-      case 'restore':
-        updateData = { isCancelled: false, status: 'В ожидании', screen: 'incoming', cancelReason: '' }
-        historyText = 'Восстановлен из отменённых'
-        break
-
-      case 'updateOrder':
-        if (payload.to !== undefined) updateData.to = payload.to
-        if (payload.deadline !== undefined) updateData.deadline = payload.deadline ? new Date(payload.deadline) : null
-        historyText = ''
-        break
-
-      // ── Филиал: передать логисту ТОЛЬКО свои позиции (плечо 2) ──
-      case 'branchForward': {
-        const me = (payload.branchName || session.name || '').trim().toLowerCase()
-        const mine = order.positions.filter(p => (p.supplier || '').trim().toLowerCase() === me && p.leg === 1)
-        if (mine.length === 0) return NextResponse.json({ error: 'Нет позиций для передачи' }, { status: 400 })
-        // Мои позиции → leg=2 (видны логисту), старт плеча 2 = 'Готово к отгрузке' (60%).
-        await prisma.position.updateMany({ where: { id: { in: mine.map(p => p.id) } }, data: { leg: 2, status: 'Готово к отгрузке' } })
-        historyText = `Филиал ${payload.branchName || session.name} передал логисту (${mine.length} поз.)`
-        // Карточку (from, screen, status) НЕ трогаем — другие позиции живут своей жизнью.
-        // Уведомляем логистов ТОЛЬКО моих позиций.
-        const fwdResp = [...new Set(mine.map(p => p.resp).filter(Boolean))]
-        for (const respName of fwdResp) {
-          const logist = await prisma.user.findFirst({ where: { name: respName, role: 'logist' } })
-          if (logist) await notify(logist.id, `Заказ ${id} готов к доставке`, id)
-        }
-        break
-      }
-
-      // ── Филиал: принял ТОЛЬКО свои позиции (leg=1) ──
-      case 'branchAccept': {
-        const me = (payload.branchName || session.name || '').trim().toLowerCase()
-        const mine = order.positions.filter(p => (p.supplier || '').trim().toLowerCase() === me && p.leg === 1)
-        if (mine.length > 0) {
-          await prisma.position.updateMany({ where: { id: { in: mine.map(p => p.id) } }, data: { status: 'Принято филиалом' } })
-        }
-        historyText = `Товар принят филиалом ${payload.branchName || session.name} (${mine.length} поз.)`
-        // Карточку не трогаем.
-        break
-      }
-
-      // ── Филиал: вернуть свои переданные позиции (до начала доставки) ──
-      case 'branchRecall': {
-        if (session.role !== 'branch') {
-          return NextResponse.json({ error: 'Возврат доступен только филиалу' }, { status: 403 })
-        }
-        const me = session.name.trim().toLowerCase()
-        const mine = order.positions.filter(p => (p.supplier || '').trim().toLowerCase() === me && p.leg === 2)
-        if (mine.length === 0) return NextResponse.json({ error: 'Нет переданных позиций для возврата' }, { status: 400 })
-        if (mine.some(p => p.status === 'В пути' || p.status === 'Доставлено')) {
-          return NextResponse.json({ error: 'Логист уже начал доставку, возврат невозможен' }, { status: 400 })
-        }
-        // Мои позиции обратно: leg=1 (скрыты от логиста), 'Принято филиалом'.
-        await prisma.position.updateMany({ where: { id: { in: mine.map(p => p.id) } }, data: { leg: 1, status: 'Принято филиалом' } })
-        historyText = `Возвращены филиалом ${session.name} для изменений (${mine.length} поз.)`
-        // Уведомляем логистов моих позиций.
-        const recallResp = [...new Set(mine.map(p => p.resp).filter(Boolean))]
-        for (const respName of recallResp) {
-          const logist = await prisma.user.findFirst({ where: { name: respName, role: 'logist' } })
-          if (logist) await notify(logist.id, `Заказ ${id} возвращён филиалом`, id)
-        }
-        break
-      }
-
-      case 'confirmChg':
-        updateData = { isChanged: false }
-        historyText = 'Изменение подтверждено'
-        if (order.contactId) await notify(order.contactId, `Изменение по заказу ${id} принято`, id)
-        break
-
-      case 'postpone':
-        updateData = { postponed: !order.postponed }
-        historyText = order.postponed ? 'Снят с отложенных' : 'Отложен'
-        break
-
-      case 'createDoc':
-        if (payload.type === 'invoice') updateData = { invoice: true }
-        if (payload.type === 'fact') updateData = { fact: true }
-        historyText = payload.type === 'invoice' ? 'Счёт сформирован' : 'Счёт-фактура сформирована'
-        break
-
-      case 'post1C':
-        updateData = { posted1C: true }
-        historyText = 'Проведён в 1С'
-        break
-
-      case 'sendArchive':
-        if (!order.posted1C) return NextResponse.json({ error: 'Сначала проведите в 1С' }, { status: 400 })
-        updateData = { screen: 'archive', status: 'Архив' }
-        historyText = 'Отправлен в архив'
-        break
-
-      case 'changeOrder':
-        updateData = { isChanged: true, changeText: payload.changeText || '', changePhone: payload.changePhone || '' }
-        historyText = 'Клиент внёс изменение'
-        await notifyAdmins(`Клиент изменил заказ ${id}`, id)
-        break
-
-      // ── Добавить позицию ──
-      case 'addPos': {
-        // Филиал: может добавлять ТОЛЬКО свою позицию (supplier = его имя) и только в
-        // карточку, где он уже поставщик хотя бы одной позиции. Админ — без ограничений.
-        if (session.role === 'branch') {
-          const me = session.name.trim().toLowerCase()
-          const already = order.positions.some(p => (p.supplier || '').trim().toLowerCase() === me)
-          if (!already || (payload.supplier || '').trim().toLowerCase() !== me) {
-            return NextResponse.json({ error: 'Филиал может добавлять только свои позиции' }, { status: 403 })
-          }
-        }
-        // Логист: добавлять только в карточку, где у него уже есть позиция, и только с resp = своё имя
-        if (session.role === 'logist') {
-          const me = session.name.trim().toLowerCase()
-          const already = order.positions.some(p => (p.resp || '').trim().toLowerCase() === me)
-          if (!already || (payload.resp || '').trim().toLowerCase() !== me) {
-            return NextResponse.json({ error: 'Логист может добавлять только свои позиции' }, { status: 403 })
-          }
-        }
-        const existing = await prisma.position.findMany({ where: { cardId: id } })
-        const newId = generatePosId(id, existing.length + 1)
-        const posLeg = await legForSupplier(payload.supplier)  // поставщик-филиал → 1
-        const newPos = await prisma.position.create({
-          data: {
-            id: newId, cardId: id,
-            name1c: payload.name1c || '', oral: payload.oral || '',
-            qty: payload.qty || 0, unit: payload.unit || 'шт',
-            price: payload.price || 0, resp: payload.resp || '',
-            supplier: payload.supplier || '', supplierId: payload.supplierId || null,
-            status: payload.status || 'В работе',
-            leg: posLeg,
-            deadline: payload.deadline ? new Date(payload.deadline) : null,
-          },
-        })
-        // Если поставщик = Центр Склад → резервируем
-        await reserveCenterSkladPositions([newPos])
-        historyText = `Добавлена позиция: ${payload.name1c || payload.oral}`
-        // Уведомляем логиста только для позиции второго плеча (leg=2) — при leg=1
-        // позиция ещё у филиала-изготовителя, логист её пока не видит.
-        if (posLeg === 2 && payload.resp) {
-          const logist = await prisma.user.findFirst({ where: { name: payload.resp, role: 'logist' } })
-          if (logist) await notify(logist.id, `Вам назначена позиция: ${payload.name1c || payload.oral} по заказу ${id}`, id)
-        }
-        break
-      }
-
-      // ── Обновить детали позиции ──
-      case 'updatePosDetail': {
-        const { posId, ...posData } = payload
-        const oldPos = order.positions.find(p => p.id === posId)
-        // Филиал может менять только свои позиции (supplier = его имя).
-        if (session.role === 'branch' && (oldPos?.supplier || '').trim().toLowerCase() !== session.name.trim().toLowerCase()) {
-          return NextResponse.json({ error: 'Филиал может менять только свои позиции' }, { status: 403 })
-        }
-        // Логист может менять только свои позиции (resp = его имя).
-        if (session.role === 'logist' && (oldPos?.resp || '').trim().toLowerCase() !== session.name.trim().toLowerCase()) {
-          return NextResponse.json({ error: 'Логист может менять только свои позиции' }, { status: 403 })
-        }
-        // Частичный payload безопасен: неуказанные поля берём из oldPos.
-        // Плечо позиции пересчитываем ТОЛЬКО при смене поставщика (иначе не трогаем —
-        // qty-правка филиала не должна менять leg).
-        const supplierChanged = posData.supplier !== undefined && posData.supplier !== oldPos?.supplier
-        const newLeg = supplierChanged ? await legForSupplier(posData.supplier) : oldPos?.leg
-        await prisma.position.update({
-          where: { id: posId },
-          data: {
-            name1c: posData.name1c ?? oldPos?.name1c,
-            oral: posData.oral ?? oldPos?.oral,
-            qty: posData.qty !== undefined ? (Number(posData.qty) || 0) : oldPos?.qty,
-            unit: posData.unit ?? oldPos?.unit,
-            price: posData.price !== undefined ? (Number(posData.price) || 0) : oldPos?.price,
-            resp: posData.resp ?? oldPos?.resp,
-            supplier: posData.supplier ?? oldPos?.supplier,
-            supplierId: posData.supplierId !== undefined ? (posData.supplierId || null) : oldPos?.supplierId,
-            status: posData.status ?? oldPos?.status,
-            leg: newLeg,
-            payment: posData.payment ?? oldPos?.payment,
-            late: posData.late ?? oldPos?.late,
-            deadline: posData.deadline !== undefined ? (posData.deadline ? new Date(posData.deadline) : null) : oldPos?.deadline,
-          },
-        })
-        // Обновляем резерв если поставщик Центр Склад
-        if (oldPos && oldPos.supplier === CENTER_SKLAD && posData.supplier === CENTER_SKLAD) {
-          const diff = (Number(posData.qty) || 0) - oldPos.qty
-          if (diff !== 0) {
-            const { updateReserve } = await import('@/lib/stock')
-            await updateReserve(posId, oldPos.qty, Number(posData.qty) || 0)
-          }
-        }
-        // Не пишем в историю — слишком частые мелкие изменения засоряют ленту
-        break
-      }
-
-      // ── Удалить позицию ──
-      case 'deletePos':
-        await prisma.position.delete({ where: { id: payload.posId } })
-        historyText = 'Позиция удалена'
-        break
-
-      // ── Обновить карточку ──
-      case 'updateCard':
-        updateData = {
-          from: payload.from, to: payload.to,
-          comment: payload.comment, phone: payload.phone,
-          deadline: payload.deadline ? new Date(payload.deadline) : null,
-          projectId: payload.projectId || null,
-          specProjectId: payload.specProjectId || null,
-          contactId: payload.contactId || null,
-        }
-        historyText = 'Карточка обновлена'
-        break
-
-      default:
-        return NextResponse.json({ error: `Неизвестный action: ${action}` }, { status: 400 })
+    // roles → 403
+    if (def.roles && !def.roles.includes(session.role)) {
+      return NextResponse.json({ error: 'Нет доступа' }, { status: 403 })
     }
 
-    if (Object.keys(updateData).length > 0) {
-      await prisma.order.update({ where: { id }, data: updateData })
+    const ctx: WorkflowCtx = { order, positions: order.positions, session, payload, prisma, scratch: {} }
+
+    // guard → 400 (или собственный статус, напр. 403 у role-проверок)
+    if (def.guard) {
+      const g = def.guard(ctx)
+      if (g) {
+        const msg = typeof g === 'string' ? g : g.error
+        const status = typeof g === 'string' ? 400 : (g.status || 400)
+        return NextResponse.json({ error: msg }, { status })
+      }
     }
 
-    if (historyText) {
-      await prisma.history.create({ data: { cardId: id, action: historyText, userName: session.name } })
+    if (def.effects) await def.effects(ctx)
+    const patch = def.patch ? def.patch(ctx) : null
+    const history = def.history ? def.history(ctx) : null
+
+    if (patch && Object.keys(patch).length > 0) {
+      await prisma.order.update({ where: { id }, data: patch })
+    }
+    if (history) {
+      await prisma.history.create({ data: { cardId: id, action: history, userName: session.name } })
     }
 
     const updated = await prisma.order.findUnique({ where: { id }, include: orderInclude })
-    await pushSignal('orders')  // после ВСЕХ записей БД и перед ответом
+    await pushSignal('orders') // после ВСЕХ записей БД и перед ответом
     return NextResponse.json({ success: true, order: updated })
   } catch (e) {
     console.error(e)

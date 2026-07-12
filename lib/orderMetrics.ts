@@ -1,15 +1,16 @@
 // Серверо-нейтральные метрики заказа: без React и без Prisma.
 // Функции принимают минимальный набор полей, поэтому работают и с
 // клиентским типом Order/Position, и с объектами, которые возвращает Prisma.
+import { POS_STATUS, CARD_STATUS } from './orderStatus'
 
 // Маппинг статуса позиции в процент готовности
 export const PCT: Record<string, number> = {
-  'В работе': 10,
-  'Готово к отгрузке': 60,
-  'В пути': 80,
-  'Доставлено': 100,
-  'Принято филиалом': 40, // плечо 1: филиал принял товар (шкала первого плеча: 10→40)
-  '': 0,
+  [POS_STATUS.working]: 10,
+  [POS_STATUS.readyToShip]: 60,
+  [POS_STATUS.inTransit]: 80,
+  [POS_STATUS.delivered]: 100,
+  [POS_STATUS.acceptedByBranch]: 40, // плечо 1: филиал принял товар (шкала первого плеча: 10→40)
+  [POS_STATUS.empty]: 0,
 }
 
 export function posPct(p: { status: string }): number {
@@ -17,7 +18,7 @@ export function posPct(p: { status: string }): number {
 }
 
 export function cardProgress(o: { status: string; positions: { status: string }[] }): number {
-  if (!o.positions.length) return o.status === 'Доставлено' ? 100 : 0
+  if (!o.positions.length) return o.status === CARD_STATUS.delivered ? 100 : 0
   return Math.round(o.positions.reduce((s, p) => s + posPct(p), 0) / o.positions.length)
 }
 
