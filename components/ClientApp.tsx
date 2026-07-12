@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { fetchClientOrders, createClientOrder, fetchNotifications, markNotificationRead, logout, orderAction } from '@/lib/api'
 import { Order, SessionUser, Notification } from '@/lib/types'
 import { cardProgress } from '@/lib/display'
+import { todayLocal } from '@/lib/dates'
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   useEffect(() => { const t = setTimeout(onClose, 2300); return () => clearTimeout(t) }, [onClose])
@@ -67,6 +68,12 @@ export default function ClientApp({ user, clientUser }: Props) {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Дефолт «Желаемая дата» = сегодня при открытии вкладки «Новая заявка»
+  // (в момент открытия, не при монтировании; пустое поле — не перетираем введённое)
+  useEffect(() => {
+    if (tab === 'new') setNewDeadline(d => d || todayLocal())
+  }, [tab])
 
   // Автообновление каждые 30 секунд
   useEffect(() => {

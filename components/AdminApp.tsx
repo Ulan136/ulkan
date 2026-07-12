@@ -13,6 +13,7 @@ import {
   User, DailyReport, AnalysisRow, Notification,
 } from '@/lib/types'
 import { cardProgress, posPct, cardSum, isOverdue, barColor, statusStyle, sourceStyle, sourceLabel, fmtMoney, fmtDate, fmtDateTime } from '@/lib/display'
+import { todayLocal } from '@/lib/dates'
 import { COLORS } from '@/lib/colors'
 import FilterScreen from '@/components/FilterScreen'
 import WarehouseScreen from '@/components/WarehouseScreen'
@@ -496,7 +497,7 @@ export default function AdminApp({ user }: Props) {
   const [recSpec, setRecSpec] = useState('')
   const [recContact, setRecContact] = useState('')
   const [recPhone, setRecPhone] = useState('')
-  const [recDeadline, setRecDeadline] = useState(new Date().toISOString().slice(0, 10))
+  const [recDeadline, setRecDeadline] = useState('')  // дефолт ставится сегодня при ОТКРЫТИИ формы
   const [recComment, setRecComment] = useState('')
   const [recPositions, setRecPositions] = useState([
     { name1c: '', oral: '', qty: '', unit: 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: '', payment: '' }
@@ -505,11 +506,15 @@ export default function AdminApp({ user }: Props) {
   const [editingPositions, setEditingPositions] = useState<Record<string, any>>({})
 
   function recAddPos() {
-    setRecPositions(p => [...p, { name1c: '', oral: '', qty: '', unit: 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: '', payment: '' }])
+    setRecPositions(p => [...p, { name1c: '', oral: '', qty: '', unit: 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: todayLocal(), payment: '' }])
   }
   function recUpdatePos(i: number, field: string, val: string) {
     setRecPositions(p => p.map((x, idx) => idx === i ? { ...x, [field]: val } : x))
   }
+  // Дефолт «Срок» = сегодня при открытии модалки «Создать карточку»
+  useEffect(() => {
+    if (showCreateCard) setNewCard(c => ({ ...c, deadline: c.deadline || todayLocal() }))
+  }, [showCreateCard])
   function recRemovePos(i: number) {
     setRecPositions(p => p.filter((_, idx) => idx !== i))
   }
@@ -989,7 +994,16 @@ export default function AdminApp({ user }: Props) {
             {/* ── Блок 1: Форма создания ── */}
             <div style={{ background: '#fff', borderRadius: 14, marginBottom: 20, boxShadow: '0 0 0 1.5px #e6e2dc', overflow: 'hidden' }}>
               <div
-                onClick={() => setRecFormOpen(p => !p)}
+                onClick={() => {
+                  // Дефолт «Срок» = сегодня в момент ОТКРЫТИЯ формы (не при монтировании),
+                  // только для пустых полей — введённое пользователем не трогаем.
+                  if (!recFormOpen) {
+                    const t = todayLocal()
+                    setRecDeadline(d => d || t)
+                    setRecPositions(ps => ps.map(p => ({ ...p, deadline: p.deadline || t })))
+                  }
+                  setRecFormOpen(p => !p)
+                }}
                 style={{ padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: recFormOpen ? '1px solid #f1efec' : 'none' }}
               >
                 <span style={{ fontWeight: 700, fontSize: 15 }}>＋ Создать новый заказ</span>
