@@ -7,6 +7,8 @@ import NomSearch from '@/components/NomSearch'
 
 const PRIMARY = '#d4613a'
 const BG = '#f1efec'
+// Позиция уже передана логисту (второе плечо) — филиалом не редактируется.
+const HANDED_OFF = ['Готово к отгрузке', 'В пути', 'Доставлено']
 
 interface Position {
   id: string; cardId: string; name1c: string; oral: string
@@ -245,8 +247,9 @@ export default function BranchPortal({ user, branchUser }: Props) {
     const canForward = mine1.some(p => p.status === 'Принято филиалом')   // есть принятые leg1 → к логисту
     const my2InDelivery = mine2.some(p => p.status === 'В пути' || p.status === 'Доставлено')
     const canRecall = mine2.length > 0 && !my2InDelivery                  // передал, доставка не начата
-    // Позиция редактируема филиалом: моя, первое плечо (до передачи)
-    const isEditablePos = (p: Position) => eqName(p.supplier, branchUser.name) && p.leg === 1
+    // Позиция редактируема филиалом: моя и ещё НЕ передана логисту (по статусу, а не по leg —
+    // устойчиво к тому, что у старых позиций leg может быть 2 в БД).
+    const isEditablePos = (p: Position) => eqName(p.supplier, branchUser.name) && !HANDED_OFF.includes(p.status)
     const hist = history[o.id] || []
 
     return (
