@@ -7,6 +7,11 @@ const PUBLIC = ['/login', '/register', '/track', '/api/auth', '/api/track', '/ap
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
+  // PWA-ассеты должны быть доступны БЕЗ авторизации: манифест/иконки браузер
+  // тянет без cookie сессии, иначе установка PWA ломается (редирект на /login).
+  if (pathname === '/manifest.json' || pathname === '/sw.js'
+    || pathname.startsWith('/icons/') || pathname.startsWith('/api/pwa')) return NextResponse.next()
+
   if (pathname === '/client' || pathname.startsWith('/client/')) return NextResponse.next()
   if (pathname.startsWith('/rsp/')) return NextResponse.next()
   if (pathname.startsWith('/warehouse/')) return NextResponse.next()
