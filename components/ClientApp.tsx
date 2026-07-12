@@ -5,6 +5,7 @@ import { Order, SessionUser, Notification } from '@/lib/types'
 import { cardProgress } from '@/lib/display'
 import { todayLocal } from '@/lib/dates'
 import { useLiveData } from '@/lib/live'
+import CardChat from '@/components/CardChat'
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   useEffect(() => { const t = setTimeout(onClose, 2300); return () => clearTimeout(t) }, [onClose])
@@ -364,6 +365,12 @@ export default function ClientApp({ user, clientUser }: Props) {
                               <button onClick={e => { e.stopPropagation(); copy(o.trackingLink, o.id) }} style={{ marginLeft: 12, border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, color: '#8a847c', fontFamily: 'inherit' }}>
                                 {copied === o.id ? '✓ Скопировано' : '📋 Ссылка'}
                               </button>
+                            </div>
+
+                            {/* Чат по заказу */}
+                            <div onClick={e => e.stopPropagation()} style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #f1efec' }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: '#8a847c', marginBottom: 6 }}>💬 ЧАТ ПО ЗАКАЗУ</div>
+                              <CardChat cardId={o.id} myId={user.id} height={280} />
                             </div>
                           </div>
                         )}

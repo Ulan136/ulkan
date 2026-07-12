@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { orderAction, createOrder, createDailyReport, logout, fetchSettings } from '@/lib/api'
 import { useLiveData } from '@/lib/live'
 import { PositionEditor, AddPositionForm, editBtn } from '@/components/PositionEditors'
+import CardChat from '@/components/CardChat'
 import InstallPrompt from '@/components/InstallPrompt'
 import { Order, SessionUser } from '@/lib/types'
 
@@ -72,6 +73,8 @@ export default function LogistPortal({ user, logistUser }: Props) {
   const editingRef = useRef(false)
   const [editPosId, setEditPosId] = useState<string | null>(null)
   const [addingCardId, setAddingCardId] = useState<string | null>(null)
+  const [chatOpenPos, setChatOpenPos] = useState<string | null>(null) // pos.id, у которого раскрыт чат
+  const [msgCount, setMsgCount] = useState<Record<string, number>>({}) // по cardId
   const [suppliers, setSuppliers] = useState<string[]>([])
 
   // Новый заказ
@@ -386,6 +389,19 @@ export default function LogistPortal({ user, logistUser }: Props) {
               {editable && <button onClick={() => { editingRef.current = true; setEditPosId(pos.id) }} style={{ ...editBtn(false), marginLeft: 'auto' }}>Изменить</button>}
             </div>
             <StatusBtns cardId={order.id} posId={pos.id} posStatus={pos.status} posName={pos.name1c || pos.oral} fromWho={pos.supplier || order.from} toWho={order.to || ''} qty={pos.qty} />
+            {/* Чат по заказу */}
+            <button onClick={() => {
+              const opening = chatOpenPos !== pos.id
+              setChatOpenPos(opening ? pos.id : null)
+              if (opening) fetch(`/api/orders/${order.id}/messages`).then(r => r.ok ? r.json() : []).then((d: any) => setMsgCount(prev => ({ ...prev, [order.id]: Array.isArray(d) ? d.length : 0 }))).catch(() => {})
+            }} style={{ marginTop: 10, width: '100%', padding: '8px', border: 'none', borderRadius: 8, background: chatOpenPos === pos.id ? PRIMARY : '#f1efec', color: chatOpenPos === pos.id ? '#fff' : '#8a847c', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', fontWeight: 600 }}>
+              💬 Чат{msgCount[order.id] ? ` (${msgCount[order.id]})` : ''}
+            </button>
+            {chatOpenPos === pos.id && (
+              <div style={{ marginTop: 10, paddingTop: 4, borderTop: '1px solid #f1efec' }}>
+                <CardChat cardId={order.id} myId={user.id} height={300} onCount={n => setMsgCount(prev => ({ ...prev, [order.id]: n }))} />
+              </div>
+            )}
             {editable && (addingCardId === order.id ? (
               <AddPositionForm orderId={order.id} resp={myName} supplierOptions={suppliers}
                 onEditing={e => { editingRef.current = e }}

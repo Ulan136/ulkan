@@ -5,6 +5,7 @@ import { SessionUser } from '@/lib/types'
 import { cardProgress } from '@/lib/display'
 import { useLiveData } from '@/lib/live'
 import { PositionEditor, AddPositionForm, editBtn } from '@/components/PositionEditors'
+import CardChat from '@/components/CardChat'
 import { POS_STATUS } from '@/lib/orderStatus'
 import { isHandedOff, isInDelivery, myActivePos, myHandedPos, eqName } from '@/lib/positionState'
 
@@ -64,8 +65,9 @@ export default function BranchPortal({ user, branchUser }: Props) {
   const [tab, setTab] = useState<Tab>('in')
   const [toast, setToast] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
-  const [detailTab, setDetailTab] = useState<'positions' | 'history'>('positions')
+  const [detailTab, setDetailTab] = useState<'positions' | 'history' | 'chat'>('positions')
   const [history, setHistory] = useState<Record<string, HistoryItem[]>>({})
+  const [msgCount, setMsgCount] = useState<Record<string, number>>({})
 
   // Новый заказ
   const [newTo, setNewTo] = useState('')
@@ -117,6 +119,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
     setSelected(orderId)
     setDetailTab('positions')
     loadHistory(orderId)
+    fetch(`/api/orders/${orderId}/messages`).then(r => r.ok ? r.json() : []).then((d: any) => setMsgCount(prev => ({ ...prev, [orderId]: Array.isArray(d) ? d.length : 0 }))).catch(() => {})
   }
 
   // Вкладки — на статусном предикате (не по leg): моя позиция «активна» (ещё у
@@ -239,11 +242,11 @@ export default function BranchPortal({ user, branchUser }: Props) {
               </div>
             )}
 
-            {/* Вкладки Позиции / История */}
+            {/* Вкладки Позиции / История / Чат */}
             <div style={{ display: 'flex', gap: 4, padding: '10px 16px 0' }}>
-              {(['positions', 'history'] as const).map(t => (
+              {(['positions', 'history', 'chat'] as const).map(t => (
                 <button key={t} onClick={() => setDetailTab(t)} style={{ padding: '5px 12px', borderRadius: 7, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: detailTab === t ? PRIMARY : '#f1efec', color: detailTab === t ? '#fff' : '#8a847c' }}>
-                  {t === 'positions' ? `Позиции (${o.positions.length})` : 'История'}
+                  {t === 'positions' ? `Позиции (${o.positions.length})` : t === 'history' ? 'История' : `💬 Чат${msgCount[o.id] ? ` (${msgCount[o.id]})` : ''}`}
                 </button>
               ))}
             </div>
@@ -314,6 +317,13 @@ export default function BranchPortal({ user, branchUser }: Props) {
                     </div>
                   ))
                 }
+              </div>
+            )}
+
+            {/* Чат */}
+            {detailTab === 'chat' && (
+              <div style={{ padding: '10px 16px' }}>
+                <CardChat cardId={o.id} myId={user.id} height={300} onCount={n => setMsgCount(prev => ({ ...prev, [o.id]: n }))} />
               </div>
             )}
 

@@ -20,6 +20,7 @@ import FilterScreen from '@/components/FilterScreen'
 import WarehouseScreen from '@/components/WarehouseScreen'
 import NomSearch from '@/components/NomSearch'
 import NomenclatureScreen from '@/components/NomenclatureScreen'
+import CardChat from '@/components/CardChat'
 
 // ─── Утилиты v2.2 ───────────────────────────────────────────────────────────
 
@@ -86,14 +87,16 @@ const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: '#8a847
 
 // ─── Модалка деталей карточки ────────────────────────────────────────────────
 
-function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings }: {
+function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings, myId }: {
   order: Order; onClose: () => void
   onAction: (id: string, action: string, payload?: Record<string, unknown>) => Promise<void>
   suppliers: { id: string; name: string }[]; toast: (m: string) => void
   settings: SettingsData | null
+  myId: string
 }) {
   const [history, setHistory] = useState<any[]>([])
-  const [tab, setTab] = useState<'positions' | 'history' | null>(null)
+  const [tab, setTab] = useState<'positions' | 'history' | 'chat' | null>(null)
+  const [msgCount, setMsgCount] = useState(0)
   const [editPos, setEditPos] = useState<string | null>(null)
   const [priceEdit, setPriceEdit] = useState<{ qty: string; price: string }>({ qty: '', price: '' })
   // Правка цены/кол-ва позиций на экранах К учёту (accounting) и Бухгалтерии
@@ -116,6 +119,8 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings 
 
   useEffect(() => {
     fetchHistory(order.id).then((h: any) => setHistory(h)).catch(() => {})
+    // счётчик сообщений чата для бейджа вкладки
+    fetch(`/api/orders/${order.id}/messages`).then(r => r.ok ? r.json() : []).then((d: any) => setMsgCount(Array.isArray(d) ? d.length : 0)).catch(() => {})
   }, [order.id])
 
   function copy(text: string) { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); toast('Скопировано!') }
@@ -225,9 +230,9 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings 
 
           {/* Вкладки */}
           <div style={{ display: 'flex', gap: 4, marginBottom: tab ? 14 : 0 }}>
-            {(['positions', 'history'] as const).map(t => (
+            {(['positions', 'history', 'chat'] as const).map(t => (
               <button key={t} onClick={() => setTab(prev => prev === t ? null : t)} style={{ padding: '6px 14px', borderRadius: 7, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: tab === t ? COLORS.primary : '#f1efec', color: tab === t ? '#fff' : '#8a847c' }}>
-                {t === 'positions' ? `Позиции (${order.positions.length})` : 'История'}
+                {t === 'positions' ? `Позиции (${order.positions.length})` : t === 'history' ? 'История' : `💬 Чат${msgCount > 0 ? ` (${msgCount})` : ''}`}
                 {tab === t ? ' ▲' : ' ▼'}
               </button>
             ))}
@@ -390,6 +395,11 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings 
                 ))
               }
             </div>
+          )}
+
+          {/* Чат */}
+          {tab === 'chat' && (
+            <CardChat cardId={order.id} myId={myId} height={340} onCount={setMsgCount} />
           )}
 
           {/* Трекинг */}
@@ -2071,6 +2081,7 @@ export default function AdminApp({ user }: Props) {
           suppliers={settings?.suppliers || []}
           toast={showToast}
           settings={settings}
+          myId={user.id}
         />
       )}
 

@@ -228,3 +228,16 @@ model PaymentStatus {
   name   String  @unique
   active Boolean @default(true)
 }
+
+// Чат по карточке заказа (участники обсуждают конкретную карту).
+model CardMessage {
+  id        String   @id @default(cuid())
+  cardId    String
+  userId    String
+  userName  String
+  role      String
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([cardId, createdAt])
+}
