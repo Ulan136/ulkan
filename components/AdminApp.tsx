@@ -86,15 +86,25 @@ const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: '#8a847
 
 // ─── Модалка деталей карточки ────────────────────────────────────────────────
 
-function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings }: {
+function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings, userRole }: {
   order: Order; onClose: () => void
   onAction: (id: string, action: string, payload?: Record<string, unknown>) => Promise<void>
   suppliers: { id: string; name: string }[]; toast: (m: string) => void
   settings: SettingsData | null
+  userRole: string
 }) {
   const [history, setHistory] = useState<any[]>([])
   const [tab, setTab] = useState<'positions' | 'history' | null>(null)
   const [editPos, setEditPos] = useState<string | null>(null)
+  const [priceEdit, setPriceEdit] = useState<{ qty: string; price: string }>({ qty: '', price: '' })
+  // Правка цены/кол-ва позиций разрешена super_admin и bookkeeper на экранах
+  // К учёту (accounting) и Бухгалтерии (bookkeeping). Реюз действия updatePosDetail.
+  const canEditMoney = (order.screen === 'accounting' || order.screen === 'bookkeeping') && ['super_admin', 'bookkeeper'].includes(userRole)
+  function startMoneyEdit(p: any) { setEditPos(p.id); setPriceEdit({ qty: String(p.qty ?? ''), price: String(p.price ?? '') }) }
+  async function saveMoneyEdit(posId: string) {
+    await onAction(order.id, 'updatePosDetail', { posId, qty: Number(priceEdit.qty) || 0, price: Number(priceEdit.price) || 0 })
+    setEditPos(null)
+  }
   const [addPos, setAddPos] = useState(false)
   const [newPos, setNewPos] = useState({ name1c: '', oral: '', qty: '', unit: 'шт', price: '', resp: '', supplier: '', supplierId: '', status: 'В работе' })
   const pct = cardProgress(order)
@@ -243,11 +253,16 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings 
                       <th style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>НАИМЕНОВАНИЕ</th>
                       <th style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'right' }}>КОЛ-ВО</th>
                       <th style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>СТАТУС</th>
+                      {canEditMoney && <th style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'right' }}>ЦЕНА</th>}
                       {order.screen === 'bookkeeping' && <th style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'right' }}>СУММА</th>}
+                      {canEditMoney && <th style={{ padding: '7px 10px' }} />}
                     </tr>
                   </thead>
                   <tbody>
-                    {order.positions.map((p, i) => (
+                    {order.positions.map((p, i) => {
+                      const editing = canEditMoney && editPos === p.id
+                      const moneyInp: React.CSSProperties = { width: 74, padding: '4px 6px', borderRadius: 6, border: '1.5px solid #e6e2dc', fontSize: 12, textAlign: 'right', fontFamily: 'inherit' }
+                      return (
                       <tr key={p.id} style={{ borderTop: '1px solid #f1efec' }}>
                         <td style={{ padding: '8px 10px', fontSize: 12, color: '#8a847c' }}>{i + 1}</td>
                         <td style={{ padding: '8px 10px' }}>
@@ -258,19 +273,40 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings 
                           {p.supplier && <div style={{ fontSize: 11, color: '#8a847c' }}>Поставщик: {p.supplier}</div>}
                         </td>
                         <td style={{ padding: '8px 10px', fontSize: 13, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          {p.qty > 0 ? `${p.qty} ${p.unit}` : <span style={{ color: '#8a847c' }}>—</span>}
+                          {editing
+                            ? <input type="number" inputMode="decimal" value={priceEdit.qty} onChange={e => setPriceEdit(v => ({ ...v, qty: e.target.value }))} style={moneyInp} />
+                            : (p.qty > 0 ? `${p.qty} ${p.unit}` : <span style={{ color: '#8a847c' }}>—</span>)}
                         </td>
                         <td style={{ padding: '8px 10px' }}>
                           <StatusBadge status={p.status} />
                           {p.late && <span style={{ fontSize: 10, background: '#faeaea', color: '#b03020', padding: '1px 5px', borderRadius: 20, fontWeight: 600, marginLeft: 4 }}>!</span>}
                         </td>
+                        {canEditMoney && (
+                          <td style={{ padding: '8px 10px', fontSize: 13, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            {editing
+                              ? <input type="number" inputMode="decimal" value={priceEdit.price} onChange={e => setPriceEdit(v => ({ ...v, price: e.target.value }))} style={moneyInp} />
+                              : (p.price > 0 ? fmtMoney(p.price) : <span style={{ color: '#8a847c' }}>—</span>)}
+                          </td>
+                        )}
                         {order.screen === 'bookkeeping' && (
                           <td style={{ padding: '8px 10px', fontSize: 13, fontWeight: 600, textAlign: 'right', color: COLORS.primary }}>
                             {p.price > 0 ? fmtMoney(p.qty * p.price) : '—'}
                           </td>
                         )}
+                        {canEditMoney && (
+                          <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                            {editing ? (
+                              <span style={{ display: 'inline-flex', gap: 4 }}>
+                                <button onClick={() => saveMoneyEdit(p.id)} style={{ padding: '4px 8px', borderRadius: 6, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>✓</button>
+                                <button onClick={() => setEditPos(null)} style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', color: '#8a847c' }}>×</button>
+                              </span>
+                            ) : (
+                              <button onClick={() => startMoneyEdit(p)} style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', color: '#8a847c' }}>✎ цена</button>
+                            )}
+                          </td>
+                        )}
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                 </table>
               )}
@@ -2105,6 +2141,7 @@ export default function AdminApp({ user }: Props) {
           suppliers={settings?.suppliers || []}
           toast={showToast}
           settings={settings}
+          userRole={user.role}
         />
       )}
 
