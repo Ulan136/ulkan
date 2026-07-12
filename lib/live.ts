@@ -45,6 +45,9 @@ function getPusherClient(): any {
     // Динамический require, чтобы pusher-js не попадал в серверный бандл
     const Pusher = require('pusher-js')
     pusherClient = new Pusher(key, { cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'ap2' })
+    // Диагностика: состояние WS-подключения (backgrounded/suspend → disconnected)
+    pusherClient.connection?.bind('state_change', (s: any) =>
+      console.debug('[live] Pusher connection:', s.previous, '→', s.current))
   } catch {
     pusherClient = null
   }
@@ -56,12 +59,14 @@ class PusherTransport implements LiveTransport {
   subscribe(channel: string, onSignal: () => void): () => void {
     const client = getPusherClient()
     // если Pusher недоступен в рантайме — деградируем в polling
-    if (!client) return this.safetyPoll.subscribe(channel, onSignal)
+    if (!client) { console.debug('[live] Pusher недоступен → polling:', channel); return this.safetyPoll.subscribe(channel, onSignal) }
     const ch = client.subscribe(channel)  // идемпотентно; канал держим на весь сеанс
-    ch.bind('signal', onSignal)
-    const stopPoll = this.safetyPoll.subscribe(channel, onSignal)  // страховка 60с
+    const handler = () => { console.debug('[live] Pusher signal получен:', channel); onSignal() }
+    ch.bind('signal', handler)
+    console.debug('[live] подписка Pusher на канал:', channel)
+    const stopPoll = this.safetyPoll.subscribe(channel, onSignal)  // страховка (короткий интервал)
     return () => {
-      try { ch.unbind('signal', onSignal) } catch {}
+      try { ch.unbind('signal', handler) } catch {}
       stopPoll()
       // сам канал не отписываем — на нём могут остаться другие подписчики
     }
@@ -74,7 +79,7 @@ export function getTransport(): LiveTransport {
   if (transport) return transport
   const hasPusher = typeof window !== 'undefined' && !!process.env.NEXT_PUBLIC_PUSHER_KEY
   transport = hasPusher
-    ? new PusherTransport(new PollingTransport(60000))
+    ? new PusherTransport(new PollingTransport(20000))  // страховка 20с (если WS пропустил ивент)
     : new PollingTransport(10000)
   return transport
 }
@@ -95,7 +100,8 @@ export function useLiveData(
   useEffect(() => {
     loadRef.current()
     const onSignal = () => {
-      if (pausedRef?.current) { pendingRef.current = true; return }
+      if (pausedRef?.current) { pendingRef.current = true; console.debug('[live] сигнал ОТЛОЖЕН (пауза редактирования):', channel); return }
+      console.debug('[live] сигнал → load():', channel)
       loadRef.current()
     }
     const unsub = getTransport().subscribe(channel, onSignal)

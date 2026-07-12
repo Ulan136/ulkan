@@ -124,6 +124,13 @@ export default function LogistPortal({ user, logistUser }: Props) {
     }).catch(() => {})
   }, [])
 
+  // editingRef не должен залипать: нет открытого редактора → пауза снята (сигналы применяются).
+  useEffect(() => { if (editPosId === null && addingCardId === null) editingRef.current = false }, [editPosId, addingCardId])
+  // Смена вкладки закрывает открытые редакторы (иначе пауза залипла бы после навигации)
+  useEffect(() => { setEditPosId(null); setAddingCardId(null) }, [tab])
+  // Сброс паузы при размонтировании
+  useEffect(() => () => { editingRef.current = false }, [])
+
   // ── Позиции КО МНЕ (resp = моё имя, leg=2 — второе плечо, статус не Доставлено) ──
   const posIn = orders.flatMap(o =>
     o.positions

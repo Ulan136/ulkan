@@ -97,6 +97,12 @@ export default function BranchPortal({ user, branchUser }: Props) {
   // во время редактирования позиции — сигнал копится и применяется после.
   useLiveData('orders', load, [], editingRef)
 
+  // editingRef не должен залипать: нет открытого редактора → пауза снята.
+  useEffect(() => { if (editPosId === null && addingCardId === null) editingRef.current = false }, [editPosId, addingCardId])
+  // Смена вкладки закрывает открытые редакторы (иначе пауза залипла бы)
+  useEffect(() => { setEditPosId(null); setAddingCardId(null) }, [tab])
+  useEffect(() => () => { editingRef.current = false }, [])
+
   async function loadHistory(orderId: string) {
     if (history[orderId]) return
     try {
