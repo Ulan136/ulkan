@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getSessionFromRequest } from '@/lib/auth'
 import { incomeStock } from '@/lib/stock'
+import { CENTER_SKLAD } from '@/services/stockOps'
 
 export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req)
@@ -14,8 +15,8 @@ export async function POST(req: NextRequest) {
     if (!name || !qty) return NextResponse.json({ error: 'Название и количество обязательны' }, { status: 400 })
 
     // Найти Центр Склад
-    const centerSklad = await prisma.supplier.findFirst({ where: { name: 'Центр Склад' } })
-    if (!centerSklad) return NextResponse.json({ error: 'Центр Склад не найден в справочнике' }, { status: 404 })
+    const centerSklad = await prisma.supplier.findFirst({ where: { name: CENTER_SKLAD } })
+    if (!centerSklad) return NextResponse.json({ error: `${CENTER_SKLAD} не найден в справочнике` }, { status: 404 })
 
     await incomeStock(name, Number(qty), centerSklad.id)
 

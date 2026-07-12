@@ -3,9 +3,9 @@ import prisma from '@/lib/prisma'
 import { requireSession } from '@/lib/auth'
 import { generateCardId, generateTrackingLink, generatePosId } from '@/lib/ids'
 import { notifyAdmins } from '@/lib/notifications'
-import { reserveStock } from '@/lib/stock'
 import { orderInclude } from '@/lib/orderMetrics'
 import { branchNameSet } from '@/services/legDetection'
+import { reserveCenterSkladPositions } from '@/services/stockOps'
 import { pushSignal } from '@/lib/pusherServer'
 
 export async function GET(req: NextRequest) {
@@ -82,11 +82,7 @@ export async function POST(req: NextRequest) {
     })
 
     // Резервируем склад для позиций с Центр Склад
-    for (const pos of order.positions) {
-      if (pos.supplier === 'Центр Склад' && pos.qty > 0) {
-        await reserveStock(pos.id, pos.name1c || pos.oral, pos.qty)
-      }
-    }
+    await reserveCenterSkladPositions(order.positions)
 
     await notifyAdmins(`Новая карточка ${id} от ${from}`, id)
     await pushSignal('orders')

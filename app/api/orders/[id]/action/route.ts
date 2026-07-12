@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma'
 import { requireSession } from '@/lib/auth'
 import { generatePosId } from '@/lib/ids'
 import { notifyAdmins, notify } from '@/lib/notifications'
-import { releaseStock, reserveStock } from '@/lib/stock'
+import { reserveCenterSkladPositions, incomeOnDeliveryToCenter, releaseDeliveredPosition, CENTER_SKLAD } from '@/services/stockOps'
 import { orderInclude } from '@/lib/orderMetrics'
 import { legForSupplier } from '@/services/legDetection'
 import { pushSignal } from '@/lib/pusherServer'
@@ -64,13 +64,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         updateData = { screen: 'outgoing', status: 'В работе', block: '' }
         historyText = 'Отправлен в Исходящие'
         // leg — per-position (проставлен при создании позиции), карточку не трогаем.
-        // Резервируем позиции с Центр Склад
-        const posToReserve = order.positions.filter(p => p.supplier === 'Центр Склад' && p.qty > 0 && p.name1c)
-        for (const pos of posToReserve) {
-          await reserveStock(pos.id, pos.name1c, pos.qty)
-        }
-        if (posToReserve.length > 0) {
-          historyText = `Отправлен в Исходящие (зарезервировано ${posToReserve.length} позиций на складе)`
+        // Резервируем позиции с Центр Склад (process исторически требует name1c)
+        const reserved = await reserveCenterSkladPositions(order.positions, { requireName1c: true })
+        if (reserved > 0) {
+          historyText = `Отправлен в Исходящие (зарезервировано ${reserved} позиций на складе)`
         }
         break
       }
@@ -82,8 +79,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
         // Если позиция с Центр Склад → Доставлено — списываем
         const pos = order.positions.find(p => p.id === posId)
-        if (pos && pos.supplier === 'Центр Склад' && posStatus === 'Доставлено') {
-          await releaseStock(posId, pos.name1c || pos.oral, pos.qty)
+        if (pos && posStatus === 'Доставлено') {
+          await releaseDeliveredPosition(pos)
         }
 
         // Сохраняем историю логиста — строка смены
@@ -113,17 +110,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           await notifyAdmins(`Заказ ${id} полностью доставлен`, id)
 
           // Если получатель = Центр Склад → автоматический приход на склад
-          if (order.to === 'Центр Склад') {
-            const { incomeStock } = await import('@/lib/stock')
-            const centerSklad = await prisma.supplier.findFirst({ where: { name: 'Центр Склад' } })
-            if (centerSklad) {
-              for (const pos of updatedPositions) {
-                if (pos.name1c && pos.qty > 0) {
-                  await incomeStock(pos.name1c, pos.qty, centerSklad.id)
-                }
-              }
-              historyText = `Все позиции доставлены → приход на склад (${updatedPositions.length} позиций)`
-            }
+          const incomed = await incomeOnDeliveryToCenter(order, updatedPositions)
+          if (incomed !== null) {
+            historyText = `Все позиции доставлены → приход на склад (${incomed} позиций)`
           }
         }
         break
@@ -138,17 +127,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         if (order.contactId) await notify(order.contactId, `Заказ ${id} доставлен!`, id)
 
         // Если получатель = Центр Склад → автоматический приход на склад
-        if (order.to === 'Центр Склад') {
-          const { incomeStock } = await import('@/lib/stock')
-          const centerSklad = await prisma.supplier.findFirst({ where: { name: 'Центр Склад' } })
-          if (centerSklad) {
-            for (const pos of allPositions) {
-              if (pos.name1c && pos.qty > 0) {
-                await incomeStock(pos.name1c, pos.qty, centerSklad.id)
-              }
-            }
-            historyText = `Все позиции доставлены → приход на склад (${allPositions.length} позиций)`
-          }
+        const incomedAll = await incomeOnDeliveryToCenter(order, allPositions)
+        if (incomedAll !== null) {
+          historyText = `Все позиции доставлены → приход на склад (${incomedAll} позиций)`
         }
         break
       }
@@ -311,9 +292,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           },
         })
         // Если поставщик = Центр Склад → резервируем
-        if (payload.supplier === 'Центр Склад' && payload.qty > 0) {
-          await reserveStock(newPos.id, payload.name1c || payload.oral, payload.qty)
-        }
+        await reserveCenterSkladPositions([newPos])
         historyText = `Добавлена позиция: ${payload.name1c || payload.oral}`
         // Уведомляем логиста только для позиции второго плеча (leg=2) — при leg=1
         // позиция ещё у филиала-изготовителя, логист её пока не видит.
@@ -360,7 +339,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           },
         })
         // Обновляем резерв если поставщик Центр Склад
-        if (oldPos && oldPos.supplier === 'Центр Склад' && posData.supplier === 'Центр Склад') {
+        if (oldPos && oldPos.supplier === CENTER_SKLAD && posData.supplier === CENTER_SKLAD) {
           const diff = (Number(posData.qty) || 0) - oldPos.qty
           if (diff !== 0) {
             const { updateReserve } = await import('@/lib/stock')
