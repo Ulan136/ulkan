@@ -8,6 +8,7 @@ import { updateReserve } from '@/lib/stock'
 import { reserveCenterSkladPositions, incomeOnDeliveryToCenter, releaseDeliveredPosition, CENTER_SKLAD } from '@/services/stockOps'
 import { POS_STATUS, CARD_STATUS, SCREENS } from '@/lib/orderStatus'
 import { almatyDay } from '@/lib/reportDay'
+import { isHandedOff, isInDelivery, eqName } from '@/lib/positionState'
 
 // Порядок статусов позиции для определения движения назад (revert).
 const STATUS_ORDER = [POS_STATUS.working, POS_STATUS.readyToShip, POS_STATUS.inTransit, POS_STATUS.delivered]
@@ -302,11 +303,12 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
     },
   },
 
-  // ── Филиал: передать логисту ТОЛЬКО свои позиции (плечо 1 → 2) ──
+  // ── Филиал: передать логисту свои принятые позиции (leg проставляем →2) ──
   branchForward: {
     guard: (ctx) => {
-      const me = (ctx.payload.branchName || ctx.session.name || '').trim().toLowerCase()
-      const mine = ctx.order.positions.filter(p => (p.supplier || '').trim().toLowerCase() === me && p.leg === 1)
+      const me = ctx.payload.branchName || ctx.session.name
+      // Передаём принятые филиалом (по статусу, не по leg)
+      const mine = ctx.order.positions.filter(p => eqName(p.supplier, me) && p.status === POS_STATUS.acceptedByBranch)
       if (mine.length === 0) return 'Нет позиций для передачи'
       ctx.scratch.mine = mine
       return null
@@ -314,6 +316,7 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
     effects: async (ctx) => {
       const { order, prisma, scratch } = ctx
       const mine: Position[] = scratch.mine
+      // leg=2 нужен фильтру логиста (его не трогаем); статус → «Готово к отгрузке»
       await prisma.position.updateMany({ where: { id: { in: mine.map(p => p.id) } }, data: { leg: 2, status: POS_STATUS.readyToShip } })
       scratch.count = mine.length
       const fwdResp = [...new Set(mine.map(p => p.resp).filter(Boolean))]
@@ -325,12 +328,12 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
     history: (ctx) => `Филиал ${ctx.payload.branchName || ctx.session.name} передал логисту (${ctx.scratch.count} поз.)`,
   },
 
-  // ── Филиал: принял ТОЛЬКО свои позиции (leg=1) ──
+  // ── Филиал: принял свои позиции «В работе» → «Принято филиалом» (по статусу) ──
   branchAccept: {
     effects: async (ctx) => {
       const { order, payload, session, prisma, scratch } = ctx
-      const me = (payload.branchName || session.name || '').trim().toLowerCase()
-      const mine = order.positions.filter(p => (p.supplier || '').trim().toLowerCase() === me && p.leg === 1)
+      const me = payload.branchName || session.name
+      const mine = order.positions.filter(p => eqName(p.supplier, me) && p.status === POS_STATUS.working)
       if (mine.length > 0) {
         await prisma.position.updateMany({ where: { id: { in: mine.map(p => p.id) } }, data: { status: POS_STATUS.acceptedByBranch } })
       }
@@ -339,20 +342,22 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
     history: (ctx) => `Товар принят филиалом ${ctx.payload.branchName || ctx.session.name} (${ctx.scratch.count} поз.)`,
   },
 
-  // ── Филиал: вернуть свои переданные позиции (до начала доставки) ──
+  // ── Филиал: вернуть свои переданные позиции (до начала доставки; leg →1) ──
   branchRecall: {
     guard: (ctx) => {
       if (ctx.session.role !== 'branch') return { error: 'Возврат доступен только филиалу', status: 403 }
-      const me = ctx.session.name.trim().toLowerCase()
-      const mine = ctx.order.positions.filter(p => (p.supplier || '').trim().toLowerCase() === me && p.leg === 2)
+      const me = ctx.session.name
+      // Переданные логисту (по статусу, не по leg)
+      const mine = ctx.order.positions.filter(p => eqName(p.supplier, me) && isHandedOff(p))
       if (mine.length === 0) return 'Нет переданных позиций для возврата'
-      if (mine.some(p => p.status === POS_STATUS.inTransit || p.status === POS_STATUS.delivered)) return 'Логист уже начал доставку, возврат невозможен'
+      if (mine.some(isInDelivery)) return 'Логист уже начал доставку, возврат невозможен'
       ctx.scratch.mine = mine
       return null
     },
     effects: async (ctx) => {
       const { order, session, prisma, scratch } = ctx
       const mine: Position[] = scratch.mine
+      // leg=1 нужен фильтру логиста (его не трогаем): позиция уходит из его списка
       await prisma.position.updateMany({ where: { id: { in: mine.map(p => p.id) } }, data: { leg: 1, status: POS_STATUS.acceptedByBranch } })
       scratch.count = mine.length
       const recallResp = [...new Set(mine.map(p => p.resp).filter(Boolean))]
