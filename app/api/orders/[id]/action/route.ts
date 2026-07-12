@@ -287,6 +287,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             return NextResponse.json({ error: 'Филиал может добавлять только свои позиции' }, { status: 403 })
           }
         }
+        // Логист: добавлять только в карточку, где у него уже есть позиция, и только с resp = своё имя
+        if (session.role === 'logist') {
+          const me = session.name.trim().toLowerCase()
+          const already = order.positions.some(p => (p.resp || '').trim().toLowerCase() === me)
+          if (!already || (payload.resp || '').trim().toLowerCase() !== me) {
+            return NextResponse.json({ error: 'Логист может добавлять только свои позиции' }, { status: 403 })
+          }
+        }
         const existing = await prisma.position.findMany({ where: { cardId: id } })
         const newId = generatePosId(id, existing.length + 1)
         const posLeg = await legForSupplier(payload.supplier)  // поставщик-филиал → 1
@@ -323,6 +331,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // Филиал может менять только свои позиции (supplier = его имя).
         if (session.role === 'branch' && (oldPos?.supplier || '').trim().toLowerCase() !== session.name.trim().toLowerCase()) {
           return NextResponse.json({ error: 'Филиал может менять только свои позиции' }, { status: 403 })
+        }
+        // Логист может менять только свои позиции (resp = его имя).
+        if (session.role === 'logist' && (oldPos?.resp || '').trim().toLowerCase() !== session.name.trim().toLowerCase()) {
+          return NextResponse.json({ error: 'Логист может менять только свои позиции' }, { status: 403 })
         }
         // Частичный payload безопасен: неуказанные поля берём из oldPos.
         // Плечо позиции пересчитываем ТОЛЬКО при смене поставщика (иначе не трогаем —

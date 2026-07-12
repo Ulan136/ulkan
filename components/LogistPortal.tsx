@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { orderAction, createOrder, createDailyReport, logout } from '@/lib/api'
+import { orderAction, createOrder, createDailyReport, logout, fetchSettings } from '@/lib/api'
 import { useLiveData } from '@/lib/live'
+import { PositionEditor, AddPositionForm, editBtn } from '@/components/PositionEditors'
 import InstallPrompt from '@/components/InstallPrompt'
 import { Order, SessionUser } from '@/lib/types'
 
@@ -67,6 +68,11 @@ export default function LogistPortal({ user, logistUser }: Props) {
   const [toast, setToast] = useState('')
   const [updating, setUpdating] = useState<string | null>(null)
   const [sessionExpired, setSessionExpired] = useState(false)
+  // Редактирование состава заказа логистом
+  const editingRef = useRef(false)
+  const [editPosId, setEditPosId] = useState<string | null>(null)
+  const [addingCardId, setAddingCardId] = useState<string | null>(null)
+  const [suppliers, setSuppliers] = useState<string[]>([])
 
   // Новый заказ
   const [newTo, setNewTo] = useState('')
@@ -108,7 +114,15 @@ export default function LogistPortal({ user, logistUser }: Props) {
   }, [])
 
   // Realtime канал 'orders' (+ polling-fallback). Загрузка при монтировании и по сигналу.
-  useLiveData('orders', load, [])
+  useLiveData('orders', load, [], editingRef)
+
+  // Список поставщиков для селекта при добавлении позиции (тот же источник, что на приёмке)
+  useEffect(() => {
+    fetchSettings().then((s: any) => {
+      const names = (s?.suppliers || []).map((x: any) => x.name).filter(Boolean)
+      setSuppliers(names)
+    }).catch(() => {})
+  }, [])
 
   // ── Позиции КО МНЕ (resp = моё имя, leg=2 — второе плечо, статус не Доставлено) ──
   const posIn = orders.flatMap(o =>
@@ -340,21 +354,44 @@ export default function LogistPortal({ user, logistUser }: Props) {
 
   // ── Карточка позиции ──
   function PosCard({ pos, order }: { pos: any; order: Order }) {
+    // Редактировать/добавлять можно только СВОИ позиции (resp==я), ещё не доставленные
+    const editable = eqName(pos.resp, myName) && pos.status !== 'Доставлено'
     return (
       <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 12, boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, flex: 1 }}>{pos.name1c || pos.oral}</div>
-          <span style={{ fontWeight: 700, fontSize: 18, color: PRIMARY, marginLeft: 10 }}>{pos.qty} {pos.unit}</span>
-        </div>
-        <div style={{ fontSize: 13, color: '#8a847c', marginBottom: 4 }}>{order.from} → {order.to || '—'}</div>
-        {order.comment && <div style={{ fontSize: 12, background: '#f8f6f3', borderRadius: 6, padding: '6px 10px', marginBottom: 6 }}>{order.comment.slice(0, 80)}</div>}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: PRIMARY, fontWeight: 600 }}>{order.id}</span>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#a39c92' }}>{pos.id}</span>
-          {pos.late && <span style={{ fontSize: 10, background: '#faeaea', color: '#b03020', padding: '1px 6px', borderRadius: 20, fontWeight: 600 }}>ПРОСРОЧ.</span>}
-          <span style={{ fontSize: 10, background: pos.status === 'Доставлено' ? '#e8f5ee' : '#fff0ea', color: pos.status === 'Доставлено' ? '#2e8a5e' : '#c0532a', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{pos.status}</span>
-        </div>
-        <StatusBtns cardId={order.id} posId={pos.id} posStatus={pos.status} posName={pos.name1c || pos.oral} fromWho={pos.supplier || order.from} toWho={order.to || ''} qty={pos.qty} />
+        {editPosId === pos.id ? (
+          <PositionEditor pos={pos} orderId={order.id}
+            onEditing={e => { editingRef.current = e }}
+            onSaved={m => { editingRef.current = false; setEditPosId(null); load(); showMsg(m) }}
+            onCancel={() => { editingRef.current = false; setEditPosId(null) }} />
+        ) : (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+              <div style={{ fontWeight: 700, fontSize: 16, flex: 1 }}>{pos.name1c || pos.oral}</div>
+              <span style={{ fontWeight: 700, fontSize: 18, color: PRIMARY, marginLeft: 10 }}>{pos.qty} {pos.unit}</span>
+            </div>
+            <div style={{ fontSize: 13, color: '#8a847c', marginBottom: 4 }}>{order.from} → {order.to || '—'}</div>
+            {order.comment && <div style={{ fontSize: 12, background: '#f8f6f3', borderRadius: 6, padding: '6px 10px', marginBottom: 6 }}>{order.comment.slice(0, 80)}</div>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: PRIMARY, fontWeight: 600 }}>{order.id}</span>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#a39c92' }}>{pos.id}</span>
+              {pos.late && <span style={{ fontSize: 10, background: '#faeaea', color: '#b03020', padding: '1px 6px', borderRadius: 20, fontWeight: 600 }}>ПРОСРОЧ.</span>}
+              <span style={{ fontSize: 10, background: pos.status === 'Доставлено' ? '#e8f5ee' : '#fff0ea', color: pos.status === 'Доставлено' ? '#2e8a5e' : '#c0532a', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{pos.status}</span>
+              {editable && <button onClick={() => { editingRef.current = true; setEditPosId(pos.id) }} style={{ ...editBtn(false), marginLeft: 'auto' }}>Изменить</button>}
+            </div>
+            <StatusBtns cardId={order.id} posId={pos.id} posStatus={pos.status} posName={pos.name1c || pos.oral} fromWho={pos.supplier || order.from} toWho={order.to || ''} qty={pos.qty} />
+            {editable && (addingCardId === order.id ? (
+              <AddPositionForm orderId={order.id} resp={myName} supplierOptions={suppliers}
+                onEditing={e => { editingRef.current = e }}
+                onAdded={m => { editingRef.current = false; setAddingCardId(null); load(); showMsg(m) }}
+                onCancel={() => { editingRef.current = false; setAddingCardId(null) }} />
+            ) : (
+              <button onClick={() => { editingRef.current = true; setAddingCardId(order.id) }}
+                style={{ marginTop: 10, width: '100%', padding: '9px', border: '1.5px dashed #d8d3cc', borderRadius: 8, background: 'none', cursor: 'pointer', fontSize: 13, color: '#8a847c', fontFamily: 'inherit', fontWeight: 600 }}>
+                ＋ Добавить позицию
+              </button>
+            ))}
+          </>
+        )}
       </div>
     )
   }
