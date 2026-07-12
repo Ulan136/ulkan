@@ -29,6 +29,6 @@ export async function POST(req: NextRequest) {
   })
 
   await notifyBookkeepers(`Новый отчёт от ${session.name} за ${new Date(date).toLocaleDateString('ru-RU')}`)
-  pushSignal('reports')
+  await pushSignal('reports')
   return NextResponse.json(report, { status: 201 })
 }

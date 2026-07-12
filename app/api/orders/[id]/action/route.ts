@@ -391,7 +391,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const updated = await prisma.order.findUnique({ where: { id }, include: orderInclude })
-    pushSignal('orders')
+    await pushSignal('orders')  // после ВСЕХ записей БД и перед ответом
     return NextResponse.json({ success: true, order: updated })
   } catch (e) {
     console.error(e)

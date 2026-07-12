@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
     if (rowData.length > 0) {
       await prisma.dailyReportRow.createMany({ data: rowData.map(d => ({ ...d, reportId: existing.id })) })
     }
-    pushSignal('reports')
+    await pushSignal('reports')
     return NextResponse.json({ ok: true })
   } else {
     const draft = await prisma.dailyReport.create({
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
         rows: rowData.length > 0 ? { create: rowData } : undefined,
       },
     })
-    pushSignal('reports')
+    await pushSignal('reports')
     return NextResponse.json({ ok: true, id: draft.id })
   }
 }
@@ -110,6 +110,6 @@ export async function DELETE(req: NextRequest) {
   await prisma.dailyReport.deleteMany({
     where: { logistId: session.id, status: 'draft', date: { gte: dayKey, lt: nextKey } },
   })
-  pushSignal('reports')
+  await pushSignal('reports')
   return NextResponse.json({ ok: true })
 }

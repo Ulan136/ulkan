@@ -10,6 +10,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params
   const { status } = await req.json()
   const report = await prisma.dailyReport.update({ where: { id }, data: { status }, include: { logist: true, rows: true } })
-  pushSignal('reports')
+  await pushSignal('reports')
   return NextResponse.json(report)
 }

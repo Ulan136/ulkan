@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
     }
 
     await notifyAdmins(`Новая карточка ${id} от ${from}`, id)
-    pushSignal('orders')
+    await pushSignal('orders')
     return NextResponse.json(order, { status: 201 })
   } catch (e) {
     console.error(e)

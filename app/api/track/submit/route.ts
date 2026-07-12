@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     })
 
     await notifyAdmins(`Внешняя заявка ${cardId} от ${name} (${normPhone})`, cardId)
-    pushSignal('orders')
+    await pushSignal('orders')
 
     return NextResponse.json({ cardId, trackingUrl: trackingLink, clientUrl }, { status: 201 })
   } catch (e) {

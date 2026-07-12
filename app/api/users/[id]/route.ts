@@ -49,7 +49,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       ])
     }
 
-    pushSignal('orders')  // переименование каскадит в from/to/resp карточек
+    await pushSignal('orders')  // переименование каскадит в from/to/resp карточек
     return NextResponse.json(user)
   } catch (e: any) {
     if (e.code === 'P2002') return NextResponse.json({ error: 'Email или телефон уже существует' }, { status: 409 })
