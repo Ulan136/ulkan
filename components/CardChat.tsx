@@ -39,7 +39,6 @@ export default function CardChat({ cardId, myId, height = 300, onCount }: {
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [denied, setDenied] = useState(false) // 401/403 — вход в чат закрыт
-  const editingRef = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const onCountRef = useRef(onCount); onCountRef.current = onCount
 
@@ -55,9 +54,10 @@ export default function CardChat({ cardId, myId, height = 300, onCount }: {
     } catch { setError('Нет связи. Обновите страницу.') } finally { setLoaded(true) }
   }, [cardId])
 
-  // Пауза live пока набирают текст — сигнал копится, ввод не сбрасывается.
-  useLiveData('orders', load, [cardId], editingRef)
-  useEffect(() => { editingRef.current = text.trim().length > 0 }, [text])
+  // Лента обновляется даже во время набора: входящие сообщения ДОПОЛНЯЮТ ленту.
+  // Паузы НЕ ставим — textarea это контролируемый инпут (value = state text),
+  // поэтому setMsgs не трогает курсор/фокус, а лента при этом растёт.
+  useLiveData('orders', load, [cardId])
 
   // Автоскролл вниз при новых сообщениях
   useEffect(() => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight }, [msgs.length])
@@ -70,7 +70,7 @@ export default function CardChat({ cardId, myId, height = 300, onCount }: {
       const res = await fetch(`/api/orders/${cardId}/messages`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: t }),
       })
-      if (res.ok) { setText(''); editingRef.current = false; await load() }
+      if (res.ok) { setText(''); await load() }
       else if (res.status === 401 || res.status === 403) { setDenied(true); setError('Чат доступен только участникам заказа') }
       else { setError('Не удалось отправить сообщение') }
     } catch { setError('Нет связи. Попробуйте ещё раз.') } finally { setSending(false) }

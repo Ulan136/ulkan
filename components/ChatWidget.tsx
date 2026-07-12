@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef, memo } from 'react'
 import { useLiveData } from '@/lib/live'
 import CardChat from './CardChat'
 
@@ -25,7 +25,7 @@ const seenKey = (cardId: string) => `chat-seen-${cardId}`
 // Плавающий чат-виджет: пузырь в правом нижнем углу + панель со списком
 // карточек-чатов, доступных мне. «Новые» = createdAt позже моего lastSeen
 // (localStorage, без схемы БД). bottomOffset — поднять над нижним меню порталов.
-export default function ChatWidget({ myId, bottomOffset = 24 }: { myId: string; bottomOffset?: number }) {
+function ChatWidget({ myId, bottomOffset = 24 }: { myId: string; bottomOffset?: number }) {
   const [threads, setThreads] = useState<Thread[]>([])
   const [open, setOpen] = useState(false)
   const [activeCard, setActiveCard] = useState<string | null>(null)
@@ -42,8 +42,14 @@ export default function ChatWidget({ myId, bottomOffset = 24 }: { myId: string; 
     } catch {}
   }, [])
 
+  // Пока открыт конкретный тред — список НЕ перезагружаем (не дёргаем поддерево
+  // с открытым инпутом); сообщения самого треда обновляет CardChat. Флаш при
+  // возврате к списку. Сам виджет мемоизирован → load() кабинета его не трогает.
+  const pausedRef = useRef(false)
+  pausedRef.current = activeCard !== null
+
   // Live по каналу 'orders' (POST message уже шлёт сигнал).
-  useLiveData('orders', load, [])
+  useLiveData('orders', load, [], pausedRef)
 
   function isNew(t: Thread): boolean {
     if (!mounted || !t.lastAt) return false
@@ -94,7 +100,7 @@ export default function ChatWidget({ myId, bottomOffset = 24 }: { myId: string; 
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {active ? (
               <div style={{ flex: 1, padding: '10px 12px', overflow: 'hidden' }}>
-                <CardChat cardId={active.cardId} myId={myId} height="100%" onCount={() => load()} />
+                <CardChat cardId={active.cardId} myId={myId} height="100%" />
               </div>
             ) : (
               <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -124,3 +130,8 @@ export default function ChatWidget({ myId, bottomOffset = 24 }: { myId: string; 
     </>
   )
 }
+
+// Мемоизация — «остров»: перерисовки кабинета (его load()) НЕ трогают поддерево
+// виджета, пока его props (myId/bottomOffset) не меняются → открытый чат и
+// набранный текст переживают любые фоновые обновления списков.
+export default memo(ChatWidget)
