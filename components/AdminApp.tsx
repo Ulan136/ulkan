@@ -43,14 +43,15 @@ function ProgressBar({ pct, height = 5 }: { pct: number; height?: number }) {
   )
 }
 
-function UnifiedSelect({ value, onChange, placeholder = '— выберите —', style: st, settings: s }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; style?: React.CSSProperties; settings: any
+function UnifiedSelect({ value, onChange, placeholder = '— выберите —', style: st, settings: s, roles }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; style?: React.CSSProperties; settings: any; roles?: string[]
 }) {
   const allUsers = s?.users || []
-  const lg = allUsers.filter((u: any) => u.role === 'logist' && u.active !== false)
-  const sp = allUsers.filter((u: any) => u.role === 'supplier_client' && u.active !== false)
-  const cl = allUsers.filter((u: any) => u.role === 'client' && u.active !== false)
-  const br = allUsers.filter((u: any) => u.role === 'branch' && u.active !== false)
+  const show = (r: string) => !roles || roles.includes(r)  // roles задан → показываем только эти роли
+  const lg = show('logist') ? allUsers.filter((u: any) => u.role === 'logist' && u.active !== false) : []
+  const sp = show('supplier_client') ? allUsers.filter((u: any) => u.role === 'supplier_client' && u.active !== false) : []
+  const cl = show('client') ? allUsers.filter((u: any) => u.role === 'client' && u.active !== false) : []
+  const br = show('branch') ? allUsers.filter((u: any) => u.role === 'branch' && u.active !== false) : []
   const INP2: React.CSSProperties = { padding: '9px 12px', borderRadius: 8, fontSize: 13, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', width: '100%' }
   return (
     <select style={{ ...INP2, ...st }} value={value} onChange={e => onChange(e.target.value)}>
@@ -1116,7 +1117,7 @@ export default function AdminApp({ user }: Props) {
                                 )}
                               </td>
                               <td style={{ padding: '6px 4px' }}>
-                                <UnifiedSelect value={pos.resp} onChange={v => recUpdatePos(i, 'resp', v)} placeholder="—" style={selSm} settings={settings} />
+                                <UnifiedSelect value={pos.resp} onChange={v => recUpdatePos(i, 'resp', v)} placeholder="—" style={selSm} settings={settings} roles={['logist']} />
                               </td>
                               <td style={{ padding: '6px 4px' }}>
                                 <UnifiedSelect value={pos.supplier} onChange={v => {
@@ -1289,7 +1290,7 @@ export default function AdminApp({ user }: Props) {
                                   {/* ЛОГИСТ */}
                                   <td style={{ padding: '6px 4px' }}>
                                     {isEditing
-                                      ? <UnifiedSelect value={ed.resp ?? pos.resp} onChange={v => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], resp: v } }))} placeholder="—" style={{ fontSize: 12, padding: '5px 8px', width: 160 }} settings={settings} />
+                                      ? <UnifiedSelect value={ed.resp ?? pos.resp} onChange={v => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], resp: v } }))} placeholder="—" style={{ fontSize: 12, padding: '5px 8px', width: 160 }} settings={settings} roles={['logist']} />
                                       : <span style={{ fontSize: 12 }}>{pos.resp || <span style={{ color: '#b8b1a6' }}>—</span>}</span>
                                     }
                                   </td>

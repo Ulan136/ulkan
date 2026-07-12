@@ -20,7 +20,7 @@ export default function NomSearch({ value, onChange, placeholder = 'Поиск..
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState(false)
   const [selGroup, setSelGroup] = useState('')
-  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 })
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0, maxHeight: 320 })
   const [mounted, setMounted] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -42,9 +42,12 @@ export default function NomSearch({ value, onChange, placeholder = 'Поиск..
   function calcPos() {
     if (!inputRef.current) return
     const rect = inputRef.current.getBoundingClientRect()
-    const spaceBelow = window.innerHeight - rect.bottom
-    const top = spaceBelow > 300 ? rect.bottom + window.scrollY + 4 : rect.top + window.scrollY - 304
-    setDropPos({ top, left: rect.left + window.scrollX, width: Math.max(rect.width, 320) })
+    // ВСЕГДА строго под инпутом (никогда не над ним — иначе накрывает ввод).
+    const top = rect.bottom + window.scrollY + 4
+    // Высота: помещаемся в доступное место снизу, но не выше 40vh → внутренний скролл.
+    const avail = window.innerHeight - rect.bottom - 12
+    const maxHeight = Math.min(Math.round(window.innerHeight * 0.4), Math.max(140, avail))
+    setDropPos({ top, left: rect.left + window.scrollX, width: Math.max(rect.width, 280), maxHeight })
   }
 
   const doSearch = useCallback(async (q: string, group: string) => {
@@ -95,10 +98,10 @@ export default function NomSearch({ value, onChange, placeholder = 'Поиск..
   }
 
   const dropdown = open && mounted ? createPortal(
-    <div id="nom-drop" style={{ position: 'absolute', top: dropPos.top, left: dropPos.left, width: dropPos.width, zIndex: 99999, background: '#fff', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,.2)', border: '1.5px solid #e6e2dc', overflow: 'hidden', maxHeight: 380 }}>
+    <div id="nom-drop" style={{ position: 'absolute', top: dropPos.top, left: dropPos.left, width: dropPos.width, zIndex: 99999, background: '#fff', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,.2)', border: '1.5px solid #e6e2dc', overflow: 'hidden', maxHeight: dropPos.maxHeight, display: 'flex', flexDirection: 'column' }}>
 
       {/* Группы сверху — горизонтальная лента */}
-      <div style={{ padding: '8px 10px', borderBottom: '1px solid #f1efec', display: 'flex', gap: 6, flexWrap: 'wrap', background: '#f8f6f3' }}>
+      <div style={{ padding: '8px 10px', borderBottom: '1px solid #f1efec', display: 'flex', gap: 6, flexWrap: 'wrap', background: '#f8f6f3', flexShrink: 0 }}>
         <button
           onMouseDown={() => handleGroupClick('')}
           style={{ padding: '4px 10px', borderRadius: 20, border: 'none', fontSize: 11, fontWeight: selGroup === '' ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', background: selGroup === '' ? '#d4613a' : '#fff', color: selGroup === '' ? '#fff' : '#8a847c', boxShadow: '0 0 0 1px #e6e2dc' }}
@@ -112,7 +115,7 @@ export default function NomSearch({ value, onChange, placeholder = 'Поиск..
       </div>
 
       {/* Результаты */}
-      <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {loading && <div style={{ padding: '14px', fontSize: 13, color: '#8a847c', textAlign: 'center' }}>Поиск...</div>}
         {!loading && !query && !selGroup && (
           <div style={{ padding: '14px', fontSize: 13, color: '#8a847c', textAlign: 'center' }}>Выберите группу или начните вводить</div>
