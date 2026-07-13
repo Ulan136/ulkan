@@ -96,14 +96,20 @@ export default function BranchPortal({ user, branchUser }: Props) {
     finally { setLoading(false) }
   }, [])
 
-  // Realtime канал 'orders' (+ polling-fallback). editingRef паузит обновление
-  // во время редактирования позиции — сигнал копится и применяется после.
-  useLiveData('orders', load, [], editingRef)
+  // Пауза live-обновления, пока открыт редактор/добавление/ЧАТ. OrderCard объявлен
+  // ВНУТРИ компонента → ре-рендер BranchPortal пересоздаёт его и размонтирует
+  // поддерево (чат/редактор) → гибнет клик/ввод. Пауза — производная от state.
+  const pausedRef = useRef(false)
+  pausedRef.current = editPosId !== null || addingCardId !== null || (selected !== null && detailTab === 'chat')
+
+  // Realtime канал 'orders' (+ polling-fallback). Сигнал копится и применяется после паузы.
+  useLiveData('orders', load, [], pausedRef)
 
   // editingRef не должен залипать: нет открытого редактора → пауза снята.
   useEffect(() => { if (editPosId === null && addingCardId === null) editingRef.current = false }, [editPosId, addingCardId])
-  // Смена вкладки закрывает открытые редакторы (иначе пауза залипла бы)
-  useEffect(() => { setEditPosId(null); setAddingCardId(null) }, [tab])
+  // Смена вкладки закрывает редакторы И сворачивает раскрытую карточку (иначе
+  // pausedRef с открытым чатом залипнет после ухода карточки из DOM).
+  useEffect(() => { setEditPosId(null); setAddingCardId(null); setSelected(null); setDetailTab('positions') }, [tab])
   useEffect(() => () => { editingRef.current = false }, [])
 
   async function loadHistory(orderId: string) {

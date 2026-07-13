@@ -115,8 +115,15 @@ export default function LogistPortal({ user, logistUser }: Props) {
     finally { setLoading(false) }
   }, [])
 
+  // Пауза live-обновления, пока открыт редактор/добавление/ЧАТ. PosCard объявлен
+  // ВНУТРИ компонента → любой ре-рендер LogistPortal пересоздаёт его и
+  // РАЗМОНТИРУЕТ поддерево (чат/редактор) — из-за чего гибнет клик/ввод. Держим
+  // паузу производной от state (обновляется на каждый рендер, не залипает).
+  const pausedRef = useRef(false)
+  pausedRef.current = editPosId !== null || addingCardId !== null || chatOpenPos !== null
+
   // Realtime канал 'orders' (+ polling-fallback). Загрузка при монтировании и по сигналу.
-  useLiveData('orders', load, [], editingRef)
+  useLiveData('orders', load, [], pausedRef)
 
   // Список поставщиков для селекта при добавлении позиции (тот же источник, что на приёмке)
   useEffect(() => {
@@ -128,8 +135,9 @@ export default function LogistPortal({ user, logistUser }: Props) {
 
   // editingRef не должен залипать: нет открытого редактора → пауза снята (сигналы применяются).
   useEffect(() => { if (editPosId === null && addingCardId === null) editingRef.current = false }, [editPosId, addingCardId])
-  // Смена вкладки закрывает открытые редакторы (иначе пауза залипла бы после навигации)
-  useEffect(() => { setEditPosId(null); setAddingCardId(null) }, [tab])
+  // Смена вкладки закрывает редакторы И чат (иначе pausedRef залипнет: карточка
+  // ушла из DOM, а chatOpenPos остался → load навсегда на паузе).
+  useEffect(() => { setEditPosId(null); setAddingCardId(null); setChatOpenPos(null) }, [tab])
   // Сброс паузы при размонтировании
   useEffect(() => () => { editingRef.current = false }, [])
 
