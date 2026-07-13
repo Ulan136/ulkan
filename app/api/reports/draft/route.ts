@@ -7,6 +7,7 @@ import { almatyDay } from '@/lib/reportDay'
 function mapRows(rows: any): any[] {
   return (rows || []).map((r: any) => ({
     name: r.name || '',
+    posId: r.posId || '', // авто-строки несут id позиции (идемпотентность через reload)
     qtyIn: Number(r.qtyIn) || 0,
     fromWho: r.fromWho || '',
     commentIn: r.commentIn || '',

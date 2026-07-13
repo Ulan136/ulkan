@@ -33,7 +33,11 @@ function fmtAlmatyDate(iso: string): string {
 }
 function mapDraftRows(rows: any[]): ShiftRow[] {
   return (rows || []).map((r: any) => ({
-    id: r.id, name: r.name, qtyIn: String(r.qtyIn || 0), fromWho: r.fromWho || '',
+    // id авто-строки восстанавливаем детерминированно из posId, чтобы дедуп
+    // по posId работал и после reload черновика (иначе строки задваивались).
+    id: r.posId ? `auto-${r.posId}` : r.id,
+    posId: r.posId || '',
+    name: r.name, qtyIn: String(r.qtyIn || 0), fromWho: r.fromWho || '',
     commentIn: r.commentIn || '', toWho: r.toWho || '', qtyOut: String(r.qtyOut || 0),
     commentOut: r.commentOut || '', invoiceNum: r.invoiceNum || '', auto: true,
   }))
@@ -48,6 +52,7 @@ function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
 // ─── Типы ─────────────────────────────────────────────────────────────────────
 interface ShiftRow {
   id: string
+  posId?: string     // id позиции у авто-строк (идемпотентность); пусто у ручных
   name: string       // наименование товара
   qtyIn: string      // кол-во приход (принято у поставщика)
   fromWho: string    // ОТ КОГО = поставщик позиции (у кого забрал)
@@ -205,11 +210,14 @@ export default function LogistPortal({ user, logistUser }: Props) {
     if (editingDate) return  // редактируем прошлую смену — сегодняшние доставки не подмешиваем
     if (completedToday.length === 0) return
     setShiftRows(prev => {
-      const existingIds = new Set(prev.map(r => r.id))
+      // Идемпотентность по posId: не задваиваем строку доставки (второй путь —
+      // handleStatus — использует тот же posId и id `auto-<posId>`).
+      const existingPosIds = new Set(prev.map(r => r.posId).filter(Boolean))
       const newRows: ShiftRow[] = completedToday
-        .filter(({ pos }) => !existingIds.has(`auto-${pos.id}`))
+        .filter(({ pos }) => !existingPosIds.has(pos.id))
         .map(({ pos, order }) => ({
           id: `auto-${pos.id}`,
+          posId: pos.id,
           name: pos.name1c || pos.oral,
           qtyIn: String(pos.qty),
           fromWho: pos.supplier || order.from,   // ОТ КОГО = поставщик (у кого забрал)
@@ -248,10 +256,12 @@ export default function LogistPortal({ user, logistUser }: Props) {
       await orderAction(cardId, 'updatePos', { posId, status })
       showMsg(`✓ ${status}`)
 
-      // Если Доставлено — добавляем строку в сегодняшнюю смену (не в открытую прошлую)
+      // Если Доставлено — добавляем строку в сегодняшнюю смену (не в открытую прошлую).
+      // id/posId детерминированы → идемпотентно с completedToday-эффектом (без задвоения).
       if (status === 'Доставлено' && !editingDate) {
         const autoRow: ShiftRow = {
-          id: `auto-${posId}-${Date.now()}`,
+          id: `auto-${posId}`,
+          posId,
           name: posName,
           qtyIn: String(qty),
           fromWho,      // передаётся из PosCard = pos.supplier || order.from
@@ -263,8 +273,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
           auto: true,
         }
         setShiftRows(prev => {
-          const exists = prev.find(r => r.id === `auto-${posId}`)
-          if (exists) return prev
+          if (prev.some(r => r.posId === posId)) return prev
           return [...prev, autoRow]
         })
       }
@@ -315,11 +324,14 @@ export default function LogistPortal({ user, logistUser }: Props) {
     if (validRows.length === 0) { showMsg('Добавьте хотя бы одну строку'); return }
     setReportLoading(true)
     try {
-      const reportDay = editingDate || reportDate
+      // День закрытия: прошлая смена (баннер) → дата ТОЙ смены; сегодняшняя →
+      // СЕГОДНЯ Алматы, вычислено СВЕЖИМ на момент закрытия (не из stale reportDate,
+      // который был зафиксирован при монтировании и уезжал через полночь).
+      const reportDay = editingDate || almatyTodayStr()
       await createDailyReport({
         date: reportDay, comment: reportComment,
         rows: validRows.map(r => ({
-          name: r.name, fromWho: r.fromWho, qtyIn: Number(r.qtyIn) || 0, commentIn: r.commentIn,
+          name: r.name, posId: r.posId || '', fromWho: r.fromWho, qtyIn: Number(r.qtyIn) || 0, commentIn: r.commentIn,
           toWho: r.toWho, qtyOut: Number(r.qtyOut) || 0, commentOut: r.commentOut, invoiceNum: r.invoiceNum || '',
         })),
       })
@@ -621,9 +633,14 @@ export default function LogistPortal({ user, logistUser }: Props) {
                   + Добавить строку
                 </button>
 
-                {/* Дата и комментарий */}
+                {/* Дата (только показ — день закрытия вычисляется автоматически) и комментарий */}
                 <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 12 }}>
-                  <div style={{ marginBottom: 12 }}><label style={lbl}>ДАТА</label><input style={inp} type="date" value={reportDate} onChange={e => setReportDate(e.target.value)} /></div>
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={lbl}>ДЕНЬ СМЕНЫ</label>
+                    <div style={{ ...inp, background: '#f8f6f3', color: '#8a847c', display: 'flex', alignItems: 'center' }}>
+                      {(editingDate || almatyTodayStr()).split('-').reverse().join('.')}{editingDate ? ' · прошлая смена' : ' · сегодня'}
+                    </div>
+                  </div>
                   <div><label style={lbl}>КОММЕНТАРИЙ К СМЕНЕ</label><textarea style={{ ...inp, minHeight: 70, resize: 'vertical' }} value={reportComment} onChange={e => setReportComment(e.target.value)} placeholder="Общий комментарий..." /></div>
                 </div>
 

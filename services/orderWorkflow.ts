@@ -127,8 +127,9 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
       }
 
       // 3a: позиция была доставлена и уходит назад — убрать её авто-строку из
-      // сегодняшнего draft-отчёта смены логиста (по имени/получателю). Если смена
-      // уже закрыта (не draft) — строку не трогаем, помечаем в History.
+      // сегодняшнего draft-отчёта смены логиста ТОЧНО по posId (не по имени —
+      // это чинит приблизительную привязку из 4c-2). Если смена уже закрыта
+      // (не draft) — строку не трогаем, помечаем в History.
       if (wasDelivered && backward && pos) {
         const logistUser = await prisma.user.findFirst({ where: { name: pos.resp, role: 'logist' } })
         if (logistUser) {
@@ -138,7 +139,7 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
           })
           if (draft) {
             await prisma.dailyReportRow.deleteMany({
-              where: { reportId: draft.id, name: pos.name1c || pos.oral, toWho: order.to || '' },
+              where: { reportId: draft.id, posId: pos.id },
             })
           } else {
             const closed = await prisma.dailyReport.findFirst({
