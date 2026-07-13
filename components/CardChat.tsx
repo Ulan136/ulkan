@@ -41,6 +41,7 @@ export default function CardChat({ cardId, myId, height = 300, onCount }: {
   const [denied, setDenied] = useState(false) // 401/403 — вход в чат закрыт
   const scrollRef = useRef<HTMLDivElement>(null)
   const onCountRef = useRef(onCount); onCountRef.current = onCount
+  const lastCountRef = useRef<number | null>(null) // onCount дёргаем ТОЛЬКО при смене числа
 
   const load = useCallback(async () => {
     try {
@@ -50,7 +51,10 @@ export default function CardChat({ cardId, myId, height = 300, onCount }: {
       const data = await res.json()
       const arr: Msg[] = Array.isArray(data) ? data : []
       setDenied(false); setError(null); setMsgs(arr)
-      onCountRef.current?.(arr.length)
+      // Сообщаем число родителю только если оно изменилось — иначе identical-обновление
+      // родительского стейта перерисует его и (если карточка — вложенный компонент)
+      // РЕМОНТИРУЕТ этот чат, сбросив loaded в false → вечная «Загрузка…».
+      if (lastCountRef.current !== arr.length) { lastCountRef.current = arr.length; onCountRef.current?.(arr.length) }
     } catch { setError('Нет связи. Обновите страницу.') } finally { setLoaded(true) }
   }, [cardId])
 

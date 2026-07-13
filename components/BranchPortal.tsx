@@ -126,7 +126,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
     setSelected(orderId)
     setDetailTab('positions')
     loadHistory(orderId)
-    fetch(`/api/orders/${orderId}/messages`).then(r => r.ok ? r.json() : []).then((d: any) => setMsgCount(prev => ({ ...prev, [orderId]: Array.isArray(d) ? d.length : 0 }))).catch(() => {})
+    fetch(`/api/orders/${orderId}/messages`).then(r => r.ok ? r.json() : []).then((d: any) => { const n = Array.isArray(d) ? d.length : 0; setMsgCount(prev => prev[orderId] === n ? prev : { ...prev, [orderId]: n }) }).catch(() => {})
   }
 
   // Вкладки — на статусном предикате (не по leg): моя позиция «активна» (ещё у
@@ -330,7 +330,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
             {/* Чат */}
             {detailTab === 'chat' && (
               <div style={{ padding: '10px 16px' }}>
-                <CardChat cardId={o.id} myId={user.id} height={300} onCount={n => setMsgCount(prev => ({ ...prev, [o.id]: n }))} />
+                <CardChat cardId={o.id} myId={user.id} height={300} />
               </div>
             )}
 

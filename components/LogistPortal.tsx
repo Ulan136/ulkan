@@ -340,13 +340,13 @@ export default function LogistPortal({ user, logistUser }: Props) {
             <button onClick={() => {
               const opening = chatOpenPos !== pos.id
               setChatOpenPos(opening ? pos.id : null)
-              if (opening) fetch(`/api/orders/${order.id}/messages`).then(r => r.ok ? r.json() : []).then((d: any) => setMsgCount(prev => ({ ...prev, [order.id]: Array.isArray(d) ? d.length : 0 }))).catch(() => {})
+              if (opening) fetch(`/api/orders/${order.id}/messages`).then(r => r.ok ? r.json() : []).then((d: any) => { const n = Array.isArray(d) ? d.length : 0; setMsgCount(prev => prev[order.id] === n ? prev : { ...prev, [order.id]: n }) }).catch(() => {})
             }} style={{ marginTop: 10, width: '100%', padding: '8px', border: 'none', borderRadius: 8, background: chatOpenPos === pos.id ? PRIMARY : '#f1efec', color: chatOpenPos === pos.id ? '#fff' : '#8a847c', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', fontWeight: 600 }}>
               💬 Чат{msgCount[order.id] ? ` (${msgCount[order.id]})` : ''}
             </button>
             {chatOpenPos === pos.id && (
               <div style={{ marginTop: 10, paddingTop: 4, borderTop: '1px solid #f1efec' }}>
-                <CardChat cardId={order.id} myId={user.id} height={300} onCount={n => setMsgCount(prev => ({ ...prev, [order.id]: n }))} />
+                <CardChat cardId={order.id} myId={user.id} height={300} />
               </div>
             )}
             {editable && (addingCardId === order.id ? (
