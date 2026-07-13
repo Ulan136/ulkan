@@ -4,18 +4,18 @@ import { getSessionFromRequest } from '@/lib/auth'
 import { pushSignal } from '@/lib/pusherServer'
 import { almatyDay } from '@/lib/reportDay'
 
-function mapRows(rows: any): any[] {
-  return (rows || []).map((r: any) => ({
-    name: r.name || '',
-    posId: r.posId || '', // авто-строки несут id позиции (идемпотентность через reload)
-    qtyIn: Number(r.qtyIn) || 0,
-    fromWho: r.fromWho || '',
-    commentIn: r.commentIn || '',
-    toWho: r.toWho || '',
-    qtyOut: Number(r.qtyOut) || 0,
-    commentOut: r.commentOut || '',
-    invoiceNum: r.invoiceNum || '',
-  }))
+// Поля ручной строки (без posId — posId только у авто-строк доставки).
+function rowFields(r: any) {
+  return {
+    name: r?.name || '',
+    fromWho: r?.fromWho || '',
+    qtyIn: Number(r?.qtyIn) || 0,
+    commentIn: r?.commentIn || '',
+    toWho: r?.toWho || '',
+    qtyOut: Number(r?.qtyOut) || 0,
+    commentOut: r?.commentOut || '',
+    invoiceNum: r?.invoiceNum || '',
+  }
 }
 
 // GET — черновик смены логиста.
@@ -47,41 +47,50 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(draft)
 }
 
-// POST — сохранить/обновить черновик. body: { rows, date? }
-//   date отсутствует → сегодняшний; date=YYYY-MM-DD → черновик того дня.
+// POST — СОБЫТИЙНЫЕ операции над строками черновика (никакой автосборки/bulk-replace):
+//   { op:'add', row, date? } → добавить РУЧНУЮ строку (posId='') в черновик дня (создать блок, если нет)
+//   { op:'update', id, row }  → изменить строку по id
+//   { op:'delete', id }       → удалить строку по id
+// Авто-строки доставки создаются НЕ здесь, а в updatePos-эффекте (событие доставки).
 export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req)
   if (!session) return NextResponse.json(null, { status: 401 })
 
-  const { rows, date } = await req.json()
-  const { dayKey, nextKey } = almatyDay(date)
-  const rowData = mapRows(rows)
+  const body = await req.json()
+  const op = body?.op
 
-  const existing = await prisma.dailyReport.findFirst({
-    where: { logistId: session.id, status: 'draft', date: { gte: dayKey, lt: nextKey } },
-    orderBy: { date: 'desc' },
-  })
-
-  if (existing) {
-    await prisma.dailyReportRow.deleteMany({ where: { reportId: existing.id } })
-    if (rowData.length > 0) {
-      await prisma.dailyReportRow.createMany({ data: rowData.map(d => ({ ...d, reportId: existing.id })) })
-    }
-    await pushSignal('reports')
-    return NextResponse.json({ ok: true })
-  } else {
-    const draft = await prisma.dailyReport.create({
-      data: {
-        logistId: session.id,
-        date: dayKey, // канонический ключ дня (Алматы 00:00)
-        status: 'draft',
-        comment: '',
-        rows: rowData.length > 0 ? { create: rowData } : undefined,
-      },
+  if (op === 'update') {
+    await prisma.dailyReportRow.updateMany({
+      where: { id: body.id, report: { logistId: session.id, status: 'draft' } },
+      data: rowFields(body.row),
     })
     await pushSignal('reports')
-    return NextResponse.json({ ok: true, id: draft.id })
+    return NextResponse.json({ ok: true })
   }
+
+  if (op === 'delete') {
+    await prisma.dailyReportRow.deleteMany({
+      where: { id: body.id, report: { logistId: session.id, status: 'draft' } },
+    })
+    await pushSignal('reports')
+    return NextResponse.json({ ok: true })
+  }
+
+  if (op === 'add') {
+    const { dayKey, nextKey } = almatyDay(body.date)
+    let draft = await prisma.dailyReport.findFirst({
+      where: { logistId: session.id, status: 'draft', date: { gte: dayKey, lt: nextKey } },
+      orderBy: { date: 'desc' },
+    })
+    if (!draft) {
+      draft = await prisma.dailyReport.create({ data: { logistId: session.id, date: dayKey, status: 'draft', comment: '' } })
+    }
+    await prisma.dailyReportRow.create({ data: { ...rowFields(body.row), posId: '', reportId: draft.id } })
+    await pushSignal('reports')
+    return NextResponse.json({ ok: true })
+  }
+
+  return NextResponse.json({ error: 'Неизвестная операция' }, { status: 400 })
 }
 
 // DELETE — удалить черновик дня. ?date=YYYY-MM-DD (по умолчанию сегодняшний).

@@ -14,12 +14,6 @@ const DARK2   = '#322f2b'
 
 // Даты по Asia/Almaty (UTC+5, без DST)
 const ALMATY_OFFSET = 5 * 60 * 60 * 1000
-function isAlmatyToday(iso?: string | null): boolean {
-  if (!iso) return false
-  const d = new Date(new Date(iso).getTime() + ALMATY_OFFSET)
-  const now = new Date(Date.now() + ALMATY_OFFSET)
-  return d.getUTCFullYear() === now.getUTCFullYear() && d.getUTCMonth() === now.getUTCMonth() && d.getUTCDate() === now.getUTCDate()
-}
 // 'YYYY-MM-DD' по дню Алматы
 function almatyTodayStr(): string {
   return new Date(Date.now() + ALMATY_OFFSET).toISOString().slice(0, 10)
@@ -33,13 +27,12 @@ function fmtAlmatyDate(iso: string): string {
 }
 function mapDraftRows(rows: any[]): ShiftRow[] {
   return (rows || []).map((r: any) => ({
-    // id авто-строки восстанавливаем детерминированно из posId, чтобы дедуп
-    // по posId работал и после reload черновика (иначе строки задваивались).
-    id: r.posId ? `auto-${r.posId}` : r.id,
+    id: r.id,                 // реальный id строки в БД (для edit/delete через API)
     posId: r.posId || '',
     name: r.name, qtyIn: String(r.qtyIn || 0), fromWho: r.fromWho || '',
     commentIn: r.commentIn || '', toWho: r.toWho || '', qtyOut: String(r.qtyOut || 0),
-    commentOut: r.commentOut || '', invoiceNum: r.invoiceNum || '', auto: true,
+    commentOut: r.commentOut || '', invoiceNum: r.invoiceNum || '',
+    auto: !!r.posId,          // авто-строка доставки, если есть posId
   }))
 }
 
@@ -154,26 +147,16 @@ export default function LogistPortal({ user, logistUser }: Props) {
       : []
   )
 
-  // ── Мои доставленные позиции ЗА СЕГОДНЯ (leg=2) — для автосбора смены ──
-  // Фильтр по updatedAt (момент доставки) в пределах суток Алматы, чтобы вчерашние
-  // доставки не попадали в сегодняшнюю смену.
-  const completedToday = orders.flatMap(o =>
-    o.positions
-      .filter(p => eqName(p.resp, myName) && p.leg === 2 && p.status === 'Доставлено' && isAlmatyToday(p.updatedAt))
-      .map(p => ({ pos: p, order: o }))
-  )
-
-  // Загрузка черновика (сегодняшнего или конкретного дня).
-  // replace=false — не затирать уже подмешанные авто-строки при пустом ответе.
-  const loadDraft = useCallback(async (date?: string | null, replace = true) => {
+  // Загрузка черновика (сегодняшнего или конкретного дня) — ТОЛЬКО показ блока
+  // с сервера. Никакой автосборки: строки наполняются событиями (доставка/вручную).
+  const loadDraft = useCallback(async (date?: string | null) => {
     try {
       const res = await fetch('/api/reports/draft' + (date ? `?date=${date}` : ''))
       if (res.status === 401 || res.status === 403) { setSessionExpired(true); return }
       if (!res.ok) return
       const data = await res.json()
-      const rows: ShiftRow[] = data?.rows?.length ? mapDraftRows(data.rows) : []
-      if (rows.length > 0) { setShiftRows(rows); setReportComment(data?.comment || '') }
-      else if (replace) { setShiftRows([]); setReportComment('') }
+      setShiftRows(data?.rows?.length ? mapDraftRows(data.rows) : [])
+      setReportComment(data?.comment || '')
     } catch {}
   }, [])
 
@@ -187,7 +170,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
     } catch {}
   }, [])
 
-  useEffect(() => { loadDraft(null, false); loadPast() }, [loadDraft, loadPast])
+  useEffect(() => { loadDraft(null); loadPast() }, [loadDraft, loadPast])
 
   // Открыть прошлую смену для дозаполнения и закрытия
   async function openPastDraft(iso: string) {
@@ -195,89 +178,29 @@ export default function LogistPortal({ user, logistUser }: Props) {
     setEditingDate(dateStr)
     setReportDate(dateStr)
     setReportSent(false)
-    await loadDraft(dateStr, true)
+    await loadDraft(dateStr)
   }
   // Вернуться к сегодняшней смене
   async function backToToday() {
     setEditingDate(null)
     setReportDate(almatyTodayStr())
     setReportSent(false)
-    await loadDraft(null, true)
+    await loadDraft(null)
   }
 
-  // Автодобавление новых доставленных позиций в смену (только для сегодняшней)
-  useEffect(() => {
-    if (editingDate) return  // редактируем прошлую смену — сегодняшние доставки не подмешиваем
-    if (completedToday.length === 0) return
-    setShiftRows(prev => {
-      // Идемпотентность по posId: не задваиваем строку доставки (второй путь —
-      // handleStatus — использует тот же posId и id `auto-<posId>`).
-      const existingPosIds = new Set(prev.map(r => r.posId).filter(Boolean))
-      const newRows: ShiftRow[] = completedToday
-        .filter(({ pos }) => !existingPosIds.has(pos.id))
-        .map(({ pos, order }) => ({
-          id: `auto-${pos.id}`,
-          posId: pos.id,
-          name: pos.name1c || pos.oral,
-          qtyIn: String(pos.qty),
-          fromWho: pos.supplier || order.from,   // ОТ КОГО = поставщик (у кого забрал)
-          commentIn: '',                          // supplier больше НЕ в комментарии
-          toWho: order.to || '',                  // КОМУ = клиент
-          qtyOut: String(pos.qty),
-          commentOut: '',
-          invoiceNum: '',
-          auto: true,
-        }))
-      if (newRows.length === 0) return prev
-      return [...prev, ...newRows]
-    })
-  }, [completedToday.length, editingDate])
-
-  // Автосохранение черновика смены в базу каждые 30 секунд
-  useEffect(() => {
-    const validRows = shiftRows.filter(r => r.name)
-    if (validRows.length === 0) return
-    const timer = setTimeout(async () => {
-      try {
-        await fetch('/api/reports/draft', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rows: validRows, date: editingDate || undefined }),
-        })
-      } catch {}
-    }, 2000)
-    return () => clearTimeout(timer)
-  }, [shiftRows, editingDate])
+  // НЕТ автосборки и автосейва: строки блока наполняются событиями на сервере
+  // (доставка → updatePos, ручная кнопка, откат). Вкладка Смена только показывает.
 
   // ── Смена статуса позиции ──
-  async function handleStatus(cardId: string, posId: string, status: string, posName: string, fromWho: string, toWho: string, qty: number) {
+  async function handleStatus(cardId: string, posId: string, status: string, _posName: string, _fromWho: string, _toWho: string, _qty: number) {
     setUpdating(posId)
     try {
       await orderAction(cardId, 'updatePos', { posId, status })
       showMsg(`✓ ${status}`)
-
-      // Если Доставлено — добавляем строку в сегодняшнюю смену (не в открытую прошлую).
-      // id/posId детерминированы → идемпотентно с completedToday-эффектом (без задвоения).
-      if (status === 'Доставлено' && !editingDate) {
-        const autoRow: ShiftRow = {
-          id: `auto-${posId}`,
-          posId,
-          name: posName,
-          qtyIn: String(qty),
-          fromWho,      // передаётся из PosCard = pos.supplier || order.from
-          commentIn: '',
-          toWho,
-          qtyOut: String(qty),
-          commentOut: '',
-          invoiceNum: '',
-          auto: true,
-        }
-        setShiftRows(prev => {
-          if (prev.some(r => r.posId === posId)) return prev
-          return [...prev, autoRow]
-        })
-      }
       await load()
+      // Строку смены создаёт сервер (updatePos-эффект по событию доставки/отката) —
+      // просто перечитываем сегодняшний блок, чтобы показать актуальные строки.
+      if (!editingDate) await loadDraft(null)
     } catch (e: any) { showMsg(e.message) }
     finally { setUpdating(null) }
   }
@@ -299,17 +222,28 @@ export default function LogistPortal({ user, logistUser }: Props) {
     finally { setNewLoading(false) }
   }
 
-  // ── Сохранить строку отчёта ──
-  function saveRow() {
+  // ── Сохранить строку отчёта (ручная строка / правка) — через API ──
+  async function saveRow() {
     if (!addData.name) { showMsg('Укажите наименование'); return }
-    if (editRow) {
-      setShiftRows(prev => prev.map(r => r.id === editRow.id ? { ...r, ...addData, auto: false } : r))
-    } else {
-      setShiftRows(prev => [...prev, { id: `manual-${Date.now()}`, ...addData, auto: false }])
-    }
-    setAddData({ name: '', qtyIn: '', fromWho: '', commentIn: '', toWho: '', qtyOut: '', commentOut: '', invoiceNum: '' })
-    setEditRow(null)
-    setShowAddRow(false)
+    try {
+      const body = editRow
+        ? { op: 'update', id: editRow.id, row: addData }
+        : { op: 'add', row: addData, date: editingDate || undefined }
+      const res = await fetch('/api/reports/draft', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      if (!res.ok) { showMsg('Не удалось сохранить строку'); return }
+      setAddData({ name: '', qtyIn: '', fromWho: '', commentIn: '', toWho: '', qtyOut: '', commentOut: '', invoiceNum: '' })
+      setEditRow(null)
+      setShowAddRow(false)
+      await loadDraft(editingDate)
+    } catch (e: any) { showMsg(e.message) }
+  }
+
+  // ── Удалить строку смены (по id) — через API ──
+  async function deleteRow(id: string) {
+    try {
+      await fetch('/api/reports/draft', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'delete', id }) })
+      await loadDraft(editingDate)
+    } catch (e: any) { showMsg(e.message) }
   }
 
   function openEdit(row: ShiftRow) {
@@ -324,19 +258,11 @@ export default function LogistPortal({ user, logistUser }: Props) {
     if (validRows.length === 0) { showMsg('Добавьте хотя бы одну строку'); return }
     setReportLoading(true)
     try {
-      // День закрытия: прошлая смена (баннер) → дата ТОЙ смены; сегодняшняя →
-      // СЕГОДНЯ Алматы, вычислено СВЕЖИМ на момент закрытия (не из stale reportDate,
-      // который был зафиксирован при монтировании и уезжал через полночь).
+      // День закрытия: прошлая смена (баннер) → дата ТОЙ смены; сегодняшняя → СЕГОДНЯ.
+      // Строки НЕ шлём — они уже в блоке (наполнялись событиями). Закрытие только
+      // переводит черновик в processing (сервер), не пересоздавая строки.
       const reportDay = editingDate || almatyTodayStr()
-      await createDailyReport({
-        date: reportDay, comment: reportComment,
-        rows: validRows.map(r => ({
-          name: r.name, posId: r.posId || '', fromWho: r.fromWho, qtyIn: Number(r.qtyIn) || 0, commentIn: r.commentIn,
-          toWho: r.toWho, qtyOut: Number(r.qtyOut) || 0, commentOut: r.commentOut, invoiceNum: r.invoiceNum || '',
-        })),
-      })
-      // Удаляем черновик того же дня после успешной отправки
-      await fetch('/api/reports/draft' + (editingDate ? `?date=${editingDate}` : ''), { method: 'DELETE' }).catch(() => {})
+      await createDailyReport({ date: reportDay, comment: reportComment })
       setShiftRows([])
       setReportComment('')
       setReportSent(true)
@@ -616,7 +542,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
                               <td style={{ padding: '8px' }}>
                                 <div style={{ display: 'flex', gap: 3 }}>
                                   <button onClick={() => openEdit(r)} style={{ padding: '3px 6px', borderRadius: 5, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 11 }}>✏️</button>
-                                  <button onClick={() => setShiftRows(prev => prev.filter(x => x.id !== r.id))} style={{ padding: '3px 6px', borderRadius: 5, border: '1.5px solid #faeaea', background: '#fff', cursor: 'pointer', fontSize: 11 }}>🗑</button>
+                                  <button onClick={() => deleteRow(r.id)} style={{ padding: '3px 6px', borderRadius: 5, border: '1.5px solid #faeaea', background: '#fff', cursor: 'pointer', fontSize: 11 }}>🗑</button>
                                 </div>
                               </td>
                             </tr>

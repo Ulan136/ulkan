@@ -31,36 +31,26 @@ export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req)
   if (!session || session.role !== 'logist') return NextResponse.json({ error: 'Только логисты' }, { status: 403 })
 
-  const { date, comment, rows } = await req.json()
+  const { date, comment } = await req.json()
   const { dayKey, nextKey } = almatyDay(date)
-  const rowData = (Array.isArray(rows) ? rows : []).map((r: any) => ({
-    name: r.name || '', posId: r.posId || '',
-    qtyIn: Number(r.qtyIn) || 0, fromWho: r.fromWho || '', commentIn: r.commentIn || '',
-    toWho: r.toWho || '', qtyOut: Number(r.qtyOut) || 0, commentOut: r.commentOut || '',
-    invoiceNum: r.invoiceNum || '',
-  }))
 
   // ОДИН блок движется по статусам: черновик этого дня → processing, БЕЗ смены
-  // date (закреплена при создании черновика). Если черновика нет (быстрое
-  // закрытие до автосейва) — создаём блок с dayKey. date больше нигде не
-  // пересчитывается на закрытии → смена не «уезжает» на чужой день.
+  // date (закреплена при создании) и БЕЗ пересоздания строк (они уже в блоке —
+  // наполнялись событиями доставки/вручную). Если черновика нет (доставок не
+  // было) — создаём пустой блок с dayKey.
   const draft = await prisma.dailyReport.findFirst({
     where: { logistId: session.id, status: 'draft', date: { gte: dayKey, lt: nextKey } },
   })
   let report
   if (draft) {
-    await prisma.dailyReportRow.deleteMany({ where: { reportId: draft.id } })
     report = await prisma.dailyReport.update({
-      where: { id: draft.id }, // date НЕ трогаем — остаётся как при создании черновика
-      data: { status: 'processing', comment: comment || '', rows: rowData.length > 0 ? { create: rowData } : undefined },
+      where: { id: draft.id }, // date и rows НЕ трогаем
+      data: { status: 'processing', comment: comment || '' },
       include: { logist: true, rows: true },
     })
   } else {
     report = await prisma.dailyReport.create({
-      data: {
-        logistId: session.id, date: dayKey, comment: comment || '', status: 'processing',
-        rows: rowData.length > 0 ? { create: rowData } : undefined,
-      },
+      data: { logistId: session.id, date: dayKey, comment: comment || '', status: 'processing' },
       include: { logist: true, rows: true },
     })
   }

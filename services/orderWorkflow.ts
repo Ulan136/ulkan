@@ -126,6 +126,37 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
         if (statusMsg[posStatus]) await notify(order.contactId, statusMsg[posStatus], order.id)
       }
 
+      // ── Строка смены при ДОСТАВКЕ (forward → Доставлено) ──
+      // Единственный автоматический источник строк смены — событие доставки.
+      // Upsert по posId в СЕГОДНЯШНИЙ черновик логиста (создать блок, если нет).
+      // Никакой «автосборки» истории — только это событие.
+      if (pos && posStatus === POS_STATUS.delivered && !backward) {
+        const logistUser = await prisma.user.findFirst({ where: { name: pos.resp, role: 'logist' } })
+        if (logistUser) {
+          const { dayKey, nextKey } = almatyDay()
+          let draft = await prisma.dailyReport.findFirst({
+            where: { logistId: logistUser.id, status: 'draft', date: { gte: dayKey, lt: nextKey } },
+          })
+          if (!draft) {
+            draft = await prisma.dailyReport.create({ data: { logistId: logistUser.id, date: dayKey, status: 'draft', comment: '' } })
+          }
+          const rowData = {
+            posId: pos.id,
+            name: pos.name1c || pos.oral,
+            fromWho: pos.supplier || order.from,
+            commentIn: '',
+            qtyIn: pos.qty,
+            toWho: order.to || '',
+            qtyOut: pos.qty,
+            commentOut: '',
+            invoiceNum: '',
+          }
+          const existing = await prisma.dailyReportRow.findFirst({ where: { reportId: draft.id, posId: pos.id } })
+          if (existing) await prisma.dailyReportRow.update({ where: { id: existing.id }, data: rowData })
+          else await prisma.dailyReportRow.create({ data: { ...rowData, reportId: draft.id } })
+        }
+      }
+
       // 3a: позиция была доставлена и уходит назад — убрать её авто-строку из
       // сегодняшнего draft-отчёта смены логиста ТОЧНО по posId (не по имени —
       // это чинит приблизительную привязку из 4c-2). Если смена уже закрыта
