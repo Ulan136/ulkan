@@ -9,9 +9,20 @@ export async function GET(req: NextRequest) {
   const auth = await requireSession(req, ['super_admin', 'bookkeeper'])
   if (!auth.ok) return auth.response
 
+  // Явный select: переживает старые строки с posId=NULL/без колонки (не читаем
+  // posId — фронту он не нужен) и не отдаёт password-хэш логиста (как в коммите A).
   const reports = await prisma.dailyReport.findMany({
-    include: { logist: true, rows: true },
     orderBy: { date: 'desc' },
+    select: {
+      id: true, logistId: true, date: true, comment: true, status: true, createdAt: true,
+      logist: { select: { id: true, name: true } },
+      rows: {
+        select: {
+          id: true, reportId: true, name: true, fromWho: true, qtyIn: true, commentIn: true,
+          toWho: true, qtyOut: true, commentOut: true, invoiceNum: true,
+        },
+      },
+    },
   })
   return NextResponse.json(reports)
 }

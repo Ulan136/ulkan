@@ -478,6 +478,7 @@ export default function AdminApp({ user }: Props) {
 
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [dailyReports, setDailyReports] = useState<DailyReport[]>([])
+  const [reportsError, setReportsError] = useState(false)
   const [reportFilter, setReportFilter] = useState<'active' | 'done' | 'archive'>('active')
   const [reportDateFrom, setReportDateFrom] = useState('')
   const [reportDateTo, setReportDateTo] = useState('')
@@ -593,6 +594,12 @@ export default function AdminApp({ user }: Props) {
     try { setNotifications(await fetchNotifications() as Notification[]) } catch {}
   }, [])
 
+  // Отчёты логистов: ошибка загрузки НЕ должна выглядеть как «Нет отчётов».
+  const loadDailyReports = useCallback(async () => {
+    try { setDailyReports(await fetchDailyReports() as DailyReport[]); setReportsError(false) }
+    catch { setReportsError(true) }
+  }, [])
+
   // Realtime: канал 'orders' обновляет карточки + уведомления + дашборд.
   const loadLive = useCallback(() => { loadOrders(); loadNotifs(); loadDashboard() }, [loadOrders, loadNotifs, loadDashboard])
   useLiveData('orders', loadLive, [])
@@ -605,13 +612,13 @@ export default function AdminApp({ user }: Props) {
   const screenRef = useRef(screen)
   screenRef.current = screen
   const loadReports = useCallback(() => {
-    if (screenRef.current === 'bookkeeping') fetchDailyReports().then(r => setDailyReports(r as DailyReport[])).catch(() => {})
+    if (screenRef.current === 'bookkeeping') loadDailyReports()
   }, [])
   useLiveData('reports', loadReports, [])
 
   useEffect(() => {
     if (screen === 'warehouse') { fetchStock().then(s => setStock(s as any[])).catch(() => {}); fetchStockMovements().then(m => setStockMovements(m as any[])).catch(() => {}) }
-    if (screen === 'bookkeeping') { fetchDailyReports().then(r => setDailyReports(r as DailyReport[])).catch(() => {}) }
+    if (screen === 'bookkeeping') { loadDailyReports() }
   }, [screen])
 
   // Обновить карточку в локальном стейте после action
@@ -1598,7 +1605,7 @@ export default function AdminApp({ user }: Props) {
             </div>
             <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
               {(['cards', 'reports', 'shifts'] as BookkeepingTab[]).map(t => (
-                <button key={t} onClick={() => { setBookTab(t); if (t !== 'cards') fetchDailyReports().then(r => setDailyReports(r as DailyReport[])) }} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: bookTab === t ? COLORS.primary : '#fff', color: bookTab === t ? '#fff' : '#8a847c', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
+                <button key={t} onClick={() => { setBookTab(t); if (t !== 'cards') loadDailyReports() }} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: bookTab === t ? COLORS.primary : '#fff', color: bookTab === t ? '#fff' : '#8a847c', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                   {t === 'cards' ? `Карточки (${bookkeeping.length})` : t === 'reports' ? 'Отчёты логистов' : 'Смены'}
                 </button>
               ))}
@@ -1643,11 +1650,13 @@ export default function AdminApp({ user }: Props) {
                     <span style={{ fontSize: 12, color: '#8a847c' }}>—</span>
                     <input type="date" value={reportDateTo} onChange={e => setReportDateTo(e.target.value)} style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #e6e2dc', fontSize: 12, fontFamily: 'inherit' }} />
                     {(reportDateFrom || reportDateTo) && <button onClick={() => { setReportDateFrom(''); setReportDateTo('') }} style={{ padding: '4px 8px', borderRadius: 7, border: 'none', background: '#faeaea', color: '#b03020', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>✕ Даты</button>}
-                    <button onClick={() => fetchDailyReports().then(r => setDailyReports(r as DailyReport[]))} style={{ marginLeft: 'auto', padding: '5px 12px', borderRadius: 7, border: '1.5px solid #e6e2dc', background: '#fff', fontSize: 13, cursor: 'pointer' }}>⟳</button>
+                    <button onClick={() => loadDailyReports()} style={{ marginLeft: 'auto', padding: '5px 12px', borderRadius: 7, border: '1.5px solid #e6e2dc', background: '#fff', fontSize: 13, cursor: 'pointer' }}>⟳</button>
 
                   </div>
 
-                  {filtered.length === 0
+                  {reportsError
+                    ? <div style={{ color: '#b03020', fontSize: 13, padding: '20px 0', fontWeight: 600 }}>⚠️ Ошибка загрузки отчётов. Нажмите ⟳ или обновите страницу.</div>
+                    : filtered.length === 0
                     ? <div style={{ color: '#8a847c', fontSize: 13, padding: '20px 0' }}>Нет отчётов</div>
                     : filtered.map(r => (
                       <div key={r.id} style={{ background: '#fff', borderRadius: 12, padding: 18, marginBottom: 12, boxShadow: '0 0 0 1.5px #e6e2dc' }}>
@@ -1661,14 +1670,14 @@ export default function AdminApp({ user }: Props) {
                             {r.status === 'processing' && (
                               <Btn size="sm" variant="primary" onClick={async () => {
                                 await updateDailyReport(r.id, 'done')
-                                fetchDailyReports().then(rep => setDailyReports(rep as DailyReport[]))
+                                loadDailyReports()
                                 showToast('✓ Отчёт принят')
                               }}>✓ Принять</Btn>
                             )}
                             {r.status === 'done' && (
                               <Btn size="sm" onClick={async () => {
                                 await updateDailyReport(r.id, 'archive')
-                                fetchDailyReports().then(rep => setDailyReports(rep as DailyReport[]))
+                                loadDailyReports()
                                 showToast('✓ Отправлен в архив')
                               }}>→ Архив</Btn>
                             )}
@@ -1723,7 +1732,7 @@ export default function AdminApp({ user }: Props) {
                       const toClose = dailyReports.filter(r => r.status === 'done')
                       if (toClose.length === 0) { showToast('Нет принятых отчётов для закрытия'); return }
                       await Promise.all(toClose.map(r => updateDailyReport(r.id, 'archive')))
-                      fetchDailyReports().then(r => setDailyReports(r as DailyReport[]))
+                      loadDailyReports()
                       showToast(`✓ Смена закрыта — ${toClose.length} отчётов`)
                     }} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: COLORS.primary, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                       ✓ Закрыть смену

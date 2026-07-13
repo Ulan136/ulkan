@@ -200,7 +200,7 @@ model DailyReport {
 model DailyReportRow {
   id         String @id @default(cuid())
   reportId   String
-  posId      String @default("") // id позиции для авто-строк (идемпотентность/точный откат); пусто у ручных
+  posId      String? // id позиции для авто-строк (идемпотентность/точный откат); NULL/пусто у ручных и старых строк
   fromWho    String @default("")
   name       String @default("")
   qtyIn      Float  @default(0)
