@@ -32,22 +32,38 @@ export async function POST(req: NextRequest) {
   if (!session || session.role !== 'logist') return NextResponse.json({ error: 'Только логисты' }, { status: 403 })
 
   const { date, comment, rows } = await req.json()
-  // Ключ дня — Алматы 00:00 (как в черновике reports/draft), а не UTC-полночь
-  // от new Date('YYYY-MM-DD'), иначе отчёт и его черновик расходятся по дню.
-  const { dayKey } = almatyDay(date)
+  const { dayKey, nextKey } = almatyDay(date)
   const rowData = (Array.isArray(rows) ? rows : []).map((r: any) => ({
     name: r.name || '', posId: r.posId || '',
     qtyIn: Number(r.qtyIn) || 0, fromWho: r.fromWho || '', commentIn: r.commentIn || '',
     toWho: r.toWho || '', qtyOut: Number(r.qtyOut) || 0, commentOut: r.commentOut || '',
     invoiceNum: r.invoiceNum || '',
   }))
-  const report = await prisma.dailyReport.create({
-    data: {
-      logistId: session.id, date: dayKey, comment: comment || '', status: 'processing',
-      rows: rowData.length > 0 ? { create: rowData } : undefined,
-    },
-    include: { logist: true, rows: true },
+
+  // ОДИН блок движется по статусам: черновик этого дня → processing, БЕЗ смены
+  // date (закреплена при создании черновика). Если черновика нет (быстрое
+  // закрытие до автосейва) — создаём блок с dayKey. date больше нигде не
+  // пересчитывается на закрытии → смена не «уезжает» на чужой день.
+  const draft = await prisma.dailyReport.findFirst({
+    where: { logistId: session.id, status: 'draft', date: { gte: dayKey, lt: nextKey } },
   })
+  let report
+  if (draft) {
+    await prisma.dailyReportRow.deleteMany({ where: { reportId: draft.id } })
+    report = await prisma.dailyReport.update({
+      where: { id: draft.id }, // date НЕ трогаем — остаётся как при создании черновика
+      data: { status: 'processing', comment: comment || '', rows: rowData.length > 0 ? { create: rowData } : undefined },
+      include: { logist: true, rows: true },
+    })
+  } else {
+    report = await prisma.dailyReport.create({
+      data: {
+        logistId: session.id, date: dayKey, comment: comment || '', status: 'processing',
+        rows: rowData.length > 0 ? { create: rowData } : undefined,
+      },
+      include: { logist: true, rows: true },
+    })
+  }
 
   await notifyBookkeepers(`Новый отчёт от ${session.name} за ${new Date(date).toLocaleDateString('ru-RU')}`)
   await pushSignal('reports')
