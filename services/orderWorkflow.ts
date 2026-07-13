@@ -157,24 +157,23 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
         }
       }
 
-      // 3a: позиция была доставлена и уходит назад — убрать её авто-строку из
-      // сегодняшнего draft-отчёта смены логиста ТОЧНО по posId (не по имени —
-      // это чинит приблизительную привязку из 4c-2). Если смена уже закрыта
-      // (не draft) — строку не трогаем, помечаем в History.
+      // 3a: позиция была доставлена и уходит назад — убрать её строку по posId.
+      // Ищем в ЛЮБОМ ОТКРЫТОМ (draft) блоке логиста, а не только в сегодняшнем:
+      // доставка могла быть в прошлый день (блок ждёт закрытия), а откат — сегодня.
+      // Если строка уже в ЗАКРЫТОМ блоке (смена сдана) — не трогаем, пометка в History.
       if (wasDelivered && backward && pos) {
         const logistUser = await prisma.user.findFirst({ where: { name: pos.resp, role: 'logist' } })
         if (logistUser) {
-          const { dayKey, nextKey } = almatyDay()
-          const draft = await prisma.dailyReport.findFirst({
-            where: { logistId: logistUser.id, status: 'draft', date: { gte: dayKey, lt: nextKey } },
+          const openRow = await prisma.dailyReportRow.findFirst({
+            where: { posId: pos.id, report: { logistId: logistUser.id, status: 'draft' } },
           })
-          if (draft) {
+          if (openRow) {
             await prisma.dailyReportRow.deleteMany({
-              where: { reportId: draft.id, posId: pos.id },
+              where: { posId: pos.id, report: { logistId: logistUser.id, status: 'draft' } },
             })
           } else {
-            const closed = await prisma.dailyReport.findFirst({
-              where: { logistId: logistUser.id, status: { not: 'draft' }, date: { gte: dayKey, lt: nextKey } },
+            const closed = await prisma.dailyReportRow.findFirst({
+              where: { posId: pos.id, report: { logistId: logistUser.id, status: { not: 'draft' } } },
             })
             if (closed) scratch.shiftClosed = true
           }

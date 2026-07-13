@@ -455,13 +455,18 @@ export default function LogistPortal({ user, logistUser }: Props) {
               </div>
             )}
 
-            {/* Баннер: незакрытые смены за прошлые дни */}
+            {/* Незакрытые смены прошлых дней — списком карточек над сегодняшним блоком.
+                Смена ждёт закрытия сколько угодно; закрывается ПОД СВОИМ числом. */}
             {!editingDate && !reportSent && pastDrafts.length > 0 && (
-              <div style={{ background: '#fdf8e1', border: '1.5px solid #f0d98a', borderRadius: 10, padding: '10px 14px', marginBottom: 14 }}>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#8a6f00', letterSpacing: '.04em', marginBottom: 8 }}>⚠ НЕЗАКРЫТЫЕ СМЕНЫ</div>
                 {pastDrafts.map(pd => (
-                  <div key={pd.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '4px 0' }}>
-                    <span style={{ fontSize: 13, color: '#8a6f00', fontWeight: 600 }}>⚠ Незакрытая смена за {fmtAlmatyDate(pd.date)} · {pd.rowCount} строк</span>
-                    <button onClick={() => openPastDraft(pd.date)} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: '#8a6f00', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'inherit', flexShrink: 0 }}>Открыть</button>
+                  <div key={pd.id} style={{ background: '#fff', border: '1.5px solid #f0d98a', borderLeft: '4px solid #d4a017', borderRadius: 12, padding: '12px 14px', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, boxShadow: '0 1px 4px rgba(0,0,0,.05)' }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#26231f' }}>Смена {fmtAlmatyDate(pd.date)}</div>
+                      <div style={{ fontSize: 12, color: '#8a6f00', marginTop: 2 }}>не закрыта · {pd.rowCount} строк</div>
+                    </div>
+                    <button onClick={() => openPastDraft(pd.date)} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: PRIMARY, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit', flexShrink: 0 }}>Открыть →</button>
                   </div>
                 ))}
               </div>
