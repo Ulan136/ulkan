@@ -154,6 +154,7 @@ model Nomenclature {
   group    String @default("")
   cat      String @default("")
   subgroup String @default("")
+  ral      String @default("") // RAL-код цвета ('8017'); '' — не определён
 
   specItems SpecProjectItem[]
   stock     Stock[]

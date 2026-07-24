@@ -73,10 +73,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await requireSession(req, ['super_admin', 'bookkeeper'])
   if (!auth.ok) return auth.response
-  const { name, unit, cat, group, subgroup } = await req.json()
+  const { name, unit, cat, group, subgroup, ral } = await req.json()
   if (!name) return NextResponse.json({ error: 'Название обязательно' }, { status: 400 })
   const item = await prisma.nomenclature.create({
-    data: { name, unit: unit || 'шт', cat: cat || '', group: group || '', subgroup: subgroup || '' }
+    data: { name, unit: unit || 'шт', cat: cat || '', group: group || '', subgroup: subgroup || '', ral: ral || '' }
   })
   await pushSignal('settings')
   return NextResponse.json(item, { status: 201 })
@@ -85,10 +85,10 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const auth = await requireSession(req, ['super_admin', 'bookkeeper'])
   if (!auth.ok) return auth.response
-  const { id, name, unit, cat, group, subgroup } = await req.json()
+  const { id, name, unit, cat, group, subgroup, ral } = await req.json()
   if (!id) return NextResponse.json({ error: 'ID обязателен' }, { status: 400 })
   const item = await prisma.nomenclature.update({
-    where: { id }, data: { name, unit, cat, group, subgroup: subgroup || '' }
+    where: { id }, data: { name, unit, cat, group, subgroup: subgroup || '', ...(ral !== undefined ? { ral: ral || '' } : {}) }
   })
   await pushSignal('settings')
   return NextResponse.json(item)
