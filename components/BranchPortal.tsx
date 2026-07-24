@@ -7,6 +7,7 @@ import { useLiveData } from '@/lib/live'
 import { PositionEditor, AddPositionForm, editBtn } from '@/components/PositionEditors'
 import CardChat from '@/components/CardChat'
 import ChatWidget from '@/components/ChatWidget'
+import { RalDot, extractRal } from '@/lib/ral'
 import { POS_STATUS } from '@/lib/orderStatus'
 import { isHandedOff, isInDelivery, myActivePos, myHandedPos, eqName } from '@/lib/positionState'
 
@@ -273,7 +274,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
                       ) : (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name1c || p.oral || '—'}</div>
+                            <div style={{ fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}><RalDot code={extractRal(p.name1c || p.oral)} size={13} />{p.name1c || p.oral || '—'}</div>
                             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#a39c92' }}>{p.id}</div>
                             {p.resp && <div style={{ fontSize: 11, color: '#8a847c' }}>Логист: {p.resp}</div>}
                             {p.supplier && <div style={{ fontSize: 11, color: '#8a847c' }}>Поставщик: {p.supplier}</div>}

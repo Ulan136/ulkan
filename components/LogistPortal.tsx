@@ -6,6 +6,7 @@ import { PositionEditor, AddPositionForm, editBtn } from '@/components/PositionE
 import CardChat from '@/components/CardChat'
 import ChatWidget from '@/components/ChatWidget'
 import InstallPrompt from '@/components/InstallPrompt'
+import { RalDot, extractRal } from '@/lib/ral'
 import { Order, SessionUser } from '@/lib/types'
 
 const PRIMARY = '#d4613a'
@@ -323,7 +324,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
         ) : (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-              <div style={{ fontWeight: 700, fontSize: 16, flex: 1 }}>{pos.name1c || pos.oral}</div>
+              <div style={{ fontWeight: 700, fontSize: 16, flex: 1, display: 'flex', alignItems: 'center', gap: 7 }}><RalDot code={extractRal(pos.name1c || pos.oral)} />{pos.name1c || pos.oral}</div>
               <span style={{ fontWeight: 700, fontSize: 18, color: PRIMARY, marginLeft: 10 }}>{pos.qty} {pos.unit}</span>
             </div>
             <div style={{ fontSize: 13, color: '#8a847c', marginBottom: 4 }}>{order.from} → {order.to || '—'}</div>

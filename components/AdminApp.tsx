@@ -22,6 +22,8 @@ import NomSearch from '@/components/NomSearch'
 import NomenclatureScreen from '@/components/NomenclatureScreen'
 import CardChat from '@/components/CardChat'
 import ChatWidget from '@/components/ChatWidget'
+import NomPicker, { type PickedPos } from '@/components/NomPicker'
+import { RalDot, RAL_COLORS, extractRal, withRal } from '@/lib/ral'
 
 // ─── Утилиты v2.2 ───────────────────────────────────────────────────────────
 
@@ -275,7 +277,7 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
                       <tr key={p.id} style={{ borderTop: '1px solid #f1efec' }}>
                         <td style={{ padding: '8px 10px', fontSize: 12, color: '#8a847c' }}>{i + 1}</td>
                         <td style={{ padding: '8px 10px' }}>
-                          <div style={{ fontWeight: 500, fontSize: 13 }}>{p.name1c || p.oral || '—'}</div>
+                          <div style={{ fontWeight: 500, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}><RalDot code={extractRal(p.name1c || p.oral)} size={13} />{p.name1c || p.oral || '—'}</div>
                           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#a39c92' }}>{p.id}</div>
                           {p.oral && p.name1c && <div style={{ fontSize: 11, color: '#8a847c' }}>{p.oral}</div>}
                           {p.resp && <div style={{ fontSize: 11, color: '#8a847c' }}>Логист: {p.resp}</div>}
@@ -501,9 +503,24 @@ export default function AdminApp({ user }: Props) {
   ])
   const [recShowPayment, setRecShowPayment] = useState<number[]>([])
   const [editingPositions, setEditingPositions] = useState<Record<string, any>>({})
+  const [recShowCatalog, setRecShowCatalog] = useState(false)
 
   function recAddPos() {
     setRecPositions(p => [...p, { name1c: '', oral: '', qty: '', unit: 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: todayLocal(), payment: '' }])
+  }
+  // Каталог (NomPicker) → строки падают в форму создания.
+  function recAddFromCatalog(items: PickedPos[]) {
+    setRecShowCatalog(false)
+    if (!items.length) return
+    setRecPositions(p => {
+      const base = p.filter(x => x.name1c || x.oral) // выкинуть пустую стартовую строку
+      const added = items.map(it => ({ name1c: it.name1c || it.oral, oral: it.oral, qty: String(it.qty), unit: it.unit || 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: '', payment: '' }))
+      return [...base, ...added]
+    })
+  }
+  // Перевыбор цвета в колонке RAL формы: переписать RAL-суффикс в имени + чип.
+  function recSetRal(i: number, code: string) {
+    setRecPositions(p => p.map((x, idx) => idx === i ? { ...x, name1c: withRal(x.name1c, code), oral: withRal(x.oral || x.name1c, code) } : x))
   }
   function recUpdatePos(i: number, field: string, val: string) {
     setRecPositions(p => p.map((x, idx) => idx === i ? { ...x, [field]: val } : x))
@@ -1076,7 +1093,7 @@ export default function AdminApp({ user }: Props) {
                       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
                         <thead>
                           <tr style={{ background: '#f1efec' }}>
-                            {['НАИМЕНОВАНИЕ', 'КОЛ-ВО', 'ЕД.', 'ЦЕНА (ТГ)', 'ЛОГИСТ', 'ПОСТАВЩИК', 'СРОК', 'ОПЛАТА', ''].map(h => (
+                            {['НАИМЕНОВАНИЕ', 'КОЛ-ВО', 'ЕД.', 'RAL', 'ЦЕНА (ТГ)', 'ЛОГИСТ', 'ПОСТАВЩИК', 'СРОК', 'ОПЛАТА', ''].map(h => (
                               <th key={h} style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
                           </tr>
@@ -1100,6 +1117,15 @@ export default function AdminApp({ user }: Props) {
                               </td>
                               <td style={{ padding: '6px 4px', width: 60 }}>
                                 <input style={inpSm} value={pos.unit} onChange={e => recUpdatePos(i, 'unit', e.target.value)} placeholder="шт" />
+                              </td>
+                              <td style={{ padding: '6px 4px', width: 92 }}>
+                                <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                                  <RalDot code={extractRal(pos.name1c || pos.oral)} />
+                                  <select style={{ ...inpSm, padding: '5px 4px' }} value={extractRal(pos.name1c || pos.oral)} onChange={e => recSetRal(i, e.target.value)}>
+                                    <option value="">—</option>
+                                    {RAL_COLORS.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                                  </select>
+                                </div>
                               </td>
                               <td style={{ padding: '6px 4px', width: 100 }}>
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -1151,9 +1177,15 @@ export default function AdminApp({ user }: Props) {
                         </tbody>
                       </table>
                     </div>
-                    <button onClick={recAddPos} style={{ marginTop: 8, border: '1.5px dashed #d8d3cc', borderRadius: 7, padding: '6px 16px', background: 'none', cursor: 'pointer', fontSize: 12, color: '#8a847c', fontFamily: 'inherit' }}>
-                      ＋ Добавить позицию
-                    </button>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+                      <button onClick={recAddPos} style={{ border: '1.5px dashed #d8d3cc', borderRadius: 7, padding: '6px 16px', background: 'none', cursor: 'pointer', fontSize: 12, color: '#8a847c', fontFamily: 'inherit' }}>
+                        ＋ Добавить позицию
+                      </button>
+                      <button onClick={() => setRecShowCatalog(true)} style={{ border: 'none', borderRadius: 7, padding: '6px 16px', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>
+                        📖 Каталог
+                      </button>
+                    </div>
+                    {recShowCatalog && <NomPicker onPick={recAddFromCatalog} onClose={() => setRecShowCatalog(false)} />}
                   </div>
 
                   {/* Кнопки формы */}
@@ -1255,7 +1287,7 @@ export default function AdminApp({ user }: Props) {
                         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                           <thead>
                             <tr style={{ background: '#f1efec' }}>
-                              {['СО СЛОВ', 'НАИМ. 1С', 'КОЛ-ВО', 'ЕД.', 'ЦЕНА', 'ЛОГИСТ', 'ПОСТАВЩИК', 'СРОК', 'ОПЛАТА', ''].map(h => (
+                              {['СО СЛОВ', 'НАИМ. 1С', 'КОЛ-ВО', 'ЕД.', 'RAL', 'ЦЕНА', 'ЛОГИСТ', 'ПОСТАВЩИК', 'СРОК', 'ОПЛАТА', ''].map(h => (
                                 <th key={h} style={{ padding: '7px 8px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                               ))}
                             </tr>
@@ -1296,6 +1328,20 @@ export default function AdminApp({ user }: Props) {
                                       ? <input style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 44 }} value={ed.unit ?? pos.unit} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], unit: e.target.value } }))} />
                                       : <span style={{ fontSize: 12 }}>{pos.unit}</span>
                                     }
+                                  </td>
+                                  {/* RAL — чип + быстрый select (перевыбор переписывает RAL в имени) */}
+                                  <td style={{ padding: '6px 4px', width: 84 }} onClick={e => e.stopPropagation()}>
+                                    <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                                      <RalDot code={extractRal(pos.name1c || pos.oral)} />
+                                      <select style={{ ...INP, fontSize: 12, padding: '5px 4px', width: 58 }} value={extractRal(pos.name1c || pos.oral)}
+                                        onChange={async e => {
+                                          const code = e.target.value
+                                          await handleAction(order.id, 'updatePosDetail', { posId: pos.id, ...(pos.name1c ? { name1c: withRal(pos.name1c, code) } : {}), oral: withRal(pos.oral || pos.name1c || '', code) })
+                                        }}>
+                                        <option value="">—</option>
+                                        {RAL_COLORS.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                                      </select>
+                                    </div>
                                   </td>
                                   {/* ЦЕНА */}
                                   <td style={{ padding: '6px 4px', width: 90 }}>
@@ -1507,7 +1553,7 @@ export default function AdminApp({ user }: Props) {
                               return (
                                 <div key={pos.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 0', borderBottom: i < o.positions.length - 1 ? '1px solid #f8f6f3' : 'none' }}>
                                   <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: 13, fontWeight: 500 }}>{pos.name1c || pos.oral}</div>
+                                    <div style={{ fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}><RalDot code={extractRal(pos.name1c || pos.oral)} size={13} />{pos.name1c || pos.oral}</div>
                                     <div style={{ fontSize: 11, color: '#8a847c' }}>{pos.qty} {pos.unit}{pos.resp ? ` · ${pos.resp}` : ''}{pos.supplier ? ` · ${pos.supplier}` : ''}</div>
                                   </div>
                                   <div style={{ width: 120 }}>

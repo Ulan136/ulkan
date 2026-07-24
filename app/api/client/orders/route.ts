@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { requireSession } from '@/lib/auth'
-import { generateCardId, generateTrackingLink } from '@/lib/ids'
+import { generateCardId, generateTrackingLink, generatePosId } from '@/lib/ids'
 import { notifyAdmins } from '@/lib/notifications'
 import { pushSignal } from '@/lib/pusherServer'
 
@@ -39,11 +39,26 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response
   const { session } = auth
 
-  const { to, deadline, text, comment } = await req.json()
+  const { to, deadline, text, comment, positions } = await req.json()
 
   const count = await prisma.order.count()
   const cardId = generateCardId(count)
   const trackingLink = generateTrackingLink(cardId)
+
+  // Позиции из каталога (NomPicker): готовые Наименование+Кол-во. Текстовое
+  // поле заявки остаётся запасным путём (comment). На приёмку заявка приходит
+  // уже с позициями — стол показывает их как обычно.
+  let posData: any[] = []
+  if (Array.isArray(positions) && positions.length > 0) {
+    posData = positions.map((p: any, i: number) => ({
+      id: generatePosId(cardId, i + 1),
+      name1c: p.name1c || '',
+      oral: p.oral || p.name1c || '',
+      qty: Number(p.qty) || 0,
+      unit: p.unit || 'шт',
+      status: 'В работе',
+    }))
+  }
 
   const order = await prisma.order.create({
     data: {
@@ -53,6 +68,7 @@ export async function POST(req: NextRequest) {
       deadline: deadline ? new Date(deadline) : null,
       contactId: session.id,
       history: { create: { action: 'Заявка создана из кабинета', userName: session.name } },
+      positions: posData.length > 0 ? { create: posData } : undefined,
     },
     include: { positions: true },
   })

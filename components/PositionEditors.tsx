@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { orderAction } from '@/lib/api'
 import NomSearch from '@/components/NomSearch'
+import NomPicker, { type PickedPos } from '@/components/NomPicker'
 
 const PRIMARY = '#d4613a'
 const editInp: CSSProperties = { padding: '6px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }
@@ -62,6 +63,7 @@ export function AddPositionForm({ orderId, resp, supplierName, supplierOptions, 
   const [qty, setQty] = useState('')
   const [supplier, setSupplier] = useState(supplierName || '')
   const [saving, setSaving] = useState(false)
+  const [showCatalog, setShowCatalog] = useState(false)
   const useSelect = Array.isArray(supplierOptions)
 
   async function add() {
@@ -74,9 +76,27 @@ export function AddPositionForm({ orderId, resp, supplierName, supplierOptions, 
     } catch (e: any) { setSaving(false); onAdded(e.message || 'Ошибка') }
   }
 
+  // Каталог: добавить весь набор позиций (name1c из матчинга, oral — имя с RAL).
+  async function addFromCatalog(items: PickedPos[]) {
+    setShowCatalog(false)
+    if (!items.length) return
+    setSaving(true)
+    try {
+      const sup = useSelect ? supplier : (supplierName || '')
+      for (const it of items) {
+        await orderAction(orderId, 'addPos', { name1c: it.name1c || '', oral: it.oral, qty: it.qty, unit: it.unit, supplier: sup, resp })
+      }
+      onAdded(`✓ Добавлено позиций: ${items.length}`)
+    } catch (e: any) { setSaving(false); onAdded(e.message || 'Ошибка') }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', background: '#f8f6f3', borderRadius: 8, padding: 10, marginTop: 8 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: '#8a847c' }}>НОВАЯ ПОЗИЦИЯ</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#8a847c' }}>НОВАЯ ПОЗИЦИЯ</div>
+        <button type="button" onClick={() => { onEditing(true); setShowCatalog(true) }} style={{ ...editBtn(false), marginLeft: 'auto', padding: '4px 10px' }}>📖 Каталог</button>
+      </div>
+      {showCatalog && <NomPicker onPick={addFromCatalog} onClose={() => setShowCatalog(false)} />}
       <NomSearch value={name} placeholder="Поиск по номенклатуре..." onChange={(n, u) => { setName(n); if (u) setUnit(u); onEditing(true) }} style={{ fontSize: 13 }} />
       {useSelect && (
         <select value={supplier} onFocus={() => onEditing(true)} onChange={e => { setSupplier(e.target.value); onEditing(true) }} style={{ ...editInp, width: '100%' }}>

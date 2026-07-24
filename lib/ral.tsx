@@ -69,6 +69,14 @@ export function ralSearchTerms(code: string): string[] {
   return [`RAL${code}`, code, ...words]
 }
 
+// withRal(name, code): переписать RAL-суффикс в имени (перевыбор цвета).
+// Снимает существующий « RALxxxx» и дописывает новый (или ничего, если code='').
+export function withRal(name: string, code: string): string {
+  const stripped = (name || '').replace(/\s*RAL\s?\d{4}/ig, '').trim()
+  if (!code) return stripped
+  return stripped ? `${stripped} RAL${code}` : `RAL${code}`
+}
+
 // ─── RalDot — круглый чип цвета 16px ───────────────────────────────────────
 // code пустой/неизвестный → серый пустой кружок-обводка (цвет не определён).
 export function RalDot({ code, size = 16, title }: { code?: string; size?: number; title?: string }) {

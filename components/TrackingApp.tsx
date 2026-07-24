@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { fetchTrack, submitExternalOrder, submitTrackChange, loginPhone } from '@/lib/api'
 import { TrackData } from '@/lib/types'
+import { RalDot, extractRal } from '@/lib/ral'
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   useEffect(() => { const t = setTimeout(onClose, 2300); return () => clearTimeout(t) }, [onClose])
@@ -248,7 +249,7 @@ export default function TrackingApp() {
                         : trackData.positions.map((p, i) => (
                           <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < trackData.positions.length - 1 ? '1px solid #f1efec' : 'none' }}>
                             <div>
-                              <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name}</div>
+                              <div style={{ fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}><RalDot code={extractRal(p.name)} size={13} />{p.name}</div>
                               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#a39c92' }}>{p.id}</div>
                               <div style={{ fontSize: 12, color: '#8a847c' }}>{p.qty} {p.unit}</div>
                             </div>

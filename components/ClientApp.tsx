@@ -7,6 +7,8 @@ import { todayLocal } from '@/lib/dates'
 import { useLiveData } from '@/lib/live'
 import CardChat from '@/components/CardChat'
 import ChatWidget from '@/components/ChatWidget'
+import NomPicker, { type PickedPos } from '@/components/NomPicker'
+import { RalDot, extractRal } from '@/lib/ral'
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   useEffect(() => { const t = setTimeout(onClose, 2300); return () => clearTimeout(t) }, [onClose])
@@ -58,6 +60,8 @@ export default function ClientApp({ user, clientUser }: Props) {
   const [newLoading, setNewLoading] = useState(false)
   const [newResult, setNewResult] = useState<{ order: Order; trackingUrl: string } | null>(null)
   const [sessionExpired, setSessionExpired] = useState(false)
+  const [catalogPos, setCatalogPos] = useState<PickedPos[]>([]) // позиции из NomPicker
+  const [showCatalog, setShowCatalog] = useState(false)
 
   // Лоадер показываем только на первой загрузке. Фоновые live-обновления не
   // трогают loading — иначе каждый сигнал перерисовывал бы весь кабинет
@@ -102,11 +106,13 @@ export default function ClientApp({ user, clientUser }: Props) {
 
   async function handleNewOrder(e: React.FormEvent) {
     e.preventDefault()
+    if (!newText.trim() && catalogPos.length === 0) { setToast('Опишите заявку или соберите по каталогу'); return }
     setNewLoading(true)
     try {
-      // Получателя ("to") клиент не указывает — приёмка проставит его на столе приёмки
-      const r = await createClientOrder({ text: newText, deadline: newDeadline || undefined }) as any
-      setNewResult(r); load()
+      // Получателя ("to") клиент не указывает — приёмка проставит его на столе приёмки.
+      // positions[] из каталога уходят готовыми; текстовое поле — запасной путь.
+      const r = await createClientOrder({ text: newText, deadline: newDeadline || undefined, positions: catalogPos }) as any
+      setNewResult(r); setCatalogPos([]); load()
     } catch (e: any) { setToast(e.message) }
     finally { setNewLoading(false) }
   }
@@ -232,7 +238,7 @@ export default function ClientApp({ user, clientUser }: Props) {
                             {o.positions.map((p, i) => (
                               <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid #f1efec' }}>
                                 <div>
-                                  <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name1c || p.oral}</div>
+                                  <div style={{ fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}><RalDot code={extractRal(p.name1c || p.oral)} size={13} />{p.name1c || p.oral}</div>
                                   {p.resp && <div style={{ fontSize: 11, color: '#8a847c' }}>Логист: {p.resp}</div>}
                                 </div>
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -321,7 +327,7 @@ export default function ClientApp({ user, clientUser }: Props) {
                                 <div style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 8 }}>ПОЗИЦИИ</div>
                                 {o.positions.map(p => (
                                   <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #f1efec' }}>
-                                    <span style={{ fontSize: 13 }}>{p.name1c || p.oral}</span>
+                                    <span style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}><RalDot code={extractRal(p.name1c || p.oral)} size={13} />{p.name1c || p.oral}</span>
                                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                       <span style={{ fontSize: 12, color: '#8a847c' }}>{p.qty} {p.unit}</span>
                                       <StatusBadge status={p.status} />
@@ -393,7 +399,7 @@ export default function ClientApp({ user, clientUser }: Props) {
                 <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
                 <div style={{ fontWeight: 700, fontSize: 20, color: '#2e8a5e', marginBottom: 8 }}>Заявка {newResult.order.id} создана!</div>
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16 }}>
-                  <button onClick={() => { setNewResult(null); setNewText(''); setNewDeadline(''); setTab('orders') }} style={{ padding: '10px 20px', background: '#fff', border: '1.5px solid #e6e2dc', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>Мои заявки</button>
+                  <button onClick={() => { setNewResult(null); setNewText(''); setNewDeadline(''); setCatalogPos([]); setTab('orders') }} style={{ padding: '10px 20px', background: '#fff', border: '1.5px solid #e6e2dc', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>Мои заявки</button>
                   <a href={newResult.trackingUrl} target="_blank" rel="noreferrer" style={{ padding: '10px 20px', background: '#d4613a', color: '#fff', borderRadius: 8, fontWeight: 600, textDecoration: 'none', fontSize: 14 }}>Отслеживать →</a>
                 </div>
               </div>
@@ -403,9 +409,29 @@ export default function ClientApp({ user, clientUser }: Props) {
                 <div style={{ color: '#8a847c', fontSize: 13, marginBottom: 24 }}>Заполните форму — менеджер свяжется с вами</div>
                 <form onSubmit={handleNewOrder} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 4, display: 'block' }}>ОПИСАНИЕ ЗАЯВКИ *</label>
-                    <textarea style={{ ...inp, minHeight: 100, resize: 'vertical' }} value={newText} onChange={e => setNewText(e.target.value)} placeholder="Что нужно заказать, в каком количестве..." required />
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 4, display: 'block' }}>ОПИСАНИЕ ЗАЯВКИ</label>
+                    <textarea style={{ ...inp, minHeight: 100, resize: 'vertical' }} value={newText} onChange={e => setNewText(e.target.value)} placeholder="Что нужно заказать, в каком количестве..." />
                   </div>
+                  {/* Собрать по каталогу (NomPicker) — позиции уходят готовыми */}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: catalogPos.length ? 8 : 0 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c' }}>СОБРАТЬ ПО КАТАЛОГУ</label>
+                      <button type="button" onClick={() => setShowCatalog(true)} style={{ marginLeft: 'auto', padding: '7px 14px', border: '1.5px solid #e6e2dc', background: '#fff', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit', color: '#26231f' }}>📖 Открыть каталог</button>
+                    </div>
+                    {catalogPos.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {catalogPos.map((p, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8f6f3', borderRadius: 8, padding: '7px 10px' }}>
+                            <RalDot code={extractRal(p.name1c || p.oral)} />
+                            <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name1c || p.oral}</span>
+                            <span style={{ fontSize: 12, color: '#8a847c', flexShrink: 0 }}>{p.qty} {p.unit}</span>
+                            <button type="button" onClick={() => setCatalogPos(prev => prev.filter((_, j) => j !== i))} style={{ border: 'none', background: 'none', color: '#c1121c', fontSize: 18, cursor: 'pointer', lineHeight: 1, flexShrink: 0 }}>×</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {showCatalog && <NomPicker onPick={items => setCatalogPos(prev => [...prev, ...items])} onClose={() => setShowCatalog(false)} />}
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 4, display: 'block' }}>ЖЕЛАЕМЫЙ СРОК</label>
                     <input style={inp} type="date" value={newDeadline} onChange={e => setNewDeadline(e.target.value)} />
