@@ -13,6 +13,8 @@ interface NomHit { id: string; name: string; unit: string }
 interface NomFull { id: string; name: string; unit: string; group: string; cat: string; subgroup: string }
 
 const NOCOLOR = '__none__' // спец-чип «нет цвета»: только позиции без цвета в имени
+// Пустые/ненужные в заказах группы — прячем из Каталога (на экране Номенклатуры остаются).
+const HIDDEN_GROUPS = new Set(['Готовая продукция', 'Услуги'])
 
 // Нормализация как на экране «Номенклатура»: trim + нижний регистр + ё→е.
 const norm = (s: string) => (s || '').trim().toLowerCase().replace(/ё/g, 'е')
@@ -38,7 +40,7 @@ export default function NomPicker({ onPick, onClose }: {
 
   // Жёсткий путь по полям базы — ТОЛЬКО до уровня папки: group → cat. subgroup
   // в фильтре Каталога НЕ участвует (цвет/вид/толщина — слова, см. ниже).
-  const groups = catalogGroups()
+  const groups = catalogGroups().filter(g => !HIDDEN_GROUPS.has(g))
   const cats = groupName ? catalogCats(groupName) : []
   const overlays = overlayFor(catName || groupName)
   const producers = producersFor(catName)              // непусто только в «Евро брус»
