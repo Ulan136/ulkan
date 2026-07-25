@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { catalogGroups, catalogCats, catalogSubs } from '@/lib/nomCatalog'
 import { overlayFor } from '@/lib/nomTree'
 import { RAL_COLORS, RAL_BY_CODE, RalDot, extractRal } from '@/lib/ral'
 
@@ -9,22 +10,21 @@ const GLOW = '0 0 0 4px rgba(212,97,58,.25)'
 
 export interface PickedPos { name1c: string; oral: string; qty: number; unit: string }
 interface NomHit { id: string; name: string; unit: string }
-interface TreeSub { name: string; count: number }
-interface TreeCat { name: string; count: number; subgroups: TreeSub[] }
-interface TreeGroup { name: string; count: number; cats: TreeCat[] }
+interface Counts { g: Record<string, number>; c: Record<string, number>; s: Record<string, number> }
 
 export default function NomPicker({ onPick, onClose }: {
   onPick: (items: PickedPos[]) => void
   onClose: () => void
 }) {
   const [mounted, setMounted] = useState(false)
-  const [tree, setTree] = useState<TreeGroup[]>([])
+  const [counts, setCounts] = useState<Counts>({ g: {}, c: {}, s: {} })
   const [color, setColor] = useState('')
-  const [groupName, setGroupName] = useState('')     // корневая 1С-группа (поле group)
-  const [catName, setCatName] = useState('')         // подгруппа (поле cat)
-  const [sel, setSel] = useState<Record<string, string>>({}) // надстройки-уровни
+  const [groupName, setGroupName] = useState('')     // поле group
+  const [catName, setCatName] = useState('')         // поле cat
+  const [subName, setSubName] = useState('')         // поле subgroup
+  const [sel, setSel] = useState<Record<string, string>>({}) // надстройки-слова
   const [cm, setCm] = useState('')
-  const [text, setText] = useState('')               // ручное уточнение словами
+  const [text, setText] = useState('')
   const [results, setResults] = useState<NomHit[]>([])
   const [loading, setLoading] = useState(false)
   const [rows, setRows] = useState<PickedPos[]>([])
@@ -32,14 +32,27 @@ export default function NomPicker({ onPick, onClose }: {
   const [pad, setPad] = useState<null | { name1c: string; oral: string; unit: string; digits: string }>(null)
   const padRef = useRef(pad); padRef.current = pad
 
+  // Структура — из ЕДИНОЙ модели (та же, что на экране Номенклатура).
+  const groups = catalogGroups()
+  const cats = groupName ? catalogCats(groupName) : []
+  const subs = groupName && catName ? catalogSubs(groupName, catName) : []
+  const overlays = overlayFor(catName || groupName)
+
+  // Счётчики из базы (best-effort) — только цифры на кнопках, структура из модели.
   useEffect(() => {
     setMounted(true)
-    fetch('/api/nomenclature/tree').then(r => r.ok ? r.json() : []).then(d => setTree(Array.isArray(d) ? d : [])).catch(() => {})
+    fetch('/api/nomenclature/tree').then(r => r.ok ? r.json() : []).then((tree: any[]) => {
+      const g: Record<string, number> = {}, c: Record<string, number> = {}, s: Record<string, number> = {}
+      ;(Array.isArray(tree) ? tree : []).forEach(gr => {
+        g[gr.name] = gr.count
+        ;(gr.cats || []).forEach((ct: any) => {
+          c[`${gr.name}|${ct.name}`] = ct.count
+          ;(ct.subgroups || []).forEach((sb: any) => { s[`${gr.name}|${ct.name}|${sb.name}`] = sb.count })
+        })
+      })
+      setCounts({ g, c, s })
+    }).catch(() => {})
   }, [])
-
-  const group = tree.find(g => g.name === groupName)
-  const cats = group?.cats || []
-  const overlays = overlayFor(catName || groupName)  // наши уровни поверх выборки
 
   // Слова уточнения ВНУТРИ полевой выборки: цвет + слова уровней (+ «№ см») + текст.
   const cEntry = color ? RAL_BY_CODE[color] : undefined
@@ -58,15 +71,16 @@ export default function NomPicker({ onPick, onClose }: {
   const q = words.join(' ').trim()
   const measureOn = overlays.some(lv => lv.items.find(i => i.key === sel[lv.key])?.measure)
 
-  // ── Поиск: фильтр по полям (group/cat) + слова уточнения. Каскад не трогаем ──
+  // ── Поиск: фильтр по полям (group/cat/subgroup) + слова уточнения ──
   useEffect(() => {
-    if (!groupName && !catName && !q) { setResults([]); setLoading(false); return }
+    if (!groupName && !catName && !subName && !q) { setResults([]); setLoading(false); return }
     setLoading(true)
     const t = setTimeout(async () => {
       try {
         const params = new URLSearchParams()
         if (groupName) params.set('group', groupName)
         if (catName) params.set('cat', catName)
+        if (subName) params.set('subgroup', subName)
         if (q) params.set('q', q)
         params.set('limit', '30')
         const res = await fetch(`/api/nomenclature?${params}`)
@@ -77,9 +91,8 @@ export default function NomPicker({ onPick, onClose }: {
     }, 250)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, groupName, catName])
+  }, [q, groupName, catName, subName])
 
-  // Исключающий фильтр (МП) + сорт «точность → короче имя».
   const qWords = q.toLowerCase().split(/[^а-яёa-z0-9]+/i).filter(w => w.length >= 2)
   const shown = results
     .filter(r => !excludes.some(w => r.name.toLowerCase().includes(w.toLowerCase())))
@@ -89,8 +102,9 @@ export default function NomPicker({ onPick, onClose }: {
 
   // ── Чипы ──
   function pickColor(c: string) { setColor(prev => prev === c ? '' : c) }
-  function pickGroup(name: string) { setGroupName(prev => prev === name ? '' : name); setCatName(''); setSel({}); setCm('') }
-  function pickCat(name: string) { setCatName(prev => prev === name ? '' : name); setSel({}); setCm('') }
+  function pickGroup(name: string) { setGroupName(prev => prev === name ? '' : name); setCatName(''); setSubName(''); setSel({}); setCm('') }
+  function pickCat(name: string) { setCatName(prev => prev === name ? '' : name); setSubName(''); setSel({}); setCm('') }
+  function pickSub(name: string) { setSubName(prev => prev === name ? '' : name) }
   function pickItem(levelKey: string, itemKey: string, isMeasure: boolean) {
     setSel(prev => { const next = { ...prev }; if (next[levelKey] === itemKey) delete next[levelKey]; else next[levelKey] = itemKey; return next })
     if (!isMeasure) setCm('')
@@ -121,9 +135,10 @@ export default function NomPicker({ onPick, onClose }: {
   function submit() { if (rows.length) { onPick(rows); onClose() } }
   const totalUnits = rows.reduce((s, r) => s + r.qty, 0)
 
-  // Строка «Поисковые слова/фильтры»: группа ▸ подгруппа + цвет + уровни + текст.
+  // Строка «Фильтр»: группа ▸ подгруппа ▸ лист + цвет + уровни + текст.
   const crumbs: React.ReactNode[] = []
-  if (groupName) crumbs.push(<span key="g" style={{ fontWeight: 700 }}>{groupName}{catName ? ` ▸ ${catName}` : ''}</span>)
+  const path = [groupName, catName, subName].filter(Boolean).join(' ▸ ')
+  if (path) crumbs.push(<span key="p" style={{ fontWeight: 700 }}>{path}</span>)
   if (cEntry) crumbs.push(<span key="c"><b style={{ color: PRIMARY }}>{cEntry.query || cEntry.code}</b> ({cEntry.name.toLowerCase()})</span>)
   overlays.forEach(lv => { const it = lv.items.find(i => i.key === sel[lv.key]); if (it) crumbs.push(<span key={lv.key}>«{it.label}{it.measure && cm ? ` ${cm} см` : ''}»</span>) })
   if (text.trim()) crumbs.push(<span key="t">«{text.trim()}»</span>)
@@ -133,7 +148,6 @@ export default function NomPicker({ onPick, onClose }: {
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,18,16,.55)', zIndex: 100000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{ background: '#fff', width: '100%', maxWidth: 432, maxHeight: '94vh', borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column', boxShadow: '0 -8px 40px rgba(0,0,0,.3)' }}>
-        {/* Шапка */}
         <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid #f1efec', flexShrink: 0 }}>
           <div style={{ fontWeight: 800, fontSize: 17 }}>📖 Каталог</div>
           <button onClick={onClose} style={{ marginLeft: 'auto', border: 'none', background: '#f1efec', width: 32, height: 32, borderRadius: '50%', fontSize: 16, cursor: 'pointer', color: '#8a847c' }}>✕</button>
@@ -157,25 +171,35 @@ export default function NomPicker({ onPick, onClose }: {
             </div>
           </div>
 
-          {/* ТОВАР — корневые 1С-группы из базы */}
+          {/* ТОВАР — корневые группы модели */}
           <div>
-            <div style={LBL}>ТОВАР{tree.length === 0 ? ' (загрузка…)' : ''}</div>
+            <div style={LBL}>ТОВАР</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {tree.map(g => <button key={g.name} onClick={() => pickGroup(g.name)} style={pill(groupName === g.name)}>{g.name}<span style={cnt(groupName === g.name)}>{g.count}</span></button>)}
+              {groups.map(g => <button key={g} onClick={() => pickGroup(g)} style={pill(groupName === g)}>{g}{counts.g[g] != null && <span style={cnt(groupName === g)}>{counts.g[g]}</span>}</button>)}
             </div>
           </div>
 
-          {/* ПОДГРУППА — cat выбранной группы */}
+          {/* ПОДГРУППА (cat) */}
           {cats.length > 0 && (
             <div>
               <div style={LBL}>ПОДГРУППА</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {cats.map(c => <button key={c.name} onClick={() => pickCat(c.name)} style={pill(catName === c.name)}>{c.name}<span style={cnt(catName === c.name)}>{c.count}</span></button>)}
+                {cats.map(c => <button key={c} onClick={() => pickCat(c)} style={pill(catName === c)}>{c}{counts.c[`${groupName}|${c}`] != null && <span style={cnt(catName === c)}>{counts.c[`${groupName}|${c}`]}</span>}</button>)}
               </div>
             </div>
           )}
 
-          {/* НАШИ УРОВНИ поверх выборки (слова внутри группы) */}
+          {/* ЛИСТ (subgroup) */}
+          {subs.length > 0 && (
+            <div>
+              <div style={LBL}>ВИД / ЦВЕТ</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {subs.map(s => <button key={s} onClick={() => pickSub(s)} style={pill(subName === s)}>{s}{counts.s[`${groupName}|${catName}|${s}`] != null && <span style={cnt(subName === s)}>{counts.s[`${groupName}|${catName}|${s}`]}</span>}</button>)}
+              </div>
+            </div>
+          )}
+
+          {/* НАШИ УРОВНИ-СЛОВА поверх выборки (то, чего нет полем) */}
           {overlays.map(lv => (
             <div key={lv.key}>
               <div style={LBL}>{lv.label.toUpperCase()}</div>
@@ -208,9 +232,9 @@ export default function NomPicker({ onPick, onClose }: {
           </div>
 
           {/* РЕЗУЛЬТАТЫ */}
-          {(groupName || catName || q) && (
+          {(groupName || catName || subName || q) && (
             <div>
-              <div style={LBL}>НАЙДЕНО В БАЗЕ{excludes.length ? ` · без ${excludes.join('/')}` : ''}</div>
+              <div style={LBL}>НАЙДЕНО В БАЗЕ</div>
               {loading
                 ? <div style={{ fontSize: 13, color: '#8a847c', padding: '8px 0' }}>Поиск…</div>
                 : shown.length > 0
@@ -228,7 +252,7 @@ export default function NomPicker({ onPick, onClose }: {
                   : <div style={{ fontSize: 13, color: '#8a847c', padding: '8px 0' }}>Не найдено в выборке — можно добавить как есть ↓</div>
               }
               {q && (
-                <button onClick={() => { const val = [groupName, catName, q].filter(Boolean).join(' ').trim() || q; if (val) setPad({ name1c: '', oral: val, unit: 'шт', digits: '' }) }}
+                <button onClick={() => { const val = [catName || groupName, q].filter(Boolean).join(' ').trim(); if (val) setPad({ name1c: '', oral: val, unit: 'шт', digits: '' }) }}
                   style={{ marginTop: 8, width: '100%', border: '1.5px dashed #d8d3cc', background: 'none', borderRadius: 9, padding: '9px', cursor: 'pointer', fontSize: 13, color: '#4a4640', fontFamily: 'inherit', fontWeight: 600 }}>
                   ＋ Добавить как есть: «{[catName || groupName, q].filter(Boolean).join(' ')}»
                 </button>
@@ -257,7 +281,6 @@ export default function NomPicker({ onPick, onClose }: {
           )}
         </div>
 
-        {/* Футер */}
         <div style={{ flexShrink: 0, padding: '12px 16px', borderTop: '1px solid #f1efec', display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ fontSize: 13, color: '#8a847c' }}>{rows.length} поз. · {totalUnits} шт</div>
           <button onClick={submit} disabled={rows.length === 0} style={{ marginLeft: 'auto', border: 'none', background: rows.length ? PRIMARY : '#e6e2dc', color: '#fff', borderRadius: 10, padding: '11px 20px', fontSize: 14, fontWeight: 800, cursor: rows.length ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>

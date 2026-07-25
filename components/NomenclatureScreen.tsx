@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { COLORS } from '@/lib/colors'
+import { NOM_CATALOG_TREE as TREE } from '@/lib/nomCatalog'
 
 interface NomItem {
   id: string
@@ -9,32 +10,6 @@ interface NomItem {
   group: string
   cat: string
   subgroup: string
-}
-
-// ─── Полная структура групп ───────────────────────────────────────────────────
-const TREE: Record<string, Record<string, string[]>> = {
-  'Водосток': {
-    'Дёке люкс': [],
-    'Дёке премиум': [],
-    'Дёке серый люкс': [],
-    'Дёке стандарт': [],
-    'Модерн бюджет 7024': [],
-    'Модерн бюджет 8017': [],
-    'Модерн бюджет 9003': [],
-  },
-  'Готовая продукция': {},
-  'Материалы': {},
-  'Товары': {
-    'Армстронг': [],
-    'Евро брус': ['Металл профиль', 'Меллиус', 'КМК', 'Разные'],
-    'Комплектующие': ['1015', '2004', '3005', '5005', '7004', '7024', '8017', '9003', 'Без цвета', 'Жёлтый', 'Тёмное дерево'],
-    'Корабельный брус': [],
-    'Крепежные материалы': [],
-    'Ленарная панель': [],
-    'Металлочерепица': ['Андалузия 7024', 'Андалузия 8019', 'Зелёный 6007', 'Красный 3005', 'Серый 7024', 'Шоколадный 8017'],
-    'Проф лист С8': [],
-  },
-  'Услуги': {},
 }
 
 const INP: React.CSSProperties = { width: '100%', padding: '8px 12px', borderRadius: 7, fontSize: 13, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }

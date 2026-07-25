@@ -25,14 +25,6 @@ const thicknessEuro: NomLevel = {
     { key: 't045', label: '0,45', terms: ['0,45мм'] },
   ],
 }
-const producer: NomLevel = {
-  key: 'maker', label: 'Производитель', items: [
-    { key: 'mp', label: 'МП', terms: [], exclude: ['АП', 'МБ', 'КМК'] }, // «без АП/МБ/КМК»
-    { key: 'ap', label: 'АП', terms: ['АП'] },
-    { key: 'mb', label: 'МБ', terms: ['МБ'] },
-    { key: 'kmk', label: 'КМК', terms: ['КМК'] },
-  ],
-}
 // Комплектующие: точные имена видов из 1С (без фазки).
 const accessoryKinds: NomLevel = {
   key: 'kind', label: 'Вид', items: [
@@ -60,20 +52,17 @@ const coating: NomLevel = {
     { key: 'glyan', label: 'Глян', terms: ['глян'] },
   ],
 }
-const metalProfile: NomLevel = {
-  key: 'profile', label: 'Профиль', items: [
-    { key: 'andaluzia', label: 'Андалузия', terms: ['Андалузия'] },
-  ],
-}
-
-// Ключи — нормализованные имена 1С-групп/подгрупп (варианты написания).
+// Надстройки-СЛОВА только там, где их НЕТ полем в дереве:
+//   Евро брус  → Толщина (производитель = subgroup дерева: Металл профиль/…)
+//   Комплектующие → Вид (цвет = subgroup дерева; вид — в имени, словами)
+//   Плоский лист/Материалы → Толщина + Покрытие (листы м²)
+// Металлочерепица/Водосток и т.п. полностью покрыты subgroup дерева → без надстроек.
 const OVERLAYS: Record<string, NomLevel[]> = {
-  'евро брус': [thicknessEuro, producer],
-  'евробрус': [thicknessEuro, producer],
+  'евро брус': [thicknessEuro],
+  'евробрус': [thicknessEuro],
   'комплектующие': [accessoryKinds],
   'плоский лист': [thicknessFlat, coating],
   'материалы': [thicknessFlat, coating],
-  'металлочерепица': [metalProfile],
 }
 
 // overlayFor(name): уровни-надстройки для группы/подгруппы (или []).
