@@ -502,9 +502,17 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
       return null
     },
     effects: async (ctx) => {
-      const { payload, prisma, scratch } = ctx
+      const { payload, prisma, scratch, order, session } = ctx
       const { posId, ...posData } = payload
       const oldPos: Position | undefined = scratch.oldPos
+      // Изменение количества ЧУЖОЙ рукой (не сам ответственный) → сигнал логисту:
+      // мигнёт во вкладке «Изменения» его кабинета, пока он не откроет.
+      const qtyChanged = posData.qty !== undefined && (Number(posData.qty) || 0) !== (oldPos?.qty ?? 0)
+      const respName = (oldPos?.resp || '').trim()
+      if (qtyChanged && respName && (oldPos?.leg ?? 2) === 2 && respName.toLowerCase() !== (session?.name || '').trim().toLowerCase()) {
+        const logist = await prisma.user.findFirst({ where: { name: respName, role: 'logist' } })
+        if (logist) await notify(logist.id, `⚡ Изменено кол-во: ${oldPos?.name1c || oldPos?.oral} → ${Number(posData.qty) || 0} (заказ ${order.id})`, order.id)
+      }
       // Плечо пересчитываем ТОЛЬКО при смене поставщика (qty-правка не меняет leg).
       const supplierChanged = posData.supplier !== undefined && posData.supplier !== oldPos?.supplier
       const newLeg = supplierChanged ? await legForSupplier(posData.supplier) : oldPos?.leg

@@ -19,9 +19,11 @@ html, body {
 @keyframes ukfade { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes uktoast { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 @keyframes ukpop { from { transform: scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes ukblink { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
 
 .anim-fade { animation: ukfade .22s ease both; }
 .anim-pop  { animation: ukpop .18s ease both; }
+.uk-blink  { animation: ukblink 1s ease-in-out infinite; }
 
 input, textarea, select {
   font-family: 'Golos Text', system-ui, sans-serif;

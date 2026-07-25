@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { orderAction, createOrder, createDailyReport, logout, fetchSettings } from '@/lib/api'
+import { orderAction, createOrder, createDailyReport, logout, fetchSettings, fetchNotifications, markNotificationRead } from '@/lib/api'
 import { useLiveData } from '@/lib/live'
 import { PositionEditor, AddPositionForm, editBtn } from '@/components/PositionEditors'
 import CardChat from '@/components/CardChat'
@@ -8,7 +8,7 @@ import ChatWidget from '@/components/ChatWidget'
 import InstallPrompt from '@/components/InstallPrompt'
 import { RalDot, extractRal } from '@/lib/ral'
 import DateFilter, { inPeriod, type Period } from '@/components/DateFilter'
-import { Order, SessionUser } from '@/lib/types'
+import { Order, SessionUser, Notification } from '@/lib/types'
 
 const PRIMARY = '#d4613a'
 const DARK    = '#211f1c'
@@ -60,7 +60,7 @@ interface ShiftRow {
 }
 
 interface Props { user: SessionUser; logistUser: { name: string; slug: string } }
-type Tab = 'in' | 'out' | 'new' | 'shift'
+type Tab = 'in' | 'out' | 'changes' | 'new' | 'shift'
 
 // ─── Главный компонент ────────────────────────────────────────────────────────
 export default function LogistPortal({ user, logistUser }: Props) {
@@ -98,6 +98,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
   const [pastDrafts, setPastDrafts] = useState<{ id: string; date: string; rowCount: number }[]>([])
   const [period, setPeriod] = useState<Period>('all') // фильтр даты просмотра
   const [day, setDay] = useState('')
+  const [notifications, setNotifications] = useState<Notification[]>([]) // сигналы изменений
 
   const myName = logistUser.name
   // Сравнение имён без учёта регистра и лишних пробелов
@@ -108,10 +109,14 @@ export default function LogistPortal({ user, logistUser }: Props) {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/logist/orders')
+      const [res, notifs] = await Promise.all([
+        fetch('/api/logist/orders'),
+        fetchNotifications().catch(() => []) as Promise<Notification[]>,
+      ])
       if (res.status === 401 || res.status === 403) { setSessionExpired(true); return }
       const data = await res.json()
       setOrders(Array.isArray(data) ? data : [])
+      setNotifications(Array.isArray(notifs) ? notifs : [])
     } catch (e: any) {
       // Тихая ошибка при polling — не показываем toast
       console.error('load error:', e.message)
@@ -164,6 +169,22 @@ export default function LogistPortal({ user, logistUser }: Props) {
       .filter(p => eqName(p.resp, myName) && p.leg === 2 && p.status === 'Доставлено')
       .map(p => ({ pos: p, order: o }))
   )
+
+  // ── ИЗМЕНЕНИЯ: карточки с непрочитанным сигналом (кто-то добавил/изменил позицию).
+  // Мигают, пока логист не откроет карточку («✓ Просмотрено» → отметить прочитанным).
+  const changedIds = new Set(notifications.filter(n => !n.read && n.cardId).map(n => n.cardId as string))
+  const posChanged = orders.flatMap(o =>          // без фильтра даты — изменения видны всегда
+    changedIds.has(o.id)
+      ? o.positions.filter(p => eqName(p.resp, myName)).map(p => ({ pos: p, order: o }))
+      : []
+  )
+  const changedCount = new Set(posChanged.map(x => x.order.id)).size
+
+  async function markCardSeen(cardId: string) {
+    const unread = notifications.filter(n => n.cardId === cardId && !n.read)
+    setNotifications(prev => prev.map(n => n.cardId === cardId ? { ...n, read: true } : n)) // оптимистично
+    try { await Promise.all(unread.map(n => markNotificationRead(n.id))) } catch {}
+  }
 
   // Загрузка черновика (сегодняшнего или конкретного дня) — ТОЛЬКО показ блока
   // с сервера. Никакой автосборки: строки наполняются событиями (доставка/вручную).
@@ -443,6 +464,34 @@ export default function LogistPortal({ user, logistUser }: Props) {
           </div>
         )}
 
+        {/* ── ⚡ ИЗМЕНЕНИЯ ── */}
+        {tab === 'changes' && (
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>⚡ Изменения</div>
+            <div style={{ fontSize: 12, color: '#8a847c', marginBottom: 14 }}>Кто-то добавил позицию или изменил число в ваших карточках. Откройте и подтвердите.</div>
+            {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
+              : posChanged.length === 0
+              ? <div style={{ background: '#fff', borderRadius: 14, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 10 }}>✅</div><div style={{ color: '#8a847c' }}>Нет новых изменений</div></div>
+              : Array.from(new Set(posChanged.map(x => x.order.id))).map(cardId => {
+                  const items = posChanged.filter(x => x.order.id === cardId)
+                  const order = items[0].order
+                  const note = notifications.find(n => n.cardId === cardId && !n.read)
+                  return (
+                    <div key={cardId} className="uk-blink" style={{ background: '#fff', border: '1.5px solid #f0c9b8', borderLeft: '4px solid #c1121c', borderRadius: 12, padding: '12px 14px', marginBottom: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <span style={{ fontWeight: 700, fontSize: 14 }}>{order.id}</span>
+                        <span style={{ fontSize: 11, color: '#8a847c' }}>от {order.from} · для {order.to || '—'}</span>
+                        <button onClick={() => markCardSeen(cardId)} style={{ marginLeft: 'auto', padding: '6px 12px', borderRadius: 8, border: 'none', background: PRIMARY, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: 'inherit', flexShrink: 0 }}>✓ Просмотрено</button>
+                      </div>
+                      {note && <div style={{ fontSize: 12, color: '#c0532a', marginBottom: 8, fontWeight: 600 }}>{note.text}</div>}
+                      {items.map(({ pos, order }) => <PosCard key={`chg-${pos.id}`} pos={pos} order={order} />)}
+                    </div>
+                  )
+                })
+            }
+          </div>
+        )}
+
         {/* ── ➕ НОВЫЙ ── */}
         {tab === 'new' && (
           <div>
@@ -650,17 +699,18 @@ export default function LogistPortal({ user, logistUser }: Props) {
 
       {/* ── Нижнее меню ── */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: DARK, padding: '10px 0 16px', zIndex: 100 }}>
-        <div style={{ maxWidth: 432, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
+        <div style={{ maxWidth: 432, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)' }}>
           {[
-            { key: 'in'    as Tab, icon: '📥', label: 'Входящие',  badge: posIn.length },
-            { key: 'out'   as Tab, icon: '📤', label: 'Исходящие', badge: posOut.length },
-            { key: 'new'   as Tab, icon: '➕', label: 'Новый',     badge: 0 },
-            { key: 'shift' as Tab, icon: '📊', label: 'Смена',     badge: shiftRows.filter(r => r.name).length },
-          ].map(({ key, icon, label, badge }) => (
+            { key: 'in'      as Tab, icon: '📥', label: 'Входящие',  badge: posIn.length, blink: false },
+            { key: 'out'     as Tab, icon: '📤', label: 'Исходящие', badge: posOut.length, blink: false },
+            { key: 'changes' as Tab, icon: '⚡', label: 'Изменения', badge: changedCount, blink: changedCount > 0 },
+            { key: 'new'     as Tab, icon: '➕', label: 'Новый',     badge: 0, blink: false },
+            { key: 'shift'   as Tab, icon: '📊', label: 'Смена',     badge: shiftRows.filter(r => r.name).length, blink: false },
+          ].map(({ key, icon, label, badge, blink }) => (
             <button key={key} onClick={() => setTab(key)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, position: 'relative' }}>
-              <div style={{ position: 'relative', display: 'inline-flex' }}>
+              <div className={blink ? 'uk-blink' : undefined} style={{ position: 'relative', display: 'inline-flex' }}>
                 <span style={{ fontSize: 22 }}>{icon}</span>
-                {badge > 0 && <span style={{ position: 'absolute', top: -4, right: -8, background: PRIMARY, color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 4px', borderRadius: 10, minWidth: 14, textAlign: 'center' }}>{badge}</span>}
+                {badge > 0 && <span style={{ position: 'absolute', top: -4, right: -8, background: blink ? '#c1121c' : PRIMARY, color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 4px', borderRadius: 10, minWidth: 14, textAlign: 'center' }}>{badge}</span>}
               </div>
               <span style={{ fontSize: 10, fontWeight: tab === key ? 700 : 400, color: tab === key ? PRIMARY : '#8c857a' }}>{label}</span>
             </button>
