@@ -2,25 +2,44 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { requireSession } from '@/lib/auth'
 import { pushSignal } from '@/lib/pusherServer'
+import { invalidateNomTree } from '@/lib/nomTreeCache'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q') || ''
   const all = searchParams.get('all') === '1'
   const group = searchParams.get('group') || ''
+  const cat = searchParams.get('cat') || ''
+  const subgroup = searchParams.get('subgroup') || ''
   const limit = parseInt(searchParams.get('limit') || '12')
+
+  // Фильтр ПО ПОЛЯМ базы (не по словам имени): каталог выбирает группу/подгруппу
+  // строго внутри 1С-структуры, а цвет/текст уточняют словами уже внутри выборки.
+  const fieldWhere: Record<string, string> = {}
+  if (group) fieldWhere.group = group
+  if (cat) fieldWhere.cat = cat
+  if (subgroup) fieldWhere.subgroup = subgroup
+  const hasField = !!(group || cat || subgroup)
 
   if (all) {
     const auth = await requireSession(req)
     if (!auth.ok) return auth.response
     const items = await prisma.nomenclature.findMany({
-      where: group ? { group } : undefined,
+      where: hasField ? fieldWhere : undefined,
       orderBy: [{ group: 'asc' }, { cat: 'asc' }, { name: 'asc' }],
     })
     return NextResponse.json(items)
   }
 
-  if (!q || q.length < 1) return NextResponse.json([])
+  // Пустой запрос, но выбрана группа/подгруппа → отдать записи этой выборки
+  // (тап по группе показывает её позиции без ввода слов).
+  if (!q || q.length < 1) {
+    if (hasField) {
+      const items = await prisma.nomenclature.findMany({ where: fieldWhere, orderBy: { name: 'asc' }, take: limit })
+      return NextResponse.json(items)
+    }
+    return NextResponse.json([])
+  }
 
   // Нормализация: заменяем , на . и наоборот для поиска
   // Ищем оба варианта чтобы "0,45" нашёл "0.45" и наоборот
@@ -28,7 +47,7 @@ export async function GET(req: NextRequest) {
   const qAlt = qNorm.includes(',') ? qNorm.replace(/,/g, '.') : qNorm.replace(/\./g, ',')
   const words = qNorm.split(/\s+/).filter(w => w.length >= 1)
   const wordsAlt = qAlt.split(/\s+/).filter(w => w.length >= 1)
-  const groupFilter = group ? { group } : {}
+  const groupFilter = fieldWhere
 
   // Поиск с нормализацией запятая/точка
   async function search(searchWords: string[], take: number) {
@@ -78,6 +97,7 @@ export async function POST(req: NextRequest) {
   const item = await prisma.nomenclature.create({
     data: { name, unit: unit || 'шт', cat: cat || '', group: group || '', subgroup: subgroup || '' }
   })
+  invalidateNomTree()
   await pushSignal('settings')
   return NextResponse.json(item, { status: 201 })
 }
@@ -90,6 +110,7 @@ export async function PUT(req: NextRequest) {
   const item = await prisma.nomenclature.update({
     where: { id }, data: { name, unit, cat, group, subgroup: subgroup || '' }
   })
+  invalidateNomTree()
   await pushSignal('settings')
   return NextResponse.json(item)
 }
@@ -101,6 +122,7 @@ export async function DELETE(req: NextRequest) {
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'ID обязателен' }, { status: 400 })
   await prisma.nomenclature.delete({ where: { id } })
+  invalidateNomTree()
   await pushSignal('settings')
   return NextResponse.json({ ok: true })
 }

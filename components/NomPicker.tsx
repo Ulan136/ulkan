@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { NOM_TREE, type NomProduct } from '@/lib/nomTree'
+import { overlayFor } from '@/lib/nomTree'
 import { RAL_COLORS, RAL_BY_CODE, RalDot, extractRal } from '@/lib/ral'
 
 const PRIMARY = '#d4613a'
@@ -9,37 +9,22 @@ const GLOW = '0 0 0 4px rgba(212,97,58,.25)'
 
 export interface PickedPos { name1c: string; oral: string; qty: number; unit: string }
 interface NomHit { id: string; name: string; unit: string }
-
-// Собрать строку запроса из выбранных чипов: цвет + слова категории + слова
-// выбранных уровней (+ «№ {cm}» для изделия). Это ПОИСКОВЫЕ СЛОВА, а не имя.
-function assemble(color: string, product: NomProduct | undefined, sel: Record<string, string>, cm: string): string {
-  const parts: string[] = []
-  const cEntry = color ? RAL_BY_CODE[color] : undefined
-  if (cEntry) parts.push(cEntry.query || cEntry.code)
-  if (product) {
-    ;(product.terms || []).forEach(t => parts.push(t))
-    product.levels.forEach(lv => {
-      const it = lv.items.find(i => i.key === sel[lv.key])
-      if (it) {
-        ;(it.terms ?? [it.label]).forEach(t => parts.push(t))
-        if (it.measure && cm) parts.push(`№ ${cm}`)
-      }
-    })
-  }
-  return parts.join(' ').trim()
-}
+interface TreeSub { name: string; count: number }
+interface TreeCat { name: string; count: number; subgroups: TreeSub[] }
+interface TreeGroup { name: string; count: number; cats: TreeCat[] }
 
 export default function NomPicker({ onPick, onClose }: {
   onPick: (items: PickedPos[]) => void
   onClose: () => void
 }) {
   const [mounted, setMounted] = useState(false)
+  const [tree, setTree] = useState<TreeGroup[]>([])
   const [color, setColor] = useState('')
-  const [productKey, setProductKey] = useState('')
-  const [sel, setSel] = useState<Record<string, string>>({})   // levelKey → itemKey
+  const [groupName, setGroupName] = useState('')     // корневая 1С-группа (поле group)
+  const [catName, setCatName] = useState('')         // подгруппа (поле cat)
+  const [sel, setSel] = useState<Record<string, string>>({}) // надстройки-уровни
   const [cm, setCm] = useState('')
-  const [query, setQuery] = useState('')
-  const [manual, setManual] = useState(false)                  // ручная правка строки
+  const [text, setText] = useState('')               // ручное уточнение словами
   const [results, setResults] = useState<NomHit[]>([])
   const [loading, setLoading] = useState(false)
   const [rows, setRows] = useState<PickedPos[]>([])
@@ -47,41 +32,55 @@ export default function NomPicker({ onPick, onClose }: {
   const [pad, setPad] = useState<null | { name1c: string; oral: string; unit: string; digits: string }>(null)
   const padRef = useRef(pad); padRef.current = pad
 
-  useEffect(() => { setMounted(true) }, [])
-
-  const product = NOM_TREE.find(p => p.key === productKey)
-
-  // Пока не редактировали руками — строка запроса собирается из чипов.
   useEffect(() => {
-    if (!manual) setQuery(assemble(color, product, sel, cm))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [color, productKey, sel, cm, manual])
+    setMounted(true)
+    fetch('/api/nomenclature/tree').then(r => r.ok ? r.json() : []).then(d => setTree(Array.isArray(d) ? d : [])).catch(() => {})
+  }, [])
 
-  // Исключающий фильтр (МП): слова, имена с которыми выкидываем из выдачи.
+  const group = tree.find(g => g.name === groupName)
+  const cats = group?.cats || []
+  const overlays = overlayFor(catName || groupName)  // наши уровни поверх выборки
+
+  // Слова уточнения ВНУТРИ полевой выборки: цвет + слова уровней (+ «№ см») + текст.
+  const cEntry = color ? RAL_BY_CODE[color] : undefined
+  const words: string[] = []
+  if (cEntry) words.push(cEntry.query || cEntry.code)
   const excludes: string[] = []
-  product?.levels.forEach(lv => {
+  overlays.forEach(lv => {
     const it = lv.items.find(i => i.key === sel[lv.key])
-    if (it?.exclude) excludes.push(...it.exclude)
+    if (it) {
+      ;(it.terms ?? [it.label]).forEach(t => words.push(t))
+      if (it.measure && cm) words.push(`№ ${cm}`)
+      if (it.exclude) excludes.push(...it.exclude)
+    }
   })
+  if (text.trim()) words.push(text.trim())
+  const q = words.join(' ').trim()
+  const measureOn = overlays.some(lv => lv.items.find(i => i.key === sel[lv.key])?.measure)
 
-  // ── Поиск по реальной номенклатуре (debounce), каскад не трогаем ──
+  // ── Поиск: фильтр по полям (group/cat) + слова уточнения. Каскад не трогаем ──
   useEffect(() => {
-    const q = query.trim()
-    if (!q) { setResults([]); setLoading(false); return }
+    if (!groupName && !catName && !q) { setResults([]); setLoading(false); return }
     setLoading(true)
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/nomenclature?q=${encodeURIComponent(q)}&limit=25`)
+        const params = new URLSearchParams()
+        if (groupName) params.set('group', groupName)
+        if (catName) params.set('cat', catName)
+        if (q) params.set('q', q)
+        params.set('limit', '30')
+        const res = await fetch(`/api/nomenclature?${params}`)
         const data = await res.json()
         setResults(Array.isArray(data) ? data.map((d: any) => ({ id: d.id, name: d.name, unit: d.unit || 'шт' })) : [])
       } catch { setResults([]) }
       finally { setLoading(false) }
     }, 250)
     return () => clearTimeout(t)
-  }, [query])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, groupName, catName])
 
-  // Выдача: исключить МП-слова, сорт «точность (больше слов совпало) → короче имя».
-  const qWords = query.toLowerCase().split(/[^а-яёa-z0-9]+/i).filter(w => w.length >= 2)
+  // Исключающий фильтр (МП) + сорт «точность → короче имя».
+  const qWords = q.toLowerCase().split(/[^а-яёa-z0-9]+/i).filter(w => w.length >= 2)
   const shown = results
     .filter(r => !excludes.some(w => r.name.toLowerCase().includes(w.toLowerCase())))
     .map(r => ({ r, score: qWords.filter(w => r.name.toLowerCase().includes(w)).length }))
@@ -89,15 +88,15 @@ export default function NomPicker({ onPick, onClose }: {
     .map(x => x.r)
 
   // ── Чипы ──
-  function pickColor(c: string) { setManual(false); setColor(prev => prev === c ? '' : c) }
-  function pickProduct(k: string) { setManual(false); setProductKey(prev => prev === k ? '' : k); setSel({}); setCm('') }
+  function pickColor(c: string) { setColor(prev => prev === c ? '' : c) }
+  function pickGroup(name: string) { setGroupName(prev => prev === name ? '' : name); setCatName(''); setSel({}); setCm('') }
+  function pickCat(name: string) { setCatName(prev => prev === name ? '' : name); setSel({}); setCm('') }
   function pickItem(levelKey: string, itemKey: string, isMeasure: boolean) {
-    setManual(false)
     setSel(prev => { const next = { ...prev }; if (next[levelKey] === itemKey) delete next[levelKey]; else next[levelKey] = itemKey; return next })
     if (!isMeasure) setCm('')
   }
 
-  // ── Количество: панель + клавиатура ──
+  // ── Количество ──
   function commitPad() {
     const p = padRef.current
     if (!p) return
@@ -121,19 +120,13 @@ export default function NomPicker({ onPick, onClose }: {
 
   function submit() { if (rows.length) { onPick(rows); onClose() } }
   const totalUnits = rows.reduce((s, r) => s + r.qty, 0)
-  const measureSelected = product?.levels.some(lv => lv.items.find(i => i.key === sel[lv.key])?.measure)
 
-  // Разбор «Поисковые слова: 7024 (серый) + Комплектующие + «Нар. угол (сл)»»
-  const cEntry = color ? RAL_BY_CODE[color] : undefined
+  // Строка «Поисковые слова/фильтры»: группа ▸ подгруппа + цвет + уровни + текст.
   const crumbs: React.ReactNode[] = []
+  if (groupName) crumbs.push(<span key="g" style={{ fontWeight: 700 }}>{groupName}{catName ? ` ▸ ${catName}` : ''}</span>)
   if (cEntry) crumbs.push(<span key="c"><b style={{ color: PRIMARY }}>{cEntry.query || cEntry.code}</b> ({cEntry.name.toLowerCase()})</span>)
-  if (product) {
-    crumbs.push(<span key="p">{product.label}</span>)
-    product.levels.forEach(lv => {
-      const it = lv.items.find(i => i.key === sel[lv.key])
-      if (it) crumbs.push(<span key={lv.key}>«{it.label}{it.measure && cm ? ` ${cm} см` : ''}»</span>)
-    })
-  }
+  overlays.forEach(lv => { const it = lv.items.find(i => i.key === sel[lv.key]); if (it) crumbs.push(<span key={lv.key}>«{it.label}{it.measure && cm ? ` ${cm} см` : ''}»</span>) })
+  if (text.trim()) crumbs.push(<span key="t">«{text.trim()}»</span>)
 
   if (!mounted) return null
 
@@ -164,16 +157,26 @@ export default function NomPicker({ onPick, onClose }: {
             </div>
           </div>
 
-          {/* ТОВАР */}
+          {/* ТОВАР — корневые 1С-группы из базы */}
           <div>
-            <div style={LBL}>ТОВАР</div>
+            <div style={LBL}>ТОВАР{tree.length === 0 ? ' (загрузка…)' : ''}</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {NOM_TREE.map(p => <button key={p.key} onClick={() => pickProduct(p.key)} style={pill(productKey === p.key)}>{p.label}</button>)}
+              {tree.map(g => <button key={g.name} onClick={() => pickGroup(g.name)} style={pill(groupName === g.name)}>{g.name}<span style={cnt(groupName === g.name)}>{g.count}</span></button>)}
             </div>
           </div>
 
-          {/* УРОВНИ выбранного товара */}
-          {product?.levels.map(lv => (
+          {/* ПОДГРУППА — cat выбранной группы */}
+          {cats.length > 0 && (
+            <div>
+              <div style={LBL}>ПОДГРУППА</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {cats.map(c => <button key={c.name} onClick={() => pickCat(c.name)} style={pill(catName === c.name)}>{c.name}<span style={cnt(catName === c.name)}>{c.count}</span></button>)}
+              </div>
+            </div>
+          )}
+
+          {/* НАШИ УРОВНИ поверх выборки (слова внутри группы) */}
+          {overlays.map(lv => (
             <div key={lv.key}>
               <div style={LBL}>{lv.label.toUpperCase()}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -182,31 +185,30 @@ export default function NomPicker({ onPick, onClose }: {
             </div>
           ))}
 
-          {/* Изделие · см — ввод длины (уходит словом «№ {cm}») */}
-          {measureSelected && (
+          {measureOn && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 13, color: '#8a847c', fontWeight: 600 }}>Длина:</span>
-              <input value={cm} onChange={e => { setManual(false); setCm(e.target.value.replace(/\D/g, '').slice(0, 4)) }} inputMode="numeric" placeholder="см"
+              <input value={cm} onChange={e => setCm(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" placeholder="см"
                 style={{ width: 90, padding: '8px 10px', borderRadius: 8, border: '1.5px solid #e6e2dc', fontSize: 14, fontFamily: 'inherit', outline: 'none', textAlign: 'center' }} />
               <span style={{ fontSize: 13, color: '#8a847c' }}>см</span>
             </div>
           )}
 
-          {/* Строка поиска (собрана чипами, редактируемая) */}
+          {/* Ручное уточнение словами */}
           <div>
-            <div style={LBL}>ПОИСК</div>
-            <input value={query} onChange={e => { setManual(true); setQuery(e.target.value) }} placeholder="Слова поиска (можно править вручную)"
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1.5px solid ${query ? PRIMARY : '#e6e2dc'}`, fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
+            <div style={LBL}>УТОЧНИТЬ СЛОВАМИ</div>
+            <input value={text} onChange={e => setText(e.target.value)} placeholder="доп. слова поиска…"
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1.5px solid ${text ? PRIMARY : '#e6e2dc'}`, fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
             {crumbs.length > 0 && (
               <div style={{ fontSize: 12, color: '#8a847c', marginTop: 7, display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
-                <span style={{ fontWeight: 700 }}>Поисковые слова:</span>
+                <span style={{ fontWeight: 700 }}>Фильтр:</span>
                 {crumbs.map((c, i) => <span key={i} style={{ display: 'inline-flex', gap: 4 }}>{i > 0 && <span style={{ color: '#cfc9c0' }}>+</span>}{c}</span>)}
               </div>
             )}
           </div>
 
           {/* РЕЗУЛЬТАТЫ */}
-          {query.trim() && (
+          {(groupName || catName || q) && (
             <div>
               <div style={LBL}>НАЙДЕНО В БАЗЕ{excludes.length ? ` · без ${excludes.join('/')}` : ''}</div>
               {loading
@@ -223,12 +225,14 @@ export default function NomPicker({ onPick, onClose }: {
                         </button>
                       ))}
                     </div>
-                  : <div style={{ fontSize: 13, color: '#8a847c', padding: '8px 0' }}>Не найдено в базе — можно добавить как есть ↓</div>
+                  : <div style={{ fontSize: 13, color: '#8a847c', padding: '8px 0' }}>Не найдено в выборке — можно добавить как есть ↓</div>
               }
-              <button onClick={() => { const q = query.trim(); if (q) setPad({ name1c: '', oral: q, unit: 'шт', digits: '' }) }}
-                style={{ marginTop: 8, width: '100%', border: '1.5px dashed #d8d3cc', background: 'none', borderRadius: 9, padding: '9px', cursor: 'pointer', fontSize: 13, color: '#4a4640', fontFamily: 'inherit', fontWeight: 600 }}>
-                ＋ Добавить как есть: «{query.trim()}»
-              </button>
+              {q && (
+                <button onClick={() => { const val = [groupName, catName, q].filter(Boolean).join(' ').trim() || q; if (val) setPad({ name1c: '', oral: val, unit: 'шт', digits: '' }) }}
+                  style={{ marginTop: 8, width: '100%', border: '1.5px dashed #d8d3cc', background: 'none', borderRadius: 9, padding: '9px', cursor: 'pointer', fontSize: 13, color: '#4a4640', fontFamily: 'inherit', fontWeight: 600 }}>
+                  ＋ Добавить как есть: «{[catName || groupName, q].filter(Boolean).join(' ')}»
+                </button>
+              )}
             </div>
           )}
 
@@ -298,5 +302,8 @@ export default function NomPicker({ onPick, onClose }: {
 const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 800, color: '#a39c92', letterSpacing: '.05em', marginBottom: 8 }
 const keyBtn: React.CSSProperties = { padding: '14px 0', borderRadius: 10, border: 'none', background: '#f8f6f3', fontSize: 20, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', color: '#26231f' }
 function pill(on: boolean): React.CSSProperties {
-  return { padding: '8px 14px', borderRadius: 22, border: 'none', fontSize: 13, fontWeight: on ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', background: on ? PRIMARY : '#f1efec', color: on ? '#fff' : '#4a4640', boxShadow: on ? GLOW : 'none', transition: 'all .12s' }
+  return { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 22, border: 'none', fontSize: 13, fontWeight: on ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', background: on ? PRIMARY : '#f1efec', color: on ? '#fff' : '#4a4640', boxShadow: on ? GLOW : 'none', transition: 'all .12s' }
+}
+function cnt(on: boolean): React.CSSProperties {
+  return { fontSize: 10, fontWeight: 700, color: on ? 'rgba(255,255,255,.8)' : '#a39c92' }
 }
