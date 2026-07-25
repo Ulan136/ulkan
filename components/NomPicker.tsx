@@ -10,14 +10,18 @@ const GLOW = '0 0 0 4px rgba(212,97,58,.25)'
 
 export interface PickedPos { name1c: string; oral: string; qty: number; unit: string }
 interface NomHit { id: string; name: string; unit: string }
-interface Counts { g: Record<string, number>; c: Record<string, number> }
+interface NomFull { id: string; name: string; unit: string; group: string; cat: string; subgroup: string }
+
+// Нормализация как на экране «Номенклатура»: trim + нижний регистр + ё→е.
+const norm = (s: string) => (s || '').trim().toLowerCase().replace(/ё/g, 'е')
 
 export default function NomPicker({ onPick, onClose }: {
   onPick: (items: PickedPos[]) => void
   onClose: () => void
 }) {
   const [mounted, setMounted] = useState(false)
-  const [counts, setCounts] = useState<Counts>({ g: {}, c: {} })
+  const [allItems, setAllItems] = useState<NomFull[]>([]) // вся номенклатура (как экран)
+  const [loaded, setLoaded] = useState(false)
   const [color, setColor] = useState('')
   const [groupName, setGroupName] = useState('')     // поле group (корень пути)
   const [catName, setCatName] = useState('')         // поле cat (подпапка пути)
@@ -25,8 +29,6 @@ export default function NomPicker({ onPick, onClose }: {
   const [sel, setSel] = useState<Record<string, string>>({}) // надстройки-СЛОВА
   const [cm, setCm] = useState('')
   const [text, setText] = useState('')
-  const [results, setResults] = useState<NomHit[]>([])
-  const [loading, setLoading] = useState(false)
   const [rows, setRows] = useState<PickedPos[]>([])
 
   const [pad, setPad] = useState<null | { name1c: string; oral: string; unit: string; digits: string }>(null)
@@ -42,14 +44,13 @@ export default function NomPicker({ onPick, onClose }: {
 
   useEffect(() => {
     setMounted(true)
-    fetch('/api/nomenclature/tree').then(r => r.ok ? r.json() : []).then((tree: any[]) => {
-      const g: Record<string, number> = {}, c: Record<string, number> = {}
-      ;(Array.isArray(tree) ? tree : []).forEach(gr => {
-        g[gr.name] = gr.count
-        ;(gr.cats || []).forEach((ct: any) => { c[`${gr.name}|${ct.name}`] = ct.count })
-      })
-      setCounts({ g, c })
-    }).catch(() => {})
+    // Грузим ВСЮ номенклатуру и фильтруем на клиенте нормализованно — та же
+    // логика, что на экране «Номенклатура» (работает во всех папках: терпит
+    // ё/е, регистр, пробелы и перепутанные поля group/cat).
+    fetch('/api/nomenclature?all=1').then(r => r.ok ? r.json() : []).then((d: any[]) => {
+      setAllItems(Array.isArray(d) ? d.map(x => ({ id: x.id, name: x.name || '', unit: x.unit || 'шт', group: x.group || '', cat: x.cat || '', subgroup: x.subgroup || '' })) : [])
+      setLoaded(true)
+    }).catch(() => setLoaded(true))
   }, [])
 
   // ── СЛОВА уточнения внутри выбранной папки: цвет + виды/толщина + текст ──
@@ -98,36 +99,31 @@ export default function NomPicker({ onPick, onClose }: {
     return n
   }
 
-  // ── Поиск: фильтр по полям (group/cat) + слова. Каскад не трогаем ──
-  useEffect(() => {
-    if (!groupName && !catName && !q && !producerKey) { setResults([]); setLoading(false); return }
-    setLoading(true)
-    const t = setTimeout(async () => {
-      try {
-        const params = new URLSearchParams()
-        if (groupName) params.set('group', groupName)
-        if (catName) params.set('cat', catName)
-        if (selectedProducer) params.set('subgroup', selectedProducer.subgroup) // производитель = поле
-        if (q) params.set('q', q)
-        params.set('limit', '200') // берём весь срез папки — цвет/толщину режем на клиенте
-        const res = await fetch(`/api/nomenclature?${params}`)
-        const data = await res.json()
-        setResults(Array.isArray(data) ? data.map((d: any) => ({ id: d.id, name: d.name, unit: d.unit || 'шт' })) : [])
-      } catch { setResults([]) }
-      finally { setLoading(false) }
-    }, 250)
-    return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, groupName, catName, producerKey])
+  // ── Папка → выборка по ПОЛЯМ (нормализованно; ориентация group/cat терпима) ──
+  const inGroup = (i: NomFull, g: string) => norm(i.group) === norm(g) || norm(i.cat) === norm(g)
+  const inCat = (i: NomFull, g: string, c: string) =>
+    (norm(i.group) === norm(g) && norm(i.cat) === norm(c)) ||
+    (norm(i.group) === norm(c) && norm(i.cat) === norm(g))
+  const countGroup = (g: string) => allItems.filter(i => inGroup(i, g)).length
+  const countCat = (g: string, c: string) => allItems.filter(i => inCat(i, g, c)).length
 
-  const qWords = q.toLowerCase().split(/[^а-яёa-z0-9]+/i).filter(w => w.length >= 2)
-  const shown = results
-    .filter(r => !excludes.some(w => r.name.toLowerCase().includes(w.toLowerCase())))
-    .filter(r => !colorRe || colorRe.test(r.name))              // цвет — жёстко
-    .filter(r => !thickRe || thickRe.test(r.name))              // толщина — жёстко
-    .map(r => ({ r, score: qWords.filter(w => r.name.toLowerCase().includes(w)).length }))
-    .sort((a, b) => b.score - a.score || a.r.name.length - b.r.name.length)
-    .map(x => x.r)
+  // База — записи выбранной папки/производителя (поля). Цвет/толщина/слова — поверх.
+  let base = allItems
+  if (catName) base = base.filter(i => inCat(i, groupName, catName))
+  else if (groupName) base = base.filter(i => inGroup(i, groupName))
+  if (selectedProducer) base = base.filter(i => norm(i.subgroup) === norm(selectedProducer.subgroup))
+
+  const mustWords = words.flatMap(t => t.toLowerCase().split(/[^а-яёa-z0-9]+/i)).filter(w => w.length >= 1)
+  const anySelection = !!(groupName || catName || producerKey || q || cEntry || thickItem)
+  const loading = !loaded
+  const shown: NomHit[] = !anySelection ? [] : base
+    .filter(i => !excludes.some(w => i.name.toLowerCase().includes(w.toLowerCase())))
+    .filter(i => !colorRe || colorRe.test(i.name))              // цвет — жёстко
+    .filter(i => !thickRe || thickRe.test(i.name))              // толщина — жёстко
+    .filter(i => mustWords.every(w => i.name.toLowerCase().includes(w))) // виды/текст
+    .map(i => ({ i, score: mustWords.filter(w => i.name.toLowerCase().includes(w)).length }))
+    .sort((a, b) => b.score - a.score || a.i.name.length - b.i.name.length)
+    .map(x => ({ id: x.i.id, name: x.i.name, unit: x.i.unit }))
 
   // ── Чипы ──
   function pickColor(c: string) { setColor(prev => prev === c ? '' : c) }
@@ -205,7 +201,7 @@ export default function NomPicker({ onPick, onClose }: {
           <div>
             <div style={LBL}>ТОВАР</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {groups.map(g => <button key={g} onClick={() => pickGroup(g)} style={pill(groupName === g)}>{g}{counts.g[g] != null && <span style={cnt(groupName === g)}>{counts.g[g]}</span>}</button>)}
+              {groups.map(g => <button key={g} onClick={() => pickGroup(g)} style={pill(groupName === g)}>{g}{loaded && <span style={cnt(groupName === g)}>{countGroup(g)}</span>}</button>)}
             </div>
           </div>
 
@@ -214,7 +210,7 @@ export default function NomPicker({ onPick, onClose }: {
             <div>
               <div style={LBL}>ПАПКА</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {cats.map(c => <button key={c} onClick={() => pickCat(c)} style={pill(catName === c)}>{c}{counts.c[`${groupName}|${c}`] != null && <span style={cnt(catName === c)}>{counts.c[`${groupName}|${c}`]}</span>}</button>)}
+                {cats.map(c => <button key={c} onClick={() => pickCat(c)} style={pill(catName === c)}>{c}{loaded && <span style={cnt(catName === c)}>{countCat(groupName, c)}</span>}</button>)}
               </div>
             </div>
           )}
@@ -272,7 +268,7 @@ export default function NomPicker({ onPick, onClose }: {
           </div>
 
           {/* РЕЗУЛЬТАТЫ */}
-          {(groupName || catName || q) && (
+          {anySelection && (
             <div>
               <div style={LBL}>НАЙДЕНО В БАЗЕ</div>
               {loading
