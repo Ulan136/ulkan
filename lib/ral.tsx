@@ -42,12 +42,14 @@ function tokens(name: string): string[] {
   return (name || '').toLowerCase().split(/[^а-яёa-z0-9]+/i).filter(Boolean)
 }
 
-// extractRal(name): сначала /RAL\s?(\d{4})/i, затем словарь слов по границе слова.
+// extractRal(name): /RAL\s?(\d{4})/i, затем голый 4-значный код из палитры
+// (имена в базе вида «нар угол 9003» — без префикса RAL), затем словарь слов.
 // Возвращает код ('8017') или '' если цвет не определён.
 export function extractRal(name: string): string {
   const m = /RAL\s?(\d{4})/i.exec(name || '')
   if (m && RAL_BY_CODE[m[1]]) return m[1]
   const toks = tokens(name)
+  for (const t of toks) if (/^\d{4}$/.test(t) && RAL_BY_CODE[t]) return t
   for (const { code, words } of RAL_DICT) {
     for (const w of words) {
       const stem = w.toLowerCase()
@@ -67,14 +69,6 @@ export function ralSearchTerms(code: string): string[] {
   const entry = RAL_DICT.find(e => e.code === code)
   const words = entry ? entry.words.filter(w => !w.includes('.') && !w.includes('-')) : []
   return [`RAL${code}`, code, ...words]
-}
-
-// withRal(name, code): переписать RAL-суффикс в имени (перевыбор цвета).
-// Снимает существующий « RALxxxx» и дописывает новый (или ничего, если code='').
-export function withRal(name: string, code: string): string {
-  const stripped = (name || '').replace(/\s*RAL\s?\d{4}/ig, '').trim()
-  if (!code) return stripped
-  return stripped ? `${stripped} RAL${code}` : `RAL${code}`
 }
 
 // ─── RalDot — круглый чип цвета 16px ───────────────────────────────────────

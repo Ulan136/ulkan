@@ -23,7 +23,7 @@ import NomenclatureScreen from '@/components/NomenclatureScreen'
 import CardChat from '@/components/CardChat'
 import ChatWidget from '@/components/ChatWidget'
 import NomPicker, { type PickedPos } from '@/components/NomPicker'
-import { RalDot, RAL_COLORS, extractRal, withRal } from '@/lib/ral'
+import { RalDot, extractRal } from '@/lib/ral'
 
 // ─── Утилиты v2.2 ───────────────────────────────────────────────────────────
 
@@ -514,13 +514,9 @@ export default function AdminApp({ user }: Props) {
     if (!items.length) return
     setRecPositions(p => {
       const base = p.filter(x => x.name1c || x.oral) // выкинуть пустую стартовую строку
-      const added = items.map(it => ({ name1c: it.name1c || it.oral, oral: it.oral, qty: String(it.qty), unit: it.unit || 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: '', payment: '' }))
+      const added = items.map(it => ({ name1c: it.name1c, oral: it.oral, qty: String(it.qty), unit: it.unit || 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: '', payment: '' }))
       return [...base, ...added]
     })
-  }
-  // Перевыбор цвета в колонке RAL формы: переписать RAL-суффикс в имени + чип.
-  function recSetRal(i: number, code: string) {
-    setRecPositions(p => p.map((x, idx) => idx === i ? { ...x, name1c: withRal(x.name1c, code), oral: withRal(x.oral || x.name1c, code) } : x))
   }
   function recUpdatePos(i: number, field: string, val: string) {
     setRecPositions(p => p.map((x, idx) => idx === i ? { ...x, [field]: val } : x))
@@ -1093,7 +1089,7 @@ export default function AdminApp({ user }: Props) {
                       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
                         <thead>
                           <tr style={{ background: '#f1efec' }}>
-                            {['НАИМЕНОВАНИЕ', 'КОЛ-ВО', 'ЕД.', 'RAL', 'ЦЕНА (ТГ)', 'ЛОГИСТ', 'ПОСТАВЩИК', 'СРОК', 'ОПЛАТА', ''].map(h => (
+                            {['НАИМЕНОВАНИЕ', 'КОЛ-ВО', 'ЕД.', 'ЦЕНА (ТГ)', 'ЛОГИСТ', 'ПОСТАВЩИК', 'СРОК', 'ОПЛАТА', ''].map(h => (
                               <th key={h} style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
                           </tr>
@@ -1117,15 +1113,6 @@ export default function AdminApp({ user }: Props) {
                               </td>
                               <td style={{ padding: '6px 4px', width: 60 }}>
                                 <input style={inpSm} value={pos.unit} onChange={e => recUpdatePos(i, 'unit', e.target.value)} placeholder="шт" />
-                              </td>
-                              <td style={{ padding: '6px 4px', width: 92 }}>
-                                <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-                                  <RalDot code={extractRal(pos.name1c || pos.oral)} />
-                                  <select style={{ ...inpSm, padding: '5px 4px' }} value={extractRal(pos.name1c || pos.oral)} onChange={e => recSetRal(i, e.target.value)}>
-                                    <option value="">—</option>
-                                    {RAL_COLORS.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
-                                  </select>
-                                </div>
                               </td>
                               <td style={{ padding: '6px 4px', width: 100 }}>
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -1287,7 +1274,7 @@ export default function AdminApp({ user }: Props) {
                         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                           <thead>
                             <tr style={{ background: '#f1efec' }}>
-                              {['СО СЛОВ', 'НАИМ. 1С', 'КОЛ-ВО', 'ЕД.', 'RAL', 'ЦЕНА', 'ЛОГИСТ', 'ПОСТАВЩИК', 'СРОК', 'ОПЛАТА', ''].map(h => (
+                              {['СО СЛОВ', 'НАИМ. 1С', 'КОЛ-ВО', 'ЕД.', 'ЦЕНА', 'ЛОГИСТ', 'ПОСТАВЩИК', 'СРОК', 'ОПЛАТА', ''].map(h => (
                                 <th key={h} style={{ padding: '7px 8px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                               ))}
                             </tr>
@@ -1328,20 +1315,6 @@ export default function AdminApp({ user }: Props) {
                                       ? <input style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 44 }} value={ed.unit ?? pos.unit} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], unit: e.target.value } }))} />
                                       : <span style={{ fontSize: 12 }}>{pos.unit}</span>
                                     }
-                                  </td>
-                                  {/* RAL — чип + быстрый select (перевыбор переписывает RAL в имени) */}
-                                  <td style={{ padding: '6px 4px', width: 84 }} onClick={e => e.stopPropagation()}>
-                                    <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-                                      <RalDot code={extractRal(pos.name1c || pos.oral)} />
-                                      <select style={{ ...INP, fontSize: 12, padding: '5px 4px', width: 58 }} value={extractRal(pos.name1c || pos.oral)}
-                                        onChange={async e => {
-                                          const code = e.target.value
-                                          await handleAction(order.id, 'updatePosDetail', { posId: pos.id, ...(pos.name1c ? { name1c: withRal(pos.name1c, code) } : {}), oral: withRal(pos.oral || pos.name1c || '', code) })
-                                        }}>
-                                        <option value="">—</option>
-                                        {RAL_COLORS.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
-                                      </select>
-                                    </div>
                                   </td>
                                   {/* ЦЕНА */}
                                   <td style={{ padding: '6px 4px', width: 90 }}>

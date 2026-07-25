@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { COLORS } from '@/lib/colors'
-import { RalDot, RAL_COLORS, extractRal } from '@/lib/ral'
 
 interface NomItem {
   id: string
@@ -10,7 +9,6 @@ interface NomItem {
   group: string
   cat: string
   subgroup: string
-  ral: string
 }
 
 // ─── Полная структура групп ───────────────────────────────────────────────────
@@ -237,7 +235,7 @@ export default function NomenclatureScreen() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f8f6f3' }}>
-                  {['НАИМЕНОВАНИЕ', 'ЕД.', 'ГРУППА', 'КАТЕГОРИЯ', 'ПОДГРУППА', 'ЦВЕТ (RAL)', ''].map(h => (
+                  {['НАИМЕНОВАНИЕ', 'ЕД.', 'ГРУППА', 'КАТЕГОРИЯ', 'ПОДГРУППА', ''].map(h => (
                     <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -296,17 +294,6 @@ export default function NomenclatureScreen() {
                                 </select>
                               : <span style={{ fontSize: 12, color: '#8a847c' }}>{item.subgroup || '—'}</span>
                             }
-                          </td>
-                          {/* RAL: чип + быстрый select из 9 цветов (правка сразу, PUT) */}
-                          <td style={{ padding: '9px 14px', width: 170 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <RalDot code={item.ral || extractRal(item.name)} />
-                              <select value={item.ral || ''} onChange={e => handleSave({ ...item, ral: e.target.value })}
-                                style={{ ...INP, fontSize: 12, padding: '4px 6px', width: 130 }}>
-                                <option value="">— авто —</option>
-                                {RAL_COLORS.map(c => <option key={c.code} value={c.code}>{c.code} {c.name}</option>)}
-                              </select>
-                            </div>
                           </td>
                           <td style={{ padding: '9px 14px', width: 120 }}>
                             {editItem?.id === item.id
