@@ -406,40 +406,43 @@ export default function ClientApp({ user, clientUser }: Props) {
             ) : (
               <div style={{ background: '#fff', borderRadius: 14, padding: 28, boxShadow: '0 0 0 1px #e6e2dc', maxWidth: 560 }}>
                 <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 4 }}>Новая заявка</div>
-                <div style={{ color: '#8a847c', fontSize: 13, marginBottom: 24 }}>Заполните форму — менеджер свяжется с вами</div>
-                <form onSubmit={handleNewOrder} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ color: '#8a847c', fontSize: 13, marginBottom: 22 }}>Выберите товары из каталога или опишите словами — заявка уйдёт менеджеру</div>
+                <form onSubmit={handleNewOrder} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {/* Товары из каталога — основной путь */}
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 4, display: 'block' }}>ОПИСАНИЕ ЗАЯВКИ</label>
-                    <textarea style={{ ...inp, minHeight: 100, resize: 'vertical' }} value={newText} onChange={e => setNewText(e.target.value)} placeholder="Что нужно заказать, в каком количестве..." />
-                  </div>
-                  {/* Собрать по каталогу (NomPicker) — позиции уходят готовыми */}
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: catalogPos.length ? 8 : 0 }}>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c' }}>СОБРАТЬ ПО КАТАЛОГУ</label>
-                      <button type="button" onClick={() => setShowCatalog(true)} style={{ marginLeft: 'auto', padding: '7px 14px', border: '1.5px solid #e6e2dc', background: '#fff', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit', color: '#26231f' }}>📖 Открыть каталог</button>
-                    </div>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: '#8a847c', marginBottom: 8, display: 'block', letterSpacing: '.03em' }}>ТОВАРЫ ИЗ КАТАЛОГА{catalogPos.length ? ` · ${catalogPos.length}` : ''}</label>
                     {catalogPos.length > 0 && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
                         {catalogPos.map((p, i) => (
-                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8f6f3', borderRadius: 8, padding: '7px 10px' }}>
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8f6f3', borderRadius: 8, padding: '8px 10px' }}>
                             <RalDot code={extractRal(p.name1c || p.oral)} />
                             <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name1c || p.oral}</span>
-                            <span style={{ fontSize: 12, color: '#8a847c', flexShrink: 0 }}>{p.qty} {p.unit}</span>
+                            <span style={{ fontSize: 12, color: '#8a847c', flexShrink: 0, fontWeight: 600 }}>{p.qty} {p.unit}</span>
                             <button type="button" onClick={() => setCatalogPos(prev => prev.filter((_, j) => j !== i))} style={{ border: 'none', background: 'none', color: '#c1121c', fontSize: 18, cursor: 'pointer', lineHeight: 1, flexShrink: 0 }}>×</button>
                           </div>
                         ))}
                       </div>
                     )}
+                    <button type="button" onClick={() => setShowCatalog(true)}
+                      style={{ width: '100%', padding: '13px', border: `1.5px ${catalogPos.length ? 'solid' : 'dashed'} #d4613a`, background: catalogPos.length ? '#fff' : '#fff8f5', color: '#d4613a', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
+                      📖 {catalogPos.length ? 'Добавить ещё товар' : 'Выбрать товары из каталога'}
+                    </button>
                   </div>
-                  {showCatalog && <NomPicker onPick={items => setCatalogPos(prev => [...prev, ...items])} onClose={() => setShowCatalog(false)} />}
+                  {/* Комментарий — необязательно / запасной путь «со слов» */}
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 4, display: 'block' }}>КОММЕНТАРИЙ <span style={{ fontWeight: 400 }}>(необязательно)</span></label>
+                    <textarea style={{ ...inp, minHeight: 72, resize: 'vertical' }} value={newText} onChange={e => setNewText(e.target.value)} placeholder="Уточнения, пожелания — или опишите заявку словами, если товара нет в каталоге" />
+                  </div>
+                  {/* Срок */}
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 4, display: 'block' }}>ЖЕЛАЕМЫЙ СРОК</label>
                     <input style={inp} type="date" value={newDeadline} onChange={e => setNewDeadline(e.target.value)} />
                   </div>
-                  <button type="submit" disabled={newLoading} style={{ padding: '12px', background: '#d4613a', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: newLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-                    {newLoading ? 'Отправка...' : 'ОТПРАВИТЬ ЗАЯВКУ →'}
+                  <button type="submit" disabled={newLoading} style={{ padding: '13px', background: '#d4613a', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: newLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: newLoading ? 0.6 : 1 }}>
+                    {newLoading ? 'Отправка...' : catalogPos.length ? `ОТПРАВИТЬ ЗАЯВКУ · ${catalogPos.length} поз. →` : 'ОТПРАВИТЬ ЗАЯВКУ →'}
                   </button>
                 </form>
+                {showCatalog && <NomPicker onPick={items => setCatalogPos(prev => [...prev, ...items])} onClose={() => setShowCatalog(false)} />}
               </div>
             )}
           </div>
