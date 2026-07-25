@@ -26,16 +26,19 @@ export async function GET(req: NextRequest) {
         { fromId: myId },
       ]
     },
-    // Возвращаем ТОЛЬКО мои позиции (любого плеча) — чужие в браузер не уходят.
-    // Фронт: активная работа = leg=2, история = Доставлено, leg=1 не показывает.
-    include: {
-      positions: {
-        where: { resp: { equals: myName, mode: 'insensitive' } },
-        orderBy: { createdAt: 'asc' },
-      },
-    },
+    include: { positions: { orderBy: { createdAt: 'asc' } } },
     orderBy: { updatedAt: 'desc' }
   })
 
-  return NextResponse.json(orders)
+  // Состав позиций:
+  //  • МОИ карточки (from/fromId = я) → ВСЕ позиции — иначе «Исходящие» теряют
+  //    состав карточки, если resp позиции не я (переназначение/многопозиционные).
+  //  • Карточки, где я лишь resp-участник → только мои позиции (чужие не отдаём).
+  const eq = (a?: string) => (a || '').trim().toLowerCase() === (myName || '').trim().toLowerCase()
+  const result = orders.map(o => {
+    const owns = eq(o.from) || o.fromId === myId
+    return { ...o, positions: owns ? o.positions : o.positions.filter(p => eq(p.resp)) }
+  })
+
+  return NextResponse.json(result)
 }
