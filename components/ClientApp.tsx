@@ -65,6 +65,27 @@ export default function ClientApp({ user, clientUser }: Props) {
   const [showCatalog, setShowCatalog] = useState(false)
   const [period, setPeriod] = useState<Period>('all') // фильтр даты просмотра
   const [day, setDay] = useState('')
+  const [editQty, setEditQty] = useState<Record<string, string>>({}) // правка кол-ва позиции
+  const [addCatalogFor, setAddCatalogFor] = useState<string | null>(null) // добавить товар в заявку
+  const [savingPos, setSavingPos] = useState(false)
+
+  // Редактирование СВОЕЙ заявки: изменить число / добавить позицию (пока не доставлена).
+  async function saveQty(orderId: string, posId: string, qty: string) {
+    setSavingPos(true)
+    try {
+      await orderAction(orderId, 'updatePosDetail', { posId, qty: Number(qty.replace(',', '.')) || 0 })
+      setEditQty(prev => { const n = { ...prev }; delete n[posId]; return n })
+      await load(); setToast('✓ Количество изменено')
+    } catch (e: any) { setToast(e.message) } finally { setSavingPos(false) }
+  }
+  async function addToOrder(orderId: string, items: PickedPos[]) {
+    setAddCatalogFor(null)
+    if (!items.length) return
+    try {
+      for (const it of items) await orderAction(orderId, 'addPos', { name1c: it.name1c || '', oral: it.oral, qty: it.qty, unit: it.unit })
+      await load(); setToast(`✓ Добавлено: ${items.length}`)
+    } catch (e: any) { setToast(e.message) }
+  }
 
   // Лоадер показываем только на первой загрузке. Фоновые live-обновления не
   // трогают loading — иначе каждый сигнал перерисовывал бы весь кабинет
@@ -84,7 +105,7 @@ export default function ClientApp({ user, clientUser }: Props) {
   // Пока открыта форма «Новая заявка» — паузим live-обновление (как editingRef
   // в порталах): входящий сигнал не перерисовывает форму и не сбрасывает ввод.
   const formPausedRef = useRef(false)
-  formPausedRef.current = tab === 'new' && !newResult
+  formPausedRef.current = (tab === 'new' && !newResult) || addCatalogFor !== null || Object.keys(editQty).length > 0
 
   // Realtime канал 'orders' (+ polling-fallback). Загрузка при монтировании и по сигналу.
   useLiveData('orders', load, [], formPausedRef)
@@ -146,6 +167,7 @@ export default function ClientApp({ user, clientUser }: Props) {
     <div style={{ minHeight: '100vh', background: '#f1efec', fontFamily: "'Golos Text', system-ui, sans-serif" }}>
       {toast && <Toast msg={toast} onClose={() => setToast('')} />}
       <ChatWidget myId={user.id} />
+      {addCatalogFor && <NomPicker onPick={items => addToOrder(addCatalogFor, items)} onClose={() => setAddCatalogFor(null)} />}
 
       {/* Шапка */}
       <div style={{ background: '#fff', borderBottom: '1px solid #e6e2dc', padding: '0 20px' }}>
@@ -327,20 +349,47 @@ export default function ClientApp({ user, clientUser }: Props) {
                         {selectedOrder?.id === o.id && (
                           <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f1efec' }}>
                             {o.comment && <div style={{ fontSize: 13, color: '#8a847c', marginBottom: 10 }}>Комментарий: {o.comment}</div>}
-                            {o.positions.length > 0 && (
-                              <div>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 8 }}>ПОЗИЦИИ</div>
-                                {o.positions.map(p => (
-                                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #f1efec' }}>
-                                    <span style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}><RalDot code={extractRal(p.name1c || p.oral)} size={13} />{p.name1c || p.oral}</span>
-                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                      <span style={{ fontSize: 12, color: '#8a847c' }}>{p.qty} {p.unit}</span>
-                                      <StatusBadge status={p.status} />
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                            {(() => {
+                              const canEditCard = o.fromId === user.id && !o.isCancelled && o.status !== 'Доставлено' && o.status !== 'Архив'
+                              return (
+                                <div>
+                                  {o.positions.length > 0 && (
+                                    <>
+                                      <div style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 8 }}>ПОЗИЦИИ</div>
+                                      {o.positions.map(p => {
+                                        const canEdit = canEditCard && p.status !== 'Доставлено'
+                                        const q = editQty[p.id]
+                                        const changed = q !== undefined && q !== String(p.qty)
+                                        return (
+                                          <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #f1efec' }}>
+                                            <span style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}><RalDot code={extractRal(p.name1c || p.oral)} size={13} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name1c || p.oral}</span></span>
+                                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                                              {canEdit ? (
+                                                <>
+                                                  <input value={q ?? String(p.qty)} inputMode="decimal" onChange={e => setEditQty(prev => ({ ...prev, [p.id]: e.target.value.replace(/[^0-9.,]/g, '') }))}
+                                                    style={{ width: 52, padding: '4px 6px', borderRadius: 6, border: `1.5px solid ${changed ? '#d4613a' : '#e6e2dc'}`, fontSize: 12, textAlign: 'right', fontFamily: 'inherit' }} />
+                                                  <span style={{ fontSize: 12, color: '#8a847c' }}>{p.unit}</span>
+                                                  {changed && <button onClick={() => saveQty(o.id, p.id, q)} disabled={savingPos} style={{ border: 'none', background: '#d4613a', color: '#fff', borderRadius: 6, padding: '4px 8px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>✓</button>}
+                                                </>
+                                              ) : (
+                                                <span style={{ fontSize: 12, color: '#8a847c' }}>{p.qty} {p.unit}</span>
+                                              )}
+                                              <StatusBadge status={p.status} />
+                                            </div>
+                                          </div>
+                                        )
+                                      })}
+                                    </>
+                                  )}
+                                  {canEditCard && (
+                                    <button onClick={e => { e.stopPropagation(); setAddCatalogFor(o.id) }}
+                                      style={{ marginTop: 10, width: '100%', padding: '10px', border: '1.5px dashed #d4613a', background: '#fff8f5', color: '#d4613a', borderRadius: 9, cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit' }}>
+                                      ＋ Добавить товар из каталога
+                                    </button>
+                                  )}
+                                </div>
+                              )
+                            })()}
                             {/* Кнопки для филиала */}
                             {user.role === 'branch' && o.screen === 'outgoing' && (
                               <div style={{ marginTop: 14, padding: '12px 14px', background: '#f8f6f3', borderRadius: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>

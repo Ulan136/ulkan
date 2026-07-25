@@ -6,8 +6,12 @@ self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()))
 
 // Network-only: никогда не отдаём из кеша.
+// ВАЖНО: навигационные запросы (открытие страниц) НЕ перехватываем — пусть их
+// делает сам браузер, иначе на iOS-PWA cookie сессии может не уйти с запросом,
+// сервер видит «нет сессии» и выкидывает на /login (постоянный выход из PWA).
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return
+  if (e.request.mode === 'navigate') return
   e.respondWith(fetch(e.request).catch(() => new Response('Offline', { status: 503 })))
 })
 
