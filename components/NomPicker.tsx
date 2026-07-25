@@ -12,6 +12,8 @@ export interface PickedPos { name1c: string; oral: string; qty: number; unit: st
 interface NomHit { id: string; name: string; unit: string }
 interface NomFull { id: string; name: string; unit: string; group: string; cat: string; subgroup: string }
 
+const NOCOLOR = '__none__' // спец-чип «нет цвета»: только позиции без цвета в имени
+
 // Нормализация как на экране «Номенклатура»: trim + нижний регистр + ё→е.
 const norm = (s: string) => (s || '').trim().toLowerCase().replace(/ё/g, 'е')
 
@@ -54,7 +56,7 @@ export default function NomPicker({ onPick, onClose }: {
   }, [])
 
   // ── СЛОВА уточнения внутри выбранной папки: цвет + виды/толщина + текст ──
-  const cEntry = color ? RAL_BY_CODE[color] : undefined
+  const cEntry = color && color !== NOCOLOR ? RAL_BY_CODE[color] : undefined
   const colorLabel = cEntry ? (cEntry.code === 'decor' ? 'дерево' : cEntry.code) : '' // в ИМЯ — код
   const selItems = overlays.map(lv => lv.items.find(i => i.key === sel[lv.key])).filter(Boolean) as { key: string; label: string; terms?: string[]; measure?: boolean; exclude?: string[] }[]
   const measureItem = selItems.find(i => i.measure)
@@ -77,9 +79,14 @@ export default function NomPicker({ onPick, onClose }: {
   // ── ЖЁСТКИЕ фильтры (AND, целым токеном) ──
   // Цвет: код как максимальная группа цифр (7024, но не часть 7004/70245),
   // допускается суффикс-буква (7024М). Дерево — по словам дуб|дерево|3D.
-  const colorRe: RegExp | null = !cEntry ? null
-    : cEntry.code === 'decor' ? /(^|[^0-9a-zа-яё])(дуб|дерево|3d)/i
-      : new RegExp('(^|[^0-9])' + cEntry.code + '(?![0-9])')
+  // «Нет цвета» — только позиции без определяемого цвета (extractRal === '').
+  const decorRe = /(^|[^0-9a-zа-яё])(дуб|дерево|3d)/i
+  const colorPass = (name: string): boolean => {
+    if (!color) return true
+    if (color === NOCOLOR) return extractRal(name) === ''
+    if (color === 'decor') return decorRe.test(name)
+    return new RegExp('(^|[^0-9])' + color + '(?![0-9])').test(name)
+  }
   // Толщина: число целым токеном (0,4 — не 0,45); запятая/точка взаимозаменяемы.
   const thickItem = overlays.find(lv => lv.key === 'thick')?.items.find(i => i.key === sel['thick'])
   const thickRe: RegExp | null = thickItem
@@ -114,11 +121,11 @@ export default function NomPicker({ onPick, onClose }: {
   if (selectedProducer) base = base.filter(i => norm(i.subgroup) === norm(selectedProducer.subgroup))
 
   const mustWords = words.flatMap(t => t.toLowerCase().split(/[^а-яёa-z0-9]+/i)).filter(w => w.length >= 1)
-  const anySelection = !!(groupName || catName || producerKey || q || cEntry || thickItem)
+  const anySelection = !!(groupName || catName || producerKey || q || color || thickItem)
   const loading = !loaded
   const shown: NomHit[] = !anySelection ? [] : base
     .filter(i => !excludes.some(w => i.name.toLowerCase().includes(w.toLowerCase())))
-    .filter(i => !colorRe || colorRe.test(i.name))              // цвет — жёстко
+    .filter(i => colorPass(i.name))                             // цвет / нет цвета — жёстко
     .filter(i => !thickRe || thickRe.test(i.name))              // толщина — жёстко
     .filter(i => mustWords.every(w => i.name.toLowerCase().includes(w))) // виды/текст
     .map(i => ({ i, score: mustWords.filter(w => i.name.toLowerCase().includes(w)).length }))
@@ -167,6 +174,7 @@ export default function NomPicker({ onPick, onClose }: {
   if (selectedProducer) crumbs.push(<span key="prod">{selectedProducer.label}</span>) // label, БЕЗ расшифровки
   selItems.forEach(it => crumbs.push(<span key={it.key}>«{it.measure ? (cm ? `Изделие · ${cm} см` : 'Изделие') : it.label}»</span>))
   if (cEntry) crumbs.push(<span key="c"><b style={{ color: PRIMARY }}>{colorLabel}</b> ({cEntry.name.toLowerCase()})</span>)
+  else if (color === NOCOLOR) crumbs.push(<span key="c">без цвета</span>)
   if (text.trim()) crumbs.push(<span key="t">«{text.trim()}»</span>)
 
   if (!mounted) return null
@@ -194,6 +202,17 @@ export default function NomPicker({ onPick, onClose }: {
                   </button>
                 )
               })}
+              {/* Нет цвета — только позиции без цвета (перечёркнутый круг) */}
+              {(() => {
+                const on = color === NOCOLOR
+                return (
+                  <button key="nocolor" onClick={() => pickColor(NOCOLOR)} title="Без цвета"
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, border: 'none', background: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', width: 40 }}>
+                    <span style={{ width: on ? 38 : 28, height: on ? 38 : 28, borderRadius: '50%', background: 'linear-gradient(45deg, transparent 45%, #c1121c 45%, #c1121c 55%, transparent 55%), #fff', boxShadow: on ? `${GLOW}, inset 0 0 0 2px rgba(0,0,0,.12)` : 'inset 0 0 0 1.5px rgba(0,0,0,.2)', transition: 'all .12s' }} />
+                    <span style={{ fontSize: 9.5, fontWeight: on ? 800 : 500, color: on ? PRIMARY : '#a39c92', textAlign: 'center', lineHeight: 1.1 }}>нет</span>
+                  </button>
+                )
+              })()}
             </div>
           </div>
 
