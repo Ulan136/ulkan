@@ -58,10 +58,14 @@ export default function NomPicker({ onPick, onClose }: {
   const selItems = overlays.map(lv => lv.items.find(i => i.key === sel[lv.key])).filter(Boolean) as { key: string; label: string; terms?: string[]; measure?: boolean; exclude?: string[] }[]
   const measureItem = selItems.find(i => i.measure)
 
+  // q — МЯГКИЙ каскад: только виды (вид/изделие) + ручной текст. Цвет и толщина
+  // сюда НЕ идут — они жёсткие фильтры (ниже), иначе на OR-этапе становятся
+  // необязательными и в выдаче всплывают все цвета/толщины.
   const words: string[] = []
-  if (cEntry) words.push(cEntry.query || cEntry.code)           // цвет — русским словом
   const excludes: string[] = []
-  selItems.forEach(it => {
+  overlays.forEach(lv => {
+    const it = lv.items.find(i => i.key === sel[lv.key])
+    if (!it || lv.key === 'thick') return                       // толщину в q не кладём
     ;(it.terms ?? [it.label]).forEach(t => words.push(t))
     if (it.measure && cm) words.push(`№ ${cm}`)
     if (it.exclude) excludes.push(...it.exclude)
@@ -69,16 +73,29 @@ export default function NomPicker({ onPick, onClose }: {
   if (text.trim()) words.push(text.trim())
   const q = words.join(' ').trim()
 
+  // ── ЖЁСТКИЕ фильтры (AND, целым токеном) ──
+  // Цвет: код как максимальная группа цифр (7024, но не часть 7004/70245),
+  // допускается суффикс-буква (7024М). Дерево — по словам дуб|дерево|3D.
+  const colorRe: RegExp | null = !cEntry ? null
+    : cEntry.code === 'decor' ? /(^|[^0-9a-zа-яё])(дуб|дерево|3d)/i
+      : new RegExp('(^|[^0-9])' + cEntry.code + '(?![0-9])')
+  // Толщина: число целым токеном (0,4 — не 0,45); запятая/точка взаимозаменяемы.
+  const thickItem = overlays.find(lv => lv.key === 'thick')?.items.find(i => i.key === sel['thick'])
+  const thickRe: RegExp | null = thickItem
+    ? new RegExp('(^|[^0-9])' + thickItem.label.replace(/[.,]/g, '[.,]') + '(?![0-9])')
+    : null
+
   // Имя для «добавить как есть»: БЕЗ слова категории; изделие → «· N см»; цвет — кодом.
   function asIsName(): string {
     const parts: string[] = []
+    if (selectedProducer) parts.push(selectedProducer.label)
     selItems.filter(i => !i.measure).forEach(i => parts.push(i.label))
     if (measureItem) parts.push(measureItem.terms?.[0] || 'Изделие')
     if (colorLabel) parts.push(colorLabel)
     if (text.trim()) parts.push(text.trim())
     let n = parts.join(' ').trim()
     if (measureItem && cm) n += ` · ${cm} см`
-    return n || q
+    return n
   }
 
   // ── Поиск: фильтр по полям (group/cat) + слова. Каскад не трогаем ──
@@ -92,7 +109,7 @@ export default function NomPicker({ onPick, onClose }: {
         if (catName) params.set('cat', catName)
         if (selectedProducer) params.set('subgroup', selectedProducer.subgroup) // производитель = поле
         if (q) params.set('q', q)
-        params.set('limit', '30')
+        params.set('limit', '200') // берём весь срез папки — цвет/толщину режем на клиенте
         const res = await fetch(`/api/nomenclature?${params}`)
         const data = await res.json()
         setResults(Array.isArray(data) ? data.map((d: any) => ({ id: d.id, name: d.name, unit: d.unit || 'шт' })) : [])
@@ -106,6 +123,8 @@ export default function NomPicker({ onPick, onClose }: {
   const qWords = q.toLowerCase().split(/[^а-яёa-z0-9]+/i).filter(w => w.length >= 2)
   const shown = results
     .filter(r => !excludes.some(w => r.name.toLowerCase().includes(w.toLowerCase())))
+    .filter(r => !colorRe || colorRe.test(r.name))              // цвет — жёстко
+    .filter(r => !thickRe || thickRe.test(r.name))              // толщина — жёстко
     .map(r => ({ r, score: qWords.filter(w => r.name.toLowerCase().includes(w)).length }))
     .sort((a, b) => b.score - a.score || a.r.name.length - b.r.name.length)
     .map(x => x.r)
@@ -272,7 +291,7 @@ export default function NomPicker({ onPick, onClose }: {
                     </div>
                   : <div style={{ fontSize: 13, color: '#8a847c', padding: '8px 0' }}>Не найдено в папке — можно добавить как есть ↓</div>
               }
-              {(q || selItems.length > 0) && (
+              {asIsName() && (
                 <button onClick={() => { const n = asIsName(); if (n) setPad({ name1c: '', oral: n, unit: 'шт', digits: '' }) }}
                   style={{ marginTop: 8, width: '100%', border: '1.5px dashed #d8d3cc', background: 'none', borderRadius: 9, padding: '9px', cursor: 'pointer', fontSize: 13, color: '#4a4640', fontFamily: 'inherit', fontWeight: 600 }}>
                   ＋ Добавить как есть: «{asIsName()}»

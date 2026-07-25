@@ -18,11 +18,13 @@ export interface NomLevel {
 }
 
 // Евробрус: Толщина ПЕРВОЙ → Производитель (МП исключающий).
+// Толщина — ЖЁСТКИЙ фильтр (целым токеном на клиенте, см. NomPicker): label =
+// число, по нему строится regex «0,4 не как часть 0,45». terms в q не нужны.
 const thicknessEuro: NomLevel = {
   key: 'thick', label: 'Толщина', items: [
-    { key: 't035', label: '0,35', terms: ['0,35мм'] },
-    { key: 't04', label: '0,4', terms: ['0,4мм'] },
-    { key: 't045', label: '0,45', terms: ['0,45мм'] },
+    { key: 't035', label: '0,35' },
+    { key: 't04', label: '0,4' },
+    { key: 't045', label: '0,45' },
   ],
 }
 // Комплектующие: точные имена видов из 1С (без фазки).
@@ -40,10 +42,10 @@ const accessoryKinds: NomLevel = {
 // Плоский лист / Материалы (листы м²): толщины + покрытие.
 const thicknessFlat: NomLevel = {
   key: 'thick', label: 'Толщина', items: [
-    { key: 't02', label: '0,2', terms: ['0,2мм'] },
-    { key: 't025', label: '0,25', terms: ['0,25мм'] },
-    { key: 't04', label: '0,4', terms: ['0,4мм'] },
-    { key: 't045', label: '0,45', terms: ['0,45мм'] },
+    { key: 't02', label: '0,2' },
+    { key: 't025', label: '0,25' },
+    { key: 't04', label: '0,4' },
+    { key: 't045', label: '0,45' },
   ],
 }
 const coating: NomLevel = {
