@@ -51,19 +51,30 @@ export default function NomenclatureScreen() {
 
   useEffect(() => { load() }, [load])
 
+  // Матчинг папки по ФАКТИЧЕСКИМ полям, устойчиво к перепутанным group/cat.
+  // В 1С часть импортов легла с перевёрнутыми полями: «Евро брус» хранится как
+  // group='Евро брус', cat='Товары' (тогда как «Комплектующие» — group='Товары',
+  // cat='Комплектующие'). Поэтому пару {корень, подпапка} сверяем с {group, cat}
+  // в ЛЮБОЙ ориентации, с trim и без чувствительности к ё/е.
+  const norm = (s: string) => (s || '').trim().toLowerCase().replace(/ё/g, 'е')
+  const inGroup = (i: NomItem, g: string) => norm(i.group) === norm(g) || norm(i.cat) === norm(g)
+  const inCat = (i: NomItem, g: string, c: string) =>
+    (norm(i.group) === norm(g) && norm(i.cat) === norm(c)) ||
+    (norm(i.group) === norm(c) && norm(i.cat) === norm(g))
+
   // Фильтрация товаров
   const filtered = items.filter(item => {
     if (search) return item.name.toLowerCase().includes(search.toLowerCase())
-    if (selSubgroup) return item.group === selGroup && item.cat === selCat && item.subgroup === selSubgroup
-    if (selCat) return item.group === selGroup && item.cat === selCat
-    if (selGroup) return item.group === selGroup
+    if (selSubgroup) return inCat(item, selGroup!, selCat!) && norm(item.subgroup) === norm(selSubgroup)
+    if (selCat) return inCat(item, selGroup!, selCat!)
+    if (selGroup) return inGroup(item, selGroup)
     return true
   })
 
   // Счётчики
-  function countGroup(g: string) { return items.filter(i => i.group === g).length }
-  function countCat(g: string, c: string) { return items.filter(i => i.group === g && i.cat === c).length }
-  function countSubgroup(g: string, c: string, s: string) { return items.filter(i => i.group === g && i.cat === c && i.subgroup === s).length }
+  function countGroup(g: string) { return items.filter(i => inGroup(i, g)).length }
+  function countCat(g: string, c: string) { return items.filter(i => inCat(i, g, c)).length }
+  function countSubgroup(g: string, c: string, s: string) { return items.filter(i => inCat(i, g, c) && norm(i.subgroup) === norm(s)).length }
 
   async function handleSave(item: NomItem) {
     try {
