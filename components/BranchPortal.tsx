@@ -8,6 +8,7 @@ import { PositionEditor, AddPositionForm, editBtn } from '@/components/PositionE
 import CardChat from '@/components/CardChat'
 import ChatWidget from '@/components/ChatWidget'
 import { RalDot, extractRal } from '@/lib/ral'
+import DateFilter, { inPeriod, type Period } from '@/components/DateFilter'
 import { POS_STATUS } from '@/lib/orderStatus'
 import { isHandedOff, isInDelivery, myActivePos, myHandedPos, eqName } from '@/lib/positionState'
 
@@ -85,6 +86,8 @@ export default function BranchPortal({ user, branchUser }: Props) {
   const [sessionExpired, setSessionExpired] = useState(false)
   const [editPosId, setEditPosId] = useState<string | null>(null)     // редактируемая позиция
   const [addingCardId, setAddingCardId] = useState<string | null>(null) // карточка, куда добавляем
+  const [period, setPeriod] = useState<Period>('all') // фильтр даты просмотра
+  const [day, setDay] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -134,10 +137,11 @@ export default function BranchPortal({ user, branchUser }: Props) {
   // филиала) или «передана логисту». Плюс legacy по имени (адресованные мне /
   // мои заявки без позиций-поставщика).
   const me = branchUser.name
+  const inDate = (o: Order) => inPeriod(o.createdAt, period, day) // фильтр даты просмотра
   // Входящие — есть моя активная позиция + legacy адресованные мне
-  const incoming = orders.filter(o => myActivePos(o.positions, me).length > 0 || eqName(o.to, me))
+  const incoming = orders.filter(o => (myActivePos(o.positions, me).length > 0 || eqName(o.to, me)) && inDate(o))
   // Исходящие — есть моя переданная позиция + legacy мои заявки
-  const outgoing = orders.filter(o => myHandedPos(o.positions, me).length > 0 || eqName(o.from, me))
+  const outgoing = orders.filter(o => (myHandedPos(o.positions, me).length > 0 || eqName(o.from, me)) && inDate(o))
 
   async function handleAccept(orderId: string) {
     await orderAction(orderId, 'branchAccept', { branchName: branchUser.name })
@@ -394,6 +398,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
         {/* ВХОДЯЩИЕ */}
         {tab === 'in' && (
           <div>
+            <DateFilter period={period} day={day} onChange={(p, d) => { setPeriod(p); setDay(d) }} />
             {incoming.length === 0
               ? <div style={{ background: '#fff', borderRadius: 14, padding: 40, textAlign: 'center', boxShadow: '0 0 0 1px #e6e2dc' }}>
                   <div style={{ fontSize: 32, marginBottom: 10 }}>📥</div>
@@ -408,6 +413,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
         {/* ИСХОДЯЩИЕ */}
         {tab === 'out' && (
           <div>
+            <DateFilter period={period} day={day} onChange={(p, d) => { setPeriod(p); setDay(d) }} />
             {outgoing.length === 0
               ? <div style={{ background: '#fff', borderRadius: 14, padding: 40, textAlign: 'center', boxShadow: '0 0 0 1px #e6e2dc' }}>
                   <div style={{ fontSize: 32, marginBottom: 10 }}>📤</div>

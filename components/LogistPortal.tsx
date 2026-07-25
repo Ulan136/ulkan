@@ -7,6 +7,7 @@ import CardChat from '@/components/CardChat'
 import ChatWidget from '@/components/ChatWidget'
 import InstallPrompt from '@/components/InstallPrompt'
 import { RalDot, extractRal } from '@/lib/ral'
+import DateFilter, { inPeriod, type Period } from '@/components/DateFilter'
 import { Order, SessionUser } from '@/lib/types'
 
 const PRIMARY = '#d4613a'
@@ -95,6 +96,8 @@ export default function LogistPortal({ user, logistUser }: Props) {
   // editingDate = null → сегодняшняя смена; 'YYYY-MM-DD' → редактируем прошлую смену
   const [editingDate, setEditingDate] = useState<string | null>(null)
   const [pastDrafts, setPastDrafts] = useState<{ id: string; date: string; rowCount: number }[]>([])
+  const [period, setPeriod] = useState<Period>('all') // фильтр даты просмотра
+  const [day, setDay] = useState('')
 
   const myName = logistUser.name
   // Сравнение имён без учёта регистра и лишних пробелов
@@ -142,8 +145,11 @@ export default function LogistPortal({ user, logistUser }: Props) {
   // Сброс паузы при размонтировании
   useEffect(() => () => { editingRef.current = false }, [])
 
+  // Фильтр по дате просмотра (общий для Входящих/Исходящих).
+  const visOrders = orders.filter(o => inPeriod(o.createdAt, period, day))
+
   // ── Позиции КО МНЕ (resp = моё имя, leg=2 — второе плечо, статус не Доставлено) ──
-  const posIn = orders.flatMap(o =>
+  const posIn = visOrders.flatMap(o =>
     o.positions
       .filter(p => eqName(p.resp, myName) && p.leg === 2 && p.status !== 'Доставлено')
       .map(p => ({ pos: p, order: o }))
@@ -153,7 +159,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
   // Входящие (активные, ещё не доставлены) → сюда переходят после «Доставлено».
   // Раньше здесь были только карточки, которые логист сам создал (from=я) — почти
   // всегда пусто, поэтому история не появлялась и позиция «сразу уходила в отчёт».
-  const posOut = orders.flatMap(o =>
+  const posOut = visOrders.flatMap(o =>
     o.positions
       .filter(p => eqName(p.resp, myName) && p.leg === 2 && p.status === 'Доставлено')
       .map(p => ({ pos: p, order: o }))
@@ -415,6 +421,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
         {tab === 'in' && (
           <div>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>📥 Входящие · ко мне</div>
+            <DateFilter period={period} day={day} onChange={(p, d) => { setPeriod(p); setDay(d) }} />
             {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
               : posIn.length === 0
               ? <div style={{ background: '#fff', borderRadius: 14, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 10 }}>✅</div><div style={{ color: '#8a847c' }}>Нет входящих позиций</div></div>
@@ -427,6 +434,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
         {tab === 'out' && (
           <div>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>📤 Исходящие · доставлено мной</div>
+            <DateFilter period={period} day={day} onChange={(p, d) => { setPeriod(p); setDay(d) }} />
             {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
               : posOut.length === 0
               ? <div style={{ background: '#fff', borderRadius: 14, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 10 }}>📭</div><div style={{ color: '#8a847c' }}>Пока нет доставленных позиций</div></div>

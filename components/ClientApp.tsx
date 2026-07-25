@@ -9,6 +9,7 @@ import CardChat from '@/components/CardChat'
 import ChatWidget from '@/components/ChatWidget'
 import NomPicker, { type PickedPos } from '@/components/NomPicker'
 import { RalDot, extractRal } from '@/lib/ral'
+import DateFilter, { inPeriod, type Period } from '@/components/DateFilter'
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   useEffect(() => { const t = setTimeout(onClose, 2300); return () => clearTimeout(t) }, [onClose])
@@ -62,6 +63,8 @@ export default function ClientApp({ user, clientUser }: Props) {
   const [sessionExpired, setSessionExpired] = useState(false)
   const [catalogPos, setCatalogPos] = useState<PickedPos[]>([]) // позиции из NomPicker
   const [showCatalog, setShowCatalog] = useState(false)
+  const [period, setPeriod] = useState<Period>('all') // фильтр даты просмотра
+  const [day, setDay] = useState('')
 
   // Лоадер показываем только на первой загрузке. Фоновые live-обновления не
   // трогают loading — иначе каждый сигнал перерисовывал бы весь кабинет
@@ -94,8 +97,8 @@ export default function ClientApp({ user, clientUser }: Props) {
 
   const unread = notifications.filter(n => !n.read).length
   // Для филиала — входящие карточки (адресованные мне)
-  const incomingOrders = orders.filter(o => o.to === clientUser.name && o.fromId !== user.id)
-  const myOrders = orders.filter(o => o.fromId === user.id)
+  const incomingOrders = orders.filter(o => o.to === clientUser.name && o.fromId !== user.id && inPeriod(o.createdAt, period, day))
+  const myOrders = orders.filter(o => o.fromId === user.id && inPeriod(o.createdAt, period, day))
   const base = typeof window !== 'undefined' ? window.location.origin : 'https://ulkan.vercel.app'
 
   function copy(text: string, key: string) {
@@ -193,6 +196,7 @@ export default function ClientApp({ user, clientUser }: Props) {
         {/* === ВХОДЯЩИЕ (для Филиала) === */}
         {tab === 'incoming' && (
           <div className="anim-fade">
+            <DateFilter period={period} day={day} onChange={(p, d) => { setPeriod(p); setDay(d) }} />
             {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
               : incomingOrders.length === 0 ? (
                 <div style={{ background: '#fff', borderRadius: 14, padding: 40, textAlign: 'center', boxShadow: '0 0 0 1px #e6e2dc' }}>
@@ -287,6 +291,7 @@ export default function ClientApp({ user, clientUser }: Props) {
         {/* === МОИ ЗАЯВКИ === */}
         {tab === 'orders' && (
           <div className="anim-fade">
+            <DateFilter period={period} day={day} onChange={(p, d) => { setPeriod(p); setDay(d) }} />
             {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
               : myOrders.length === 0 ? (
                 <div style={{ background: '#fff', borderRadius: 14, padding: 40, textAlign: 'center', boxShadow: '0 0 0 1px #e6e2dc' }}>
