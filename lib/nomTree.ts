@@ -1,69 +1,111 @@
-// ─── Дерево каталога NomPicker (макет v6) ──────────────────────────────────
-// ТОВАР → ПОДКАТЕГОРИЯ. Водосток имеет слой брендов (Дёке ▾ раскрывается в
-// сорта; МБ — сразу к вводу). «Изделие · см» — measure: два ввода (шт → см).
-// Имя позиции строится из nameBase + « RAL»+код (решение владельца: имя
-// самодостаточно в отчётах/1С).
+// ─── Дерево каталога NomPicker (макет v8) ──────────────────────────────────
+// Выбор чипов = ПОИСКОВЫЕ СЛОВА, сужающие выборку через существующий каскадный
+// поиск номенклатуры. Никаких фабричных имён — только слова в запрос.
+//   terms      — слова в запрос (по умолчанию [label]); для комплектующих это
+//                ТОЧНЫЕ имена из 1С (с дефисами/точками — они и есть поиск).
+//   measure    — «Изделие · см»: длина уходит словом «№ {cm}».
+//   exclude    — исключающий фильтр (МП): отсеять имена с этими словами
+//                (в именах МП не пишется → «брус без АП/МБ/КМК»).
+//   product.terms — слова категории, реально встречающиеся в именах 1С
+//                (для level-less товаров = слово-категория само по себе).
 
-export interface NomLeaf {
+export interface NomItem {
   key: string
   label: string
-  measure?: boolean   // 'Изделие · см' → шт, затем см
-  nameBase: string    // основа имени позиции (без цвета)
+  terms?: string[]
+  measure?: boolean
+  exclude?: string[]
 }
-
-export interface NomBrand {
+export interface NomLevel {
   key: string
   label: string
-  leaves: NomLeaf[]   // сорта; пустой массив → бренд ведёт сразу к вводу
-  nameBase?: string   // если leaves пуст — основа имени бренда
+  items: NomItem[]
 }
-
 export interface NomProduct {
   key: string
   label: string
-  subs?: NomLeaf[]    // простые подкатегории-пилюли
-  brands?: NomBrand[] // брендовый слой (Водосток)
+  terms?: string[]
+  levels: NomLevel[]
 }
 
 export const NOM_TREE: NomProduct[] = [
   {
-    key: 'eurobrus', label: 'Евробрус',
-    subs: [
-      { key: 'mp', label: 'МП', nameBase: 'Евробрус МП' },
-      { key: 'ap', label: 'АП', nameBase: 'Евробрус АП' },
-      { key: 'mb', label: 'МБ', nameBase: 'Евробрус МБ' },
+    key: 'eurobrus', label: 'Евробрус', terms: ['брус'],
+    levels: [
+      { key: 'thick', label: 'Толщина', items: [               // толщина ПЕРВОЙ
+        { key: 't035', label: '0,35', terms: ['0,35мм'] },
+        { key: 't04', label: '0,4', terms: ['0,4мм'] },
+        { key: 't045', label: '0,45', terms: ['0,45мм'] },
+      ] },
+      { key: 'maker', label: 'Производитель', items: [
+        { key: 'mp', label: 'МП', terms: [], exclude: ['АП', 'МБ', 'КМК'] }, // исключающий
+        { key: 'ap', label: 'АП', terms: ['АП'] },
+        { key: 'mb', label: 'МБ', terms: ['МБ'] },
+        { key: 'kmk', label: 'КМК', terms: ['КМК'] },
+      ] },
     ],
   },
   {
     key: 'vodostok', label: 'Водосток',
-    brands: [
-      {
-        key: 'deke', label: 'Дёке', leaves: [
-          { key: 'lux', label: 'Люкс', nameBase: 'Водосток Дёке Люкс' },
-          { key: 'premium', label: 'Премиум', nameBase: 'Водосток Дёке Премиум' },
-          { key: 'standard', label: 'Стандарт', nameBase: 'Водосток Дёке Стандарт' },
-        ],
-      },
-      { key: 'mb', label: 'МБ', leaves: [], nameBase: 'Водосток МБ' },
+    levels: [
+      { key: 'brand', label: 'Бренд', items: [                 // по цветам не дробить
+        { key: 'deke_lux', label: 'Дёке люкс', terms: ['Дёке', 'люкс'] },
+        { key: 'deke_prem', label: 'Дёке премиум', terms: ['Дёке', 'премиум'] },
+        { key: 'deke_gray_lux', label: 'Дёке серый люкс', terms: ['Дёке', 'серый', 'люкс'] },
+        { key: 'deke_std', label: 'Дёке стандарт', terms: ['Дёке', 'стандарт'] },
+        { key: 'mb', label: 'МБ', terms: ['МБ'] },
+      ] },
     ],
   },
   {
     key: 'accessories', label: 'Комплектующие',
-    subs: [
-      { key: 'j', label: 'J профиль', nameBase: 'J профиль' },
-      { key: 'h', label: 'H профиль', nameBase: 'H профиль' },
-      { key: 'jf', label: 'J фазка', nameBase: 'J фазка' },
-      { key: 'outer', label: 'Наружный угол', nameBase: 'Наружный угол' },
-      { key: 'inner', label: 'Внутренний угол', nameBase: 'Внутренний угол' },
-      { key: 'item', label: 'Изделие · см', measure: true, nameBase: 'Изделие' },
+    levels: [
+      { key: 'kind', label: 'Вид', items: [                    // ТОЧНЫЕ имена из 1С
+        { key: 'h', label: 'H - профиль', terms: ['H - профиль'] },
+        { key: 'j', label: 'J - профиль', terms: ['J - профиль'] },
+        { key: 'outer_r', label: 'Нар. угол (пр)', terms: ['Нар. угол (пр)'] },
+        { key: 'outer_l', label: 'Нар. угол (сл)', terms: ['Нар. угол (сл)'] },
+        { key: 'inner_r', label: 'Внут. угол (пр)', terms: ['Внут. угол (пр)'] },
+        { key: 'inner_l', label: 'Внут. угол (сл)', terms: ['Внут. угол (сл)'] },
+        { key: 'item', label: 'Изделие · см', measure: true, terms: ['Изделие'] },
+      ] },
     ],
   },
   {
-    key: 'fasteners', label: 'Крепёж',
-    subs: [
-      { key: 'screws', label: 'Саморезы', nameBase: 'Саморезы' },
-      { key: 'dowels', label: 'Дюбели', nameBase: 'Дюбели' },
-      { key: 'rivets', label: 'Заклёпки', nameBase: 'Заклёпки' },
+    key: 'metal', label: 'Металлочерепица',
+    levels: [
+      { key: 'profile', label: 'Профиль', items: [             // остальное — цветом
+        { key: 'andaluzia', label: 'Андалузия', terms: ['Андалузия'] },
+      ] },
+    ],
+  },
+  {
+    key: 'flat', label: 'Плоский лист', terms: ['плоский', 'лист'],
+    levels: [
+      { key: 'thick', label: 'Толщина', items: [
+        { key: 't02', label: '0,2', terms: ['0,2мм'] },
+        { key: 't025', label: '0,25', terms: ['0,25мм'] },
+        { key: 't04', label: '0,4', terms: ['0,4мм'] },
+        { key: 't045', label: '0,45', terms: ['0,45мм'] },
+      ] },
+      { key: 'coat', label: 'Покрытие', items: [
+        { key: 'mat', label: 'Мат', terms: ['мат'] },
+        { key: 'glyan', label: 'Глян', terms: ['глян'] },
+      ] },
+    ],
+  },
+  { key: 'proflist', label: 'Проф лист С8', terms: ['проф', 'с8'], levels: [] },
+  { key: 'armstrong', label: 'Армстронг', terms: ['армстронг'], levels: [] },
+  { key: 'korabelny', label: 'Корабельный брус', terms: ['корабельн', 'брус'], levels: [] },
+  { key: 'lenar', label: 'Ленарная панель', terms: ['ленарн', 'панель'], levels: [] },
+  {
+    key: 'krepezh', label: 'Крепёж',
+    levels: [
+      { key: 'kind', label: 'Вид', items: [                    // ед. число = имена «Саморез 4,8х35»
+        { key: 'samorez', label: 'Саморез', terms: ['Саморез'] },
+        { key: 'dyubel', label: 'Дюбель', terms: ['Дюбель'] },
+        { key: 'zaklepka', label: 'Заклёпка', terms: ['Заклёпка'] },
+      ] },
     ],
   },
 ]

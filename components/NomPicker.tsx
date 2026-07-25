@@ -1,8 +1,8 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { NOM_TREE, type NomLeaf } from '@/lib/nomTree'
-import { RAL_COLORS, RalDot, extractRal } from '@/lib/ral'
+import { NOM_TREE, type NomProduct } from '@/lib/nomTree'
+import { RAL_COLORS, RAL_BY_CODE, RalDot, extractRal } from '@/lib/ral'
 
 const PRIMARY = '#d4613a'
 const GLOW = '0 0 0 4px rgba(212,97,58,.25)'
@@ -10,16 +10,23 @@ const GLOW = '0 0 0 4px rgba(212,97,58,.25)'
 export interface PickedPos { name1c: string; oral: string; qty: number; unit: string }
 interface NomHit { id: string; name: string; unit: string }
 
-// Чипы цвет/товар/подкатегория — ПОМОЩНИК ПОИСКА: собирают строку запроса,
-// которая ищется в реальной номенклатуре. Отдельного поля RAL нет — код цвета
-// это просто слово в запросе (напр. «9003 нар угол»), которое находит позицию
-// в базе. Изделие — особый формат: «Изделие № 17 8017».
-function assembleQuery(color: string, leaf: NomLeaf | null, cm: string): string {
-  if (!leaf) return color
-  if (leaf.measure) {
-    return [leaf.nameBase, cm ? `№ ${cm}` : '', color].filter(Boolean).join(' ').trim()
+// Собрать строку запроса из выбранных чипов: цвет + слова категории + слова
+// выбранных уровней (+ «№ {cm}» для изделия). Это ПОИСКОВЫЕ СЛОВА, а не имя.
+function assemble(color: string, product: NomProduct | undefined, sel: Record<string, string>, cm: string): string {
+  const parts: string[] = []
+  const cEntry = color ? RAL_BY_CODE[color] : undefined
+  if (cEntry) parts.push(cEntry.query || cEntry.code)
+  if (product) {
+    ;(product.terms || []).forEach(t => parts.push(t))
+    product.levels.forEach(lv => {
+      const it = lv.items.find(i => i.key === sel[lv.key])
+      if (it) {
+        ;(it.terms ?? [it.label]).forEach(t => parts.push(t))
+        if (it.measure && cm) parts.push(`№ ${cm}`)
+      }
+    })
   }
-  return [color, leaf.nameBase].filter(Boolean).join(' ').trim()
+  return parts.join(' ').trim()
 }
 
 export default function NomPicker({ onPick, onClose }: {
@@ -29,65 +36,42 @@ export default function NomPicker({ onPick, onClose }: {
   const [mounted, setMounted] = useState(false)
   const [color, setColor] = useState('')
   const [productKey, setProductKey] = useState('')
-  const [brandKey, setBrandKey] = useState('')
-  const [leafKey, setLeafKey] = useState('')
-  const [leaf, setLeaf] = useState<NomLeaf | null>(null)
+  const [sel, setSel] = useState<Record<string, string>>({})   // levelKey → itemKey
   const [cm, setCm] = useState('')
   const [query, setQuery] = useState('')
+  const [manual, setManual] = useState(false)                  // ручная правка строки
   const [results, setResults] = useState<NomHit[]>([])
   const [loading, setLoading] = useState(false)
   const [rows, setRows] = useState<PickedPos[]>([])
 
-  // Панель ввода количества (шт) для выбранной позиции.
   const [pad, setPad] = useState<null | { name1c: string; oral: string; unit: string; digits: string }>(null)
   const padRef = useRef(pad); padRef.current = pad
 
   useEffect(() => { setMounted(true) }, [])
 
   const product = NOM_TREE.find(p => p.key === productKey)
-  const brand = product?.brands?.find(b => b.key === brandKey)
-  const subLeaves: NomLeaf[] = product?.subs || brand?.leaves || []
 
-  // ── Выбор помощников поиска → пересобрать строку запроса ──
-  function pickColor(c: string) {
-    const next = color === c ? '' : c
-    setColor(next); setQuery(assembleQuery(next, leaf, leaf?.measure ? cm : ''))
-  }
-  function pickProduct(key: string) {
-    const next = productKey === key ? '' : key
-    setProductKey(next); setBrandKey(''); setLeafKey(''); setLeaf(null); setCm('')
-    setQuery(assembleQuery(color, null, ''))
-  }
-  function pickBrand(bKey: string) {
-    const b = product?.brands?.find(x => x.key === bKey)
-    const next = brandKey === bKey ? '' : bKey
-    setBrandKey(next); setLeafKey(''); setLeaf(null); setCm('')
-    // Бренд без сортов (МБ) — сам как подкатегория
-    if (next && b && b.leaves.length === 0 && b.nameBase) {
-      selectLeaf({ key: b.key, label: b.label, nameBase: b.nameBase })
-    } else {
-      setQuery(assembleQuery(color, null, ''))
-    }
-  }
-  function selectLeaf(l: NomLeaf) {
-    const next = leafKey === l.key ? '' : l.key
-    if (!next) { setLeafKey(''); setLeaf(null); setCm(''); setQuery(assembleQuery(color, null, '')); return }
-    setLeafKey(l.key); setLeaf(l); setCm('')
-    setQuery(assembleQuery(color, l, ''))
-  }
-  function setCmVal(v: string) {
-    const clean = v.replace(/\D/g, '').slice(0, 4)
-    setCm(clean); setQuery(assembleQuery(color, leaf, clean))
-  }
+  // Пока не редактировали руками — строка запроса собирается из чипов.
+  useEffect(() => {
+    if (!manual) setQuery(assemble(color, product, sel, cm))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [color, productKey, sel, cm, manual])
 
-  // ── Поиск по реальной номенклатуре (debounce) ──
+  // Исключающий фильтр (МП): слова, имена с которыми выкидываем из выдачи.
+  const excludes: string[] = []
+  product?.levels.forEach(lv => {
+    const it = lv.items.find(i => i.key === sel[lv.key])
+    if (it?.exclude) excludes.push(...it.exclude)
+  })
+
+  // ── Поиск по реальной номенклатуре (debounce), каскад не трогаем ──
   useEffect(() => {
     const q = query.trim()
     if (!q) { setResults([]); setLoading(false); return }
     setLoading(true)
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/nomenclature?q=${encodeURIComponent(q)}&limit=20`)
+        const res = await fetch(`/api/nomenclature?q=${encodeURIComponent(q)}&limit=25`)
         const data = await res.json()
         setResults(Array.isArray(data) ? data.map((d: any) => ({ id: d.id, name: d.name, unit: d.unit || 'шт' })) : [])
       } catch { setResults([]) }
@@ -96,9 +80,24 @@ export default function NomPicker({ onPick, onClose }: {
     return () => clearTimeout(t)
   }, [query])
 
+  // Выдача: исключить МП-слова, сорт «точность (больше слов совпало) → короче имя».
+  const qWords = query.toLowerCase().split(/[^а-яёa-z0-9]+/i).filter(w => w.length >= 2)
+  const shown = results
+    .filter(r => !excludes.some(w => r.name.toLowerCase().includes(w.toLowerCase())))
+    .map(r => ({ r, score: qWords.filter(w => r.name.toLowerCase().includes(w)).length }))
+    .sort((a, b) => b.score - a.score || a.r.name.length - b.r.name.length)
+    .map(x => x.r)
+
+  // ── Чипы ──
+  function pickColor(c: string) { setManual(false); setColor(prev => prev === c ? '' : c) }
+  function pickProduct(k: string) { setManual(false); setProductKey(prev => prev === k ? '' : k); setSel({}); setCm('') }
+  function pickItem(levelKey: string, itemKey: string, isMeasure: boolean) {
+    setManual(false)
+    setSel(prev => { const next = { ...prev }; if (next[levelKey] === itemKey) delete next[levelKey]; else next[levelKey] = itemKey; return next })
+    if (!isMeasure) setCm('')
+  }
+
   // ── Количество: панель + клавиатура ──
-  function openPadForHit(h: NomHit) { setPad({ name1c: h.name, oral: h.name, unit: h.unit, digits: '' }) }
-  function openPadAsIs() { const q = query.trim(); if (q) setPad({ name1c: '', oral: q, unit: 'шт', digits: '' }) }
   function commitPad() {
     const p = padRef.current
     if (!p) return
@@ -120,11 +119,21 @@ export default function NomPicker({ onPick, onClose }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pad])
 
-  function submit() {
-    if (rows.length === 0) return
-    onPick(rows); onClose()
-  }
+  function submit() { if (rows.length) { onPick(rows); onClose() } }
   const totalUnits = rows.reduce((s, r) => s + r.qty, 0)
+  const measureSelected = product?.levels.some(lv => lv.items.find(i => i.key === sel[lv.key])?.measure)
+
+  // Разбор «Поисковые слова: 7024 (серый) + Комплектующие + «Нар. угол (сл)»»
+  const cEntry = color ? RAL_BY_CODE[color] : undefined
+  const crumbs: React.ReactNode[] = []
+  if (cEntry) crumbs.push(<span key="c"><b style={{ color: PRIMARY }}>{cEntry.query || cEntry.code}</b> ({cEntry.name.toLowerCase()})</span>)
+  if (product) {
+    crumbs.push(<span key="p">{product.label}</span>)
+    product.levels.forEach(lv => {
+      const it = lv.items.find(i => i.key === sel[lv.key])
+      if (it) crumbs.push(<span key={lv.key}>«{it.label}{it.measure && cm ? ` ${cm} см` : ''}»</span>)
+    })
+  }
 
   if (!mounted) return null
 
@@ -133,28 +142,22 @@ export default function NomPicker({ onPick, onClose }: {
       <div onClick={e => e.stopPropagation()} style={{ background: '#fff', width: '100%', maxWidth: 432, maxHeight: '94vh', borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column', boxShadow: '0 -8px 40px rgba(0,0,0,.3)' }}>
         {/* Шапка */}
         <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid #f1efec', flexShrink: 0 }}>
-          <div style={{ fontWeight: 800, fontSize: 17 }}>📖 Каталог — поиск</div>
+          <div style={{ fontWeight: 800, fontSize: 17 }}>📖 Каталог</div>
           <button onClick={onClose} style={{ marginLeft: 'auto', border: 'none', background: '#f1efec', width: 32, height: 32, borderRadius: '50%', fontSize: 16, cursor: 'pointer', color: '#8a847c' }}>✕</button>
         </div>
 
-        {/* Строка поиска (собирается чипами, но редактируемая) */}
-        <div style={{ padding: '12px 16px 8px', flexShrink: 0 }}>
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Запрос: цвет + товар (напр. 9003 нар угол)"
-            style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1.5px solid ${query ? PRIMARY : '#e6e2dc'}`, fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
-        </div>
-
-        <div style={{ overflowY: 'auto', flex: 1, padding: '4px 16px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* ЦВЕТ */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 15 }}>
+          {/* ЦВЕТ — 14 кругов */}
           <div>
             <div style={LBL}>ЦВЕТ</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-start' }}>
               {RAL_COLORS.map(c => {
                 const on = color === c.code
                 return (
-                  <button key={c.code} onClick={() => pickColor(c.code)} title={`${c.code} · ${c.name}`}
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, border: 'none', background: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
-                    <span style={{ width: on ? 38 : 28, height: on ? 38 : 28, borderRadius: '50%', background: c.hex, boxShadow: on ? `${GLOW}, inset 0 0 0 2px rgba(0,0,0,.12)` : 'inset 0 0 0 1.5px rgba(0,0,0,.14)', transition: 'all .12s' }} />
-                    <span style={{ fontSize: 10, fontWeight: on ? 800 : 500, color: on ? PRIMARY : '#a39c92' }}>{c.code}</span>
+                  <button key={c.code} onClick={() => pickColor(c.code)} title={`${c.query || c.code} · ${c.name}`}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, border: 'none', background: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', width: 40 }}>
+                    <span style={{ width: on ? 38 : 28, height: on ? 38 : 28, borderRadius: '50%', background: c.bg || c.hex, boxShadow: on ? `${GLOW}, inset 0 0 0 2px rgba(0,0,0,.12)` : 'inset 0 0 0 1.5px rgba(0,0,0,.14)', transition: 'all .12s' }} />
+                    <span style={{ fontSize: 9.5, fontWeight: on ? 800 : 500, color: on ? PRIMARY : '#a39c92', textAlign: 'center', lineHeight: 1.1 }}>{c.code === 'decor' ? 'дерево' : c.code}</span>
                   </button>
                 )
               })}
@@ -169,45 +172,50 @@ export default function NomPicker({ onPick, onClose }: {
             </div>
           </div>
 
-          {/* БРЕНД (Водосток) */}
-          {product?.brands && (
-            <div>
-              <div style={LBL}>БРЕНД</div>
+          {/* УРОВНИ выбранного товара */}
+          {product?.levels.map(lv => (
+            <div key={lv.key}>
+              <div style={LBL}>{lv.label.toUpperCase()}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {product.brands.map(b => <button key={b.key} onClick={() => pickBrand(b.key)} style={pill(brandKey === b.key)}>{b.label}{b.leaves.length ? ' ▾' : ''}</button>)}
+                {lv.items.map(it => <button key={it.key} onClick={() => pickItem(lv.key, it.key, !!it.measure)} style={pill(sel[lv.key] === it.key)}>{it.label}</button>)}
               </div>
+            </div>
+          ))}
+
+          {/* Изделие · см — ввод длины (уходит словом «№ {cm}») */}
+          {measureSelected && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 13, color: '#8a847c', fontWeight: 600 }}>Длина:</span>
+              <input value={cm} onChange={e => { setManual(false); setCm(e.target.value.replace(/\D/g, '').slice(0, 4)) }} inputMode="numeric" placeholder="см"
+                style={{ width: 90, padding: '8px 10px', borderRadius: 8, border: '1.5px solid #e6e2dc', fontSize: 14, fontFamily: 'inherit', outline: 'none', textAlign: 'center' }} />
+              <span style={{ fontSize: 13, color: '#8a847c' }}>см</span>
             </div>
           )}
 
-          {/* ПОДКАТЕГОРИЯ */}
-          {subLeaves.length > 0 && (
-            <div>
-              <div style={LBL}>ПОДКАТЕГОРИЯ</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {subLeaves.map(l => <button key={l.key} onClick={() => selectLeaf(l)} style={pill(leafKey === l.key)}>{l.label}</button>)}
+          {/* Строка поиска (собрана чипами, редактируемая) */}
+          <div>
+            <div style={LBL}>ПОИСК</div>
+            <input value={query} onChange={e => { setManual(true); setQuery(e.target.value) }} placeholder="Слова поиска (можно править вручную)"
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1.5px solid ${query ? PRIMARY : '#e6e2dc'}`, fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
+            {crumbs.length > 0 && (
+              <div style={{ fontSize: 12, color: '#8a847c', marginTop: 7, display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+                <span style={{ fontWeight: 700 }}>Поисковые слова:</span>
+                {crumbs.map((c, i) => <span key={i} style={{ display: 'inline-flex', gap: 4 }}>{i > 0 && <span style={{ color: '#cfc9c0' }}>+</span>}{c}</span>)}
               </div>
-              {/* Изделие — ввод длины в см (уходит в запрос: «Изделие № 17 8017») */}
-              {leaf?.measure && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-                  <span style={{ fontSize: 13, color: '#8a847c', fontWeight: 600 }}>Длина:</span>
-                  <input value={cm} onChange={e => setCmVal(e.target.value)} inputMode="numeric" placeholder="см"
-                    style={{ width: 90, padding: '8px 10px', borderRadius: 8, border: '1.5px solid #e6e2dc', fontSize: 14, fontFamily: 'inherit', outline: 'none', textAlign: 'center' }} />
-                  <span style={{ fontSize: 13, color: '#8a847c' }}>см</span>
-                </div>
-              )}
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* РЕЗУЛЬТАТЫ ПОИСКА (реальная база) */}
+          {/* РЕЗУЛЬТАТЫ */}
           {query.trim() && (
             <div>
-              <div style={LBL}>НАЙДЕНО В БАЗЕ</div>
+              <div style={LBL}>НАЙДЕНО В БАЗЕ{excludes.length ? ` · без ${excludes.join('/')}` : ''}</div>
               {loading
                 ? <div style={{ fontSize: 13, color: '#8a847c', padding: '8px 0' }}>Поиск…</div>
-                : results.length > 0
+                : shown.length > 0
                   ? <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {results.map(h => (
-                        <button key={h.id} onClick={() => openPadForHit(h)} style={{ display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left', border: '1.5px solid #e6e2dc', background: '#fff', borderRadius: 9, padding: '9px 11px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                      {shown.map(h => (
+                        <button key={h.id} onClick={() => setPad({ name1c: h.name, oral: h.name, unit: h.unit, digits: '' })}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left', border: '1.5px solid #e6e2dc', background: '#fff', borderRadius: 9, padding: '9px 11px', cursor: 'pointer', fontFamily: 'inherit' }}>
                           <RalDot code={extractRal(h.name)} size={14} />
                           <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</span>
                           <span style={{ fontSize: 11, color: '#8a847c', background: '#f1efec', padding: '2px 8px', borderRadius: 20, flexShrink: 0 }}>{h.unit}</span>
@@ -217,8 +225,8 @@ export default function NomPicker({ onPick, onClose }: {
                     </div>
                   : <div style={{ fontSize: 13, color: '#8a847c', padding: '8px 0' }}>Не найдено в базе — можно добавить как есть ↓</div>
               }
-              {/* Добавить как есть — черновой путь «со слов» (работает и без базы) */}
-              <button onClick={openPadAsIs} style={{ marginTop: 8, width: '100%', border: '1.5px dashed #d8d3cc', background: 'none', borderRadius: 9, padding: '9px', cursor: 'pointer', fontSize: 13, color: '#4a4640', fontFamily: 'inherit', fontWeight: 600 }}>
+              <button onClick={() => { const q = query.trim(); if (q) setPad({ name1c: '', oral: q, unit: 'шт', digits: '' }) }}
+                style={{ marginTop: 8, width: '100%', border: '1.5px dashed #d8d3cc', background: 'none', borderRadius: 9, padding: '9px', cursor: 'pointer', fontSize: 13, color: '#4a4640', fontFamily: 'inherit', fontWeight: 600 }}>
                 ＋ Добавить как есть: «{query.trim()}»
               </button>
             </div>

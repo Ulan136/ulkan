@@ -4,37 +4,46 @@
 // Чистые функции — можно импортировать и на сервере (route берёт extractRal),
 // RalDot тришейкится из серверного бандла.
 
-export interface RalColor { code: string; name: string; hex: string }
+// hex — сплошной цвет; bg — CSS-фон (градиент спец-чипа «ДЕРЕВО»);
+// query — поисковое слово чипа (по умолчанию = code; у дерева — «дерево»).
+export interface RalColor { code: string; name: string; hex?: string; bg?: string; query?: string }
 
-// Палитра владельца (порядок = порядок чипов в NomPicker).
+// Палитра владельца, 14 чипов (порядок = порядок кругов в NomPicker, макет v8).
 export const RAL_COLORS: RalColor[] = [
   { code: '1015', name: 'Бежевый', hex: '#E6D690' },
+  { code: '1018', name: 'Жёлтый', hex: '#F8D338' },
   { code: '9003', name: 'Белый', hex: '#F4F8F4' },
   { code: '7004', name: 'Светло-серый', hex: '#9EA0A1' },
   { code: '7024', name: 'Серый графит', hex: '#45494E' },
   { code: '8017', name: 'Шоколадный', hex: '#442F29' },
+  { code: '8019', name: 'Серо-коричневый', hex: '#3D3635' },
   { code: '2004', name: 'Оранжевый', hex: '#E75B12' },
   { code: '6005', name: 'Зелёный', hex: '#0F4336' },
-  { code: '5005', name: 'Сигнально-синий', hex: '#154889' },
+  { code: '6007', name: 'Тёмно-зелёный', hex: '#26392F' },
+  { code: '3005', name: 'Красное вино', hex: '#5E2028' },
   { code: '3020', name: 'Красный', hex: '#C1121C' },
+  { code: '5005', name: 'Сигнально-синий', hex: '#154889' },
+  { code: 'decor', name: 'Дерево', bg: 'repeating-linear-gradient(45deg,#5C4033 0 4px,#7a5a44 4px 7px)', query: 'дерево' },
 ]
 
 export const RAL_BY_CODE: Record<string, RalColor> = Object.fromEntries(RAL_COLORS.map(c => [c.code, c]))
 
-// Словарь: стем-слова → RAL-код. Двусторонний — extractRal ищет слова в имени,
-// ralSearchTerms по коду отдаёт слова обратно. Порядок ВАЖЕН: более специфичный
-// код проверяется раньше (графит 7024 → до серый 7004, иначе «Серый графит»
-// попадёт в 7004). Все стемы ≥3 символов — матчим по началу слова (\m-граница).
+// Словарь: стем-слова → код. extractRal ищет слова в имени. Порядок ВАЖЕН:
+// более специфичный код раньше (графит 7024 → до серый 7004). Все стемы ≥3
+// символов — матчим по началу слова. Числовые коды (8019/6007/3005/1018) ловит
+// голая 4-значная проверка в extractRal, здесь — только словесные подсказки.
 const RAL_DICT: { code: string; words: string[] }[] = [
   { code: '8017', words: ['шок', 'шоколад'] },
   { code: '9003', words: ['бел', 'белый', 'белая'] },
   { code: '1015', words: ['беж', 'бежев'] },
+  { code: '1018', words: ['жёлт', 'желт'] },
   { code: '7024', words: ['графит', 'граф'] },              // до серого
   { code: '7004', words: ['светло-сер', 'св.-сер', 'серый'] },
   { code: '2004', words: ['оранж'] },
   { code: '6005', words: ['зел', 'зелён', 'зелен'] },
   { code: '5005', words: ['син', 'синий'] },
   { code: '3020', words: ['красн', 'красный'] },
+  { code: 'decor', words: ['дуб', 'дерев', '3d'] },         // спец-декор «Дерево»
 ]
 
 // Токенизация имени в слова (русские/латинские буквы + цифры), нижний регистр.
@@ -87,9 +96,9 @@ export function RalDot({ code, size = 16, title }: { code?: string; size?: numbe
   // Белый почти сливается с фоном — отдельная тонкая обводка.
   const border = c.code === '9003' ? '#d8d3cc' : 'rgba(0,0,0,.15)'
   return (
-    <span title={title || `RAL${c.code} · ${c.name}`} style={{
+    <span title={title || (c.code === 'decor' ? 'Дерево' : `RAL${c.code} · ${c.name}`)} style={{
       display: 'inline-block', width: size, height: size, borderRadius: '50%',
-      background: c.hex, boxShadow: `inset 0 0 0 ${ring}px ${border}`, flexShrink: 0, verticalAlign: 'middle',
+      background: c.bg || c.hex, boxShadow: `inset 0 0 0 ${ring}px ${border}`, flexShrink: 0, verticalAlign: 'middle',
     }} />
   )
 }
