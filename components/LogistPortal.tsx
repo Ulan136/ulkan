@@ -149,11 +149,14 @@ export default function LogistPortal({ user, logistUser }: Props) {
       .map(p => ({ pos: p, order: o }))
   )
 
-  // ── Позиции ОТ МЕНЯ (карточки которые Я создал; только leg=2) ──
+  // ── Исходящие · от меня = мои ДОСТАВЛЕННЫЕ позиции (история того, что я отправил).
+  // Входящие (активные, ещё не доставлены) → сюда переходят после «Доставлено».
+  // Раньше здесь были только карточки, которые логист сам создал (from=я) — почти
+  // всегда пусто, поэтому история не появлялась и позиция «сразу уходила в отчёт».
   const posOut = orders.flatMap(o =>
-    eqName(o.from, myName)
-      ? o.positions.filter(p => p.leg === 2).map(p => ({ pos: p, order: o }))
-      : []
+    o.positions
+      .filter(p => eqName(p.resp, myName) && p.leg === 2 && p.status === 'Доставлено')
+      .map(p => ({ pos: p, order: o }))
   )
 
   // Загрузка черновика (сегодняшнего или конкретного дня) — ТОЛЬКО показ блока
@@ -423,10 +426,10 @@ export default function LogistPortal({ user, logistUser }: Props) {
         {/* ── 📤 ИСХОДЯЩИЕ ── */}
         {tab === 'out' && (
           <div>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>📤 Исходящие · от меня</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>📤 Исходящие · доставлено мной</div>
             {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
               : posOut.length === 0
-              ? <div style={{ background: '#fff', borderRadius: 14, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 10 }}>📭</div><div style={{ color: '#8a847c' }}>Нет исходящих позиций</div></div>
+              ? <div style={{ background: '#fff', borderRadius: 14, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 10 }}>📭</div><div style={{ color: '#8a847c' }}>Пока нет доставленных позиций</div></div>
               : posOut.map(({ pos, order }) => <PosCard key={`out-${pos.id}`} pos={pos} order={order} />)
             }
           </div>
