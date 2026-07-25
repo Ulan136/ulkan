@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import Head from 'next/head'
@@ -16,6 +16,15 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const from = searchParams.get('from') || ''
 
+  // Запоминаем последний телефон/email и способ входа — подставляем при открытии.
+  useEffect(() => {
+    try {
+      const p = localStorage.getItem('ukan_last_phone'); if (p) setPhone(p)
+      const em = localStorage.getItem('ukan_last_email'); if (em) setEmail(em)
+      const m = localStorage.getItem('ukan_last_mode'); if (m === 'phone' || m === 'email') setMode(m)
+    } catch {}
+  }, [])
+
   async function handleEmail(e: React.FormEvent) {
     e.preventDefault()
     setError(''); setLoading(true)
@@ -26,6 +35,7 @@ function LoginForm() {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Ошибка входа'); return }
+      try { localStorage.setItem('ukan_last_email', email); localStorage.setItem('ukan_last_mode', 'email') } catch {}
       redirect(data.user)
     } catch { setError('Ошибка сети') }
     finally { setLoading(false) }
@@ -41,6 +51,7 @@ function LoginForm() {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Пользователь не найден'); return }
+      try { localStorage.setItem('ukan_last_phone', phone); localStorage.setItem('ukan_last_mode', 'phone') } catch {}
       redirect(data.user)
     } catch { setError('Ошибка сети') }
     finally { setLoading(false) }

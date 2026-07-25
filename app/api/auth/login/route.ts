@@ -24,7 +24,8 @@ export async function POST(req: NextRequest) {
 
     const res = NextResponse.json({ ok: true, user: session })
     // remember → постоянная cookie на год; иначе сессионная (до закрытия браузера).
-    res.cookies.set('ukan_session', token, { httpOnly: true, path: '/', sameSite: 'lax', ...(remember ? { maxAge: 60 * 60 * 24 * 365 } : {}) })
+    // secure в проде: без него iOS Safari/PWA может сбрасывать cookie → «постоянный выход».
+    res.cookies.set('ukan_session', token, { httpOnly: true, path: '/', sameSite: 'lax', secure: process.env.NODE_ENV === 'production', ...(remember ? { maxAge: 60 * 60 * 24 * 365 } : {}) })
     return res
   } catch (e) {
     console.error(e)
