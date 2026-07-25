@@ -6,9 +6,11 @@ import { phoneSchema } from '@/lib/dto/auth.dto'
 
 export async function POST(req: NextRequest) {
   try {
-    const parsed = phoneSchema.safeParse(await req.json().catch(() => null))
+    const raw = await req.json().catch(() => null)
+    const parsed = phoneSchema.safeParse(raw)
     if (!parsed.success) return NextResponse.json({ error: 'Телефон обязателен' }, { status: 400 })
     const { phone } = parsed.data
+    const remember = raw?.remember !== false // по умолчанию запоминаем
 
     const normPhone = normalizePhone(phone)
     const user = await prisma.user.findUnique({ where: { phone: normPhone } })
@@ -19,7 +21,7 @@ export async function POST(req: NextRequest) {
     const token = await createToken(session)
 
     const res = NextResponse.json({ ok: true, user: session, slug: user.slug })
-    res.cookies.set('ukan_session', token, { httpOnly: true, path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' })
+    res.cookies.set('ukan_session', token, { httpOnly: true, path: '/', sameSite: 'lax', ...(remember ? { maxAge: 60 * 60 * 24 * 365 } : {}) })
     return res
   } catch (e) {
     console.error(e)

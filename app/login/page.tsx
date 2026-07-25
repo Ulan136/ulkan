@@ -9,6 +9,7 @@ function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [phone, setPhone] = useState('+7')
+  const [remember, setRemember] = useState(true)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -21,7 +22,7 @@ function LoginForm() {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, remember }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Ошибка входа'); return }
@@ -36,7 +37,7 @@ function LoginForm() {
     try {
       const res = await fetch('/api/auth/phone', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone, remember }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Пользователь не найден'); return }
@@ -47,6 +48,8 @@ function LoginForm() {
 
   function redirect(user: any) {
     if (from) { router.push(from); return }
+    const needsSlug = ['logist', 'warehouse_manager', 'branch', 'client', 'supplier_client'].includes(user.role)
+    if (needsSlug && !user.slug) { setError('У аккаунта не настроен адрес кабинета — обратитесь к менеджеру'); return }
     if (user.role === 'logist') router.push(`/rsp/${user.slug}`)
     else if (user.role === 'warehouse_manager') router.push(`/warehouse/${user.slug}`)
     else if (user.role === 'branch') router.push(`/branch/${user.slug}`)
@@ -74,6 +77,10 @@ function LoginForm() {
           ))}
         </div>
         {error && <div style={{ background: '#faeaea', color: '#b03020', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>{error}</div>}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, cursor: 'pointer', fontSize: 13, color: '#4a4640', userSelect: 'none' }}>
+          <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#d4613a', cursor: 'pointer' }} />
+          Запомнить меня на этом устройстве
+        </label>
         {mode === 'email' && (
           <form onSubmit={handleEmail} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div><label style={lbl}>EMAIL</label><input style={inp} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@u-kan.kz" required /></div>

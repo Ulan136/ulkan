@@ -26,10 +26,17 @@ export async function POST(req: NextRequest) {
     let hashedPassword: string | null = null
     if (password) hashedPassword = await bcrypt.hash(password, 10)
 
-    let slug = slugRaw || (name ? generateSlug(name) : null)
+    // Роли с кабинетом ОБЯЗАНЫ иметь slug — иначе логин уводит их на /admin
+    // (белый экран). Если транслитерация имени пустая (напр. каз. буквы) — фолбэк.
+    const roleVal = role || 'client'
+    const needsSlug = ['client', 'supplier_client', 'branch', 'logist', 'warehouse_manager'].includes(roleVal)
+    let slug: string | null = (slugRaw || (name ? generateSlug(name) : '') || '').trim()
+    if (!slug && needsSlug) slug = roleVal
     if (slug) {
       const exists = await prisma.user.findUnique({ where: { slug } })
       if (exists) slug = slug + '-' + Date.now().toString().slice(-4)
+    } else {
+      slug = null
     }
 
     const normPhone = phone ? normalizePhone(phone) : null

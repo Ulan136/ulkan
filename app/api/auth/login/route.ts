@@ -6,9 +6,11 @@ import { loginSchema } from '@/lib/dto/auth.dto'
 
 export async function POST(req: NextRequest) {
   try {
-    const parsed = loginSchema.safeParse(await req.json().catch(() => null))
+    const raw = await req.json().catch(() => null)
+    const parsed = loginSchema.safeParse(raw)
     if (!parsed.success) return NextResponse.json({ error: 'Email и пароль обязательны' }, { status: 400 })
     const { email, password } = parsed.data
+    const remember = raw?.remember !== false // по умолчанию запоминаем
 
     const user = await prisma.user.findUnique({ where: { email } })
     if (!user || !user.password) return NextResponse.json({ error: 'Неверный email или пароль' }, { status: 401 })
@@ -21,7 +23,8 @@ export async function POST(req: NextRequest) {
     const token = await createToken(session)
 
     const res = NextResponse.json({ ok: true, user: session })
-    res.cookies.set('ukan_session', token, { httpOnly: true, path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' })
+    // remember → постоянная cookie на год; иначе сессионная (до закрытия браузера).
+    res.cookies.set('ukan_session', token, { httpOnly: true, path: '/', sameSite: 'lax', ...(remember ? { maxAge: 60 * 60 * 24 * 365 } : {}) })
     return res
   } catch (e) {
     console.error(e)

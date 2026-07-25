@@ -13,5 +13,7 @@ export default async function ClientPage({ params }: { params: Promise<{ slug: s
   // Если не авторизован — редирект на трекинг/логин
   if (!session) redirect(`/login?from=/client/${slug}`)
 
-  return <ClientApp user={session} clientUser={user as any} />
+  // Только безопасные поля (без password-хэша) — они уходят в клиентский бандл.
+  const clientUser = { name: user.name, slug: user.slug ?? '', phone: user.phone ?? undefined }
+  return <ClientApp user={session} clientUser={clientUser} />
 }

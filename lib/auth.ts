@@ -14,11 +14,13 @@ export interface SessionUser {
   slug?: string
 }
 
-export async function createToken(user: SessionUser): Promise<string> {
+// Срок жизни токена = сроку cookie (иначе через 7 дней JWT протухал, а cookie
+// жила год → пользователя «выкидывало» из кабинета). По умолчанию год.
+export async function createToken(user: SessionUser, days = 365): Promise<string> {
   return new SignJWT({ ...user })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('7d')
+    .setExpirationTime(`${days}d`)
     .sign(SECRET)
 }
 

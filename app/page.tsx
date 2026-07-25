@@ -12,7 +12,7 @@ export default async function HomePage() {
     else if (session.role === 'warehouse_manager' && session.slug) redirect(`/warehouse/${session.slug}`)
     else if (session.role === 'branch' && session.slug) redirect(`/branch/${session.slug}`)
     else if (session.slug) redirect(`/client/${session.slug}`)
-    else redirect('/admin')
+    else redirect('/login')  // роль без slug (битый клиент) — на логин, НЕ в админку
   }
 
   // Не залогинен — публичная главная = лендинг со входами в кабинеты

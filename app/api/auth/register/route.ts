@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const existing = await prisma.user.findUnique({ where: { phone: normPhone } })
     if (existing) return NextResponse.json({ error: 'Этот номер уже зарегистрирован' }, { status: 409 })
 
-    let slug = generateSlug(name)
+    let slug = generateSlug(name) || 'client' // фолбэк, если транслитерация пустая
     const slugExists = await prisma.user.findUnique({ where: { slug } })
     if (slugExists) slug = slug + '-' + Date.now().toString().slice(-4)
 
