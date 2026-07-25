@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { catalogGroups, catalogCats } from '@/lib/nomCatalog'
-import { overlayFor } from '@/lib/nomTree'
+import { overlayFor, producersFor } from '@/lib/nomTree'
 import { RAL_COLORS, RAL_BY_CODE, RalDot, extractRal } from '@/lib/ral'
 
 const PRIMARY = '#d4613a'
@@ -21,6 +21,7 @@ export default function NomPicker({ onPick, onClose }: {
   const [color, setColor] = useState('')
   const [groupName, setGroupName] = useState('')     // поле group (корень пути)
   const [catName, setCatName] = useState('')         // поле cat (подпапка пути)
+  const [producerKey, setProducerKey] = useState('') // Евробрус: фильтр по subgroup
   const [sel, setSel] = useState<Record<string, string>>({}) // надстройки-СЛОВА
   const [cm, setCm] = useState('')
   const [text, setText] = useState('')
@@ -36,6 +37,8 @@ export default function NomPicker({ onPick, onClose }: {
   const groups = catalogGroups()
   const cats = groupName ? catalogCats(groupName) : []
   const overlays = overlayFor(catName || groupName)
+  const producers = producersFor(catName)              // непусто только в «Евро брус»
+  const selectedProducer = producers.find(p => p.key === producerKey)
 
   useEffect(() => {
     setMounted(true)
@@ -80,13 +83,14 @@ export default function NomPicker({ onPick, onClose }: {
 
   // ── Поиск: фильтр по полям (group/cat) + слова. Каскад не трогаем ──
   useEffect(() => {
-    if (!groupName && !catName && !q) { setResults([]); setLoading(false); return }
+    if (!groupName && !catName && !q && !producerKey) { setResults([]); setLoading(false); return }
     setLoading(true)
     const t = setTimeout(async () => {
       try {
         const params = new URLSearchParams()
         if (groupName) params.set('group', groupName)
         if (catName) params.set('cat', catName)
+        if (selectedProducer) params.set('subgroup', selectedProducer.subgroup) // производитель = поле
         if (q) params.set('q', q)
         params.set('limit', '30')
         const res = await fetch(`/api/nomenclature?${params}`)
@@ -97,7 +101,7 @@ export default function NomPicker({ onPick, onClose }: {
     }, 250)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, groupName, catName])
+  }, [q, groupName, catName, producerKey])
 
   const qWords = q.toLowerCase().split(/[^а-яёa-z0-9]+/i).filter(w => w.length >= 2)
   const shown = results
@@ -108,8 +112,9 @@ export default function NomPicker({ onPick, onClose }: {
 
   // ── Чипы ──
   function pickColor(c: string) { setColor(prev => prev === c ? '' : c) }
-  function pickGroup(name: string) { setGroupName(prev => prev === name ? '' : name); setCatName(''); setSel({}); setCm('') }
-  function pickCat(name: string) { setCatName(prev => prev === name ? '' : name); setSel({}); setCm('') }
+  function pickGroup(name: string) { setGroupName(prev => prev === name ? '' : name); setCatName(''); setProducerKey(''); setSel({}); setCm('') }
+  function pickCat(name: string) { setCatName(prev => prev === name ? '' : name); setProducerKey(''); setSel({}); setCm('') }
+  function pickProducer(k: string) { setProducerKey(prev => prev === k ? '' : k) }
   function pickItem(levelKey: string, itemKey: string, isMeasure: boolean) {
     setSel(prev => { const next = { ...prev }; if (next[levelKey] === itemKey) delete next[levelKey]; else next[levelKey] = itemKey; return next })
     if (!isMeasure) setCm('')
@@ -144,8 +149,9 @@ export default function NomPicker({ onPick, onClose }: {
   const crumbs: React.ReactNode[] = []
   const path = [groupName, catName].filter(Boolean).join(' ▸ ')
   if (path) crumbs.push(<span key="p" style={{ fontWeight: 700 }}>{path}</span>)
-  if (cEntry) crumbs.push(<span key="c"><b style={{ color: PRIMARY }}>{colorLabel}</b> ({cEntry.name.toLowerCase()})</span>)
+  if (selectedProducer) crumbs.push(<span key="prod">{selectedProducer.label}</span>) // label, БЕЗ расшифровки
   selItems.forEach(it => crumbs.push(<span key={it.key}>«{it.measure ? (cm ? `Изделие · ${cm} см` : 'Изделие') : it.label}»</span>))
+  if (cEntry) crumbs.push(<span key="c"><b style={{ color: PRIMARY }}>{colorLabel}</b> ({cEntry.name.toLowerCase()})</span>)
   if (text.trim()) crumbs.push(<span key="t">«{text.trim()}»</span>)
 
   if (!mounted) return null
@@ -190,6 +196,26 @@ export default function NomPicker({ onPick, onClose }: {
               <div style={LBL}>ПАПКА</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {cats.map(c => <button key={c} onClick={() => pickCat(c)} style={pill(catName === c)}>{c}{counts.c[`${groupName}|${c}`] != null && <span style={cnt(catName === c)}>{counts.c[`${groupName}|${c}`]}</span>}</button>)}
+              </div>
+            </div>
+          )}
+
+          {/* ПРОИЗВОДИТЕЛЬ (только «Евро брус») — фильтр по полю subgroup, ВЫШЕ толщины.
+              Расшифровка под кнопкой — чисто декоративная, в поиск/имя не идёт. */}
+          {producers.length > 0 && (
+            <div>
+              <div style={LBL}>ПРОИЗВОДИТЕЛЬ</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {producers.map(p => {
+                  const on = producerKey === p.key
+                  return (
+                    <button key={p.key} onClick={() => pickProducer(p.key)}
+                      style={{ ...pill(on), flexDirection: 'column', alignItems: 'center', gap: 1, padding: '6px 14px' }}>
+                      <span style={{ fontWeight: on ? 800 : 700 }}>{p.label}</span>
+                      <span style={{ fontSize: 9, fontWeight: 500, color: on ? 'rgba(255,255,255,.75)' : '#a39c92' }}>{p.hint}</span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}

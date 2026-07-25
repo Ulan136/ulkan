@@ -13,29 +13,33 @@ export async function GET(req: NextRequest) {
   const subgroup = searchParams.get('subgroup') || ''
   const limit = parseInt(searchParams.get('limit') || '12')
 
-  // Фильтр ПО ПОЛЯМ базы (не по словам имени): каталог выбирает группу/подгруппу
-  // строго внутри 1С-структуры, а цвет/текст уточняют словами уже внутри выборки.
-  const fieldWhere: Record<string, string> = {}
-  if (group) fieldWhere.group = group
-  if (cat) fieldWhere.cat = cat
-  if (subgroup) fieldWhere.subgroup = subgroup
-  const hasField = !!(group || cat || subgroup)
+  // Фильтр ПО ПОЛЯМ базы (не по словам имени). Путь group/cat УСТОЙЧИВ к
+  // перепутанным полям 1С (часть импортов легла с group↔cat, напр. «Евро брус»:
+  // group='Евро брус', cat='Товары') — сверяем пару в любой ориентации. subgroup
+  // (производитель) — точный. Собираем условия списком для AND.
+  const baseConds: any[] = []
+  if (group && cat) baseConds.push({ OR: [{ group, cat }, { group: cat, cat: group }] })
+  else if (group) baseConds.push({ OR: [{ group }, { cat: group }] })
+  else if (cat) baseConds.push({ OR: [{ cat }, { group: cat }] })
+  if (subgroup) baseConds.push({ subgroup })
+  const hasField = baseConds.length > 0
+  const baseWhere = hasField ? { AND: baseConds } : undefined
 
   if (all) {
     const auth = await requireSession(req)
     if (!auth.ok) return auth.response
     const items = await prisma.nomenclature.findMany({
-      where: hasField ? fieldWhere : undefined,
+      where: baseWhere,
       orderBy: [{ group: 'asc' }, { cat: 'asc' }, { name: 'asc' }],
     })
     return NextResponse.json(items)
   }
 
-  // Пустой запрос, но выбрана группа/подгруппа → отдать записи этой выборки
-  // (тап по группе показывает её позиции без ввода слов).
+  // Пустой запрос, но выбрана папка/производитель → отдать записи этой выборки
+  // (тап по папке показывает её позиции без ввода слов).
   if (!q || q.length < 1) {
     if (hasField) {
-      const items = await prisma.nomenclature.findMany({ where: fieldWhere, orderBy: { name: 'asc' }, take: limit })
+      const items = await prisma.nomenclature.findMany({ where: baseWhere, orderBy: { name: 'asc' }, take: limit })
       return NextResponse.json(items)
     }
     return NextResponse.json([])
@@ -47,20 +51,19 @@ export async function GET(req: NextRequest) {
   const qAlt = qNorm.includes(',') ? qNorm.replace(/,/g, '.') : qNorm.replace(/\./g, ',')
   const words = qNorm.split(/\s+/).filter(w => w.length >= 1)
   const wordsAlt = qAlt.split(/\s+/).filter(w => w.length >= 1)
-  const groupFilter = fieldWhere
 
-  // Поиск с нормализацией запятая/точка
+  // Поиск с нормализацией запятая/точка (поля-условия baseConds + слова в AND)
   async function search(searchWords: string[], take: number) {
     return prisma.nomenclature.findMany({
-      where: { ...groupFilter, AND: searchWords.map(w => ({ name: { contains: w, mode: 'insensitive' as const } })) },
+      where: { AND: [...baseConds, ...searchWords.map(w => ({ name: { contains: w, mode: 'insensitive' as const } }))] },
       orderBy: { name: 'asc' }, take,
     })
   }
 
   // Точное вхождение (оригинал и альтернатива)
   const [exact1, exact2] = await Promise.all([
-    prisma.nomenclature.findMany({ where: { ...groupFilter, name: { contains: qNorm, mode: 'insensitive' } }, orderBy: { name: 'asc' }, take: limit }),
-    qAlt !== qNorm ? prisma.nomenclature.findMany({ where: { ...groupFilter, name: { contains: qAlt, mode: 'insensitive' } }, orderBy: { name: 'asc' }, take: limit }) : Promise.resolve([]),
+    prisma.nomenclature.findMany({ where: { AND: [...baseConds, { name: { contains: qNorm, mode: 'insensitive' as const } }] }, orderBy: { name: 'asc' }, take: limit }),
+    qAlt !== qNorm ? prisma.nomenclature.findMany({ where: { AND: [...baseConds, { name: { contains: qAlt, mode: 'insensitive' as const } }] }, orderBy: { name: 'asc' }, take: limit }) : Promise.resolve([]),
   ])
   const exact = [...exact1, ...exact2.filter(i => !exact1.find(e => e.id === i.id))]
   if (exact.length >= 3) return NextResponse.json(exact.slice(0, limit))
@@ -80,7 +83,7 @@ export async function GET(req: NextRequest) {
   // OR поиск
   const allWords = [...new Set([...words, ...wordsAlt])]
   const byAny = await prisma.nomenclature.findMany({
-    where: { ...groupFilter, OR: allWords.map(w => ({ name: { contains: w, mode: 'insensitive' as const } })) },
+    where: { AND: [...baseConds, { OR: allWords.map(w => ({ name: { contains: w, mode: 'insensitive' as const } })) }] },
     orderBy: { name: 'asc' }, take: limit,
   })
   const scored = byAny

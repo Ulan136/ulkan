@@ -69,3 +69,17 @@ const OVERLAYS: Record<string, NomLevel[]> = {
 export function overlayFor(name: string): NomLevel[] {
   return OVERLAYS[(name || '').trim().toLowerCase()] || []
 }
+
+// ─── Производители Евробруса — фильтр по ПОЛЮ subgroup ───────────────────────
+// hint — ЧИСТО декоративная расшифровка (в поиск/имя/крумбы НЕ попадает).
+// subgroup — фактическое значение поля в базе (первичный критерий фильтра).
+export interface Producer { key: string; label: string; hint: string; subgroup: string }
+export const EUROBRUS_PRODUCERS: Producer[] = [
+  { key: 'mp', label: 'МП', hint: 'Металл Профиль', subgroup: 'Металл профиль' },
+  { key: 'ap', label: 'АП', hint: 'Меллиус', subgroup: 'Меллиус' },
+  { key: 'kmk', label: 'КМК', hint: 'КМК', subgroup: 'КМК' },
+  { key: 'mb', label: 'МБ', hint: 'Китай', subgroup: 'Разные' },
+]
+export function producersFor(cat: string): Producer[] {
+  return (cat || '').trim().toLowerCase().replace(/ё/g, 'е') === 'евро брус' ? EUROBRUS_PRODUCERS : []
+}
