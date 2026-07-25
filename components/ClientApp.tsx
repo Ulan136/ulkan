@@ -10,6 +10,7 @@ import ChatWidget from '@/components/ChatWidget'
 import NomPicker, { type PickedPos } from '@/components/NomPicker'
 import { RalDot, extractRal } from '@/lib/ral'
 import DateFilter, { inPeriod, type Period } from '@/components/DateFilter'
+import FinanceView from '@/components/FinanceView'
 
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   useEffect(() => { const t = setTimeout(onClose, 2300); return () => clearTimeout(t) }, [onClose])
@@ -50,7 +51,7 @@ export default function ClientApp({ user, clientUser }: Props) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const isBranch = user.role === 'branch'
-  const [tab, setTab] = useState<'orders' | 'incoming' | 'new' | 'notifications'>('orders')
+  const [tab, setTab] = useState<'orders' | 'incoming' | 'new' | 'notifications' | 'finance'>('orders')
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [toast, setToast] = useState('')
   const [copied, setCopied] = useState('')
@@ -199,11 +200,12 @@ export default function ClientApp({ user, clientUser }: Props) {
       <div style={{ maxWidth: 880, margin: '0 auto', padding: 20 }}>
 
         {/* Табы */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 4, marginBottom: 20, flexWrap: 'wrap' }}>
           {[
             ...(isBranch ? [{ key: 'incoming', label: `📥 Входящие (${incomingOrders.length})` }] : []),
             { key: 'orders', label: `Мои заявки (${myOrders.length})` },
             { key: 'new', label: '+ Новая заявка' },
+            { key: 'finance', label: '💰 Финансы' },
             { key: 'notifications', label: `Уведомления${unread > 0 ? ` (${unread})` : ''}` },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key as any)} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', background: tab === t.key ? '#d4613a' : '#fff', color: tab === t.key ? '#fff' : '#26231f', boxShadow: '0 0 0 1px #e6e2dc' }}>
@@ -501,6 +503,9 @@ export default function ClientApp({ user, clientUser }: Props) {
             )}
           </div>
         )}
+
+        {/* === ФИНАНСЫ === */}
+        {tab === 'finance' && <FinanceView />}
 
         {/* === УВЕДОМЛЕНИЯ === */}
         {tab === 'notifications' && (

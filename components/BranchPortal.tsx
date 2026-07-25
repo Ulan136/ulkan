@@ -9,6 +9,7 @@ import CardChat from '@/components/CardChat'
 import ChatWidget from '@/components/ChatWidget'
 import { RalDot, extractRal } from '@/lib/ral'
 import DateFilter, { inPeriod, type Period } from '@/components/DateFilter'
+import FinanceView from '@/components/FinanceView'
 import { POS_STATUS } from '@/lib/orderStatus'
 import { isHandedOff, isInDelivery, myActivePos, myHandedPos, eqName } from '@/lib/positionState'
 
@@ -29,7 +30,7 @@ interface Order {
   history?: HistoryItem[]
 }
 
-type Tab = 'in' | 'out' | 'new'
+type Tab = 'in' | 'out' | 'new' | 'finance'
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { bg: string; color: string }> = {
@@ -424,6 +425,9 @@ export default function BranchPortal({ user, branchUser }: Props) {
           </div>
         )}
 
+        {/* ФИНАНСЫ */}
+        {tab === 'finance' && <FinanceView />}
+
         {/* НОВЫЙ ЗАКАЗ */}
         {tab === 'new' && (
           <div style={{ background: '#fff', borderRadius: 14, padding: 20, boxShadow: '0 0 0 1px #e6e2dc' }}>
@@ -467,6 +471,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
         {([
           { key: 'in' as Tab, icon: '📥', label: 'Входящие', badge: incoming.filter(o => myActivePos(o.positions, me).length > 0).length },
           { key: 'out' as Tab, icon: '📤', label: 'Исходящие', badge: outgoing.length },
+          { key: 'finance' as Tab, icon: '💰', label: 'Финансы', badge: 0 },
           { key: 'new' as Tab, icon: '➕', label: 'Новый', badge: 0 },
         ]).map(({ key, icon, label, badge }) => (
           <button key={key} onClick={() => setTab(key)} style={{ flex: 1, padding: '10px 4px 8px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, position: 'relative', fontFamily: 'inherit' }}>
