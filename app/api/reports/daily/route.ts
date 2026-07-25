@@ -11,7 +11,11 @@ export async function GET(req: NextRequest) {
 
   // Явный select: переживает старые строки с posId=NULL/без колонки (не читаем
   // posId — фронту он не нужен) и не отдаёт password-хэш логиста (как в коммите A).
+  // Черновик (status='draft') = НЕЗАКРЫТАЯ смена логиста — она ждёт у логиста,
+  // пока он не впишет накладные и не закроет. Бухгалтеру отдаём ТОЛЬКО закрытые
+  // (processing/done/archive). Иначе отчёт «сам» уходит в бухгалтерию до закрытия.
   const reports = await prisma.dailyReport.findMany({
+    where: { status: { not: 'draft' } },
     orderBy: { date: 'desc' },
     select: {
       id: true, logistId: true, date: true, comment: true, status: true, createdAt: true,
