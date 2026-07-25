@@ -53,13 +53,22 @@ export default function NomSearch({ value, onChange, placeholder = 'Поиск..
   const doSearch = useCallback(async (q: string, group: string) => {
     setLoading(true)
     try {
-      const params = new URLSearchParams()
-      if (q) params.set('q', q)
-      if (group) params.set('group', group)
-      params.set('limit', '20')
-      const res = await fetch(`/api/nomenclature?${params}`)
-      const data = await res.json()
-      setResults(Array.isArray(data) ? data : [])
+      const run = async (g: string) => {
+        const params = new URLSearchParams()
+        if (q) params.set('q', q)
+        if (g) params.set('group', g)
+        params.set('limit', '20')
+        const res = await fetch(`/api/nomenclature?${params}`)
+        const data = await res.json()
+        return Array.isArray(data) ? data : []
+      }
+      let data = await run(group)
+      // Таб 1С-группы — ОПЦИОНАЛЬНОЕ сужение, а не жёсткий фильтр. Поле group в
+      // номенклатуре заполнено не всегда → сужение по нему могло резать реальные
+      // позиции в ноль. Если с группой пусто, но запрос есть — ищем без группы
+      // (ручной поиск самостоятелен, работает без Каталога).
+      if (group && q && data.length === 0) data = await run('')
+      setResults(data)
     } catch { setResults([]) }
     finally { setLoading(false) }
   }, [])
@@ -154,7 +163,7 @@ export default function NomSearch({ value, onChange, placeholder = 'Поиск..
         <input ref={inputRef} style={inpStyle} value={query}
           onChange={e => handleInput(e.target.value)}
           onFocus={handleFocus}
-          placeholder={selGroup ? `Поиск в "${selGroup}"...` : placeholder}
+          placeholder={placeholder}
           disabled={disabled} autoComplete="off" />
         <span onClick={selected ? handleClear : () => { calcPos(); setOpen(true) }}
           style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: selected ? '#d4613a' : '#b8b1a6', cursor: 'pointer' }}>
