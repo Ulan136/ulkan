@@ -35,3 +35,15 @@ export const NOM_CATALOG_TREE: NomTree = {
 export const catalogGroups = (): string[] => Object.keys(NOM_CATALOG_TREE)
 export const catalogCats = (g: string): string[] => Object.keys(NOM_CATALOG_TREE[g] || {})
 export const catalogSubs = (g: string, c: string): string[] => NOM_CATALOG_TREE[g]?.[c] || []
+
+// ─── Плоский список категорий Каталога (только для быстрого выбора) ──────────
+// 4 рабочие категории. group/cat — поля фильтра (Евробрус/Комплектующие лежат
+// как cat внутри группы Товары). Сравнение полей — нормализованное и терпимое
+// к перепутанным group/cat (см. NomPicker). Ручной поиск не ограничен — находит всё.
+export interface CatalogCat { key: string; label: string; group: string; cat: string }
+export const CATALOG_CATEGORIES: CatalogCat[] = [
+  { key: 'vodostok', label: 'Водосток', group: 'Водосток', cat: '' },
+  { key: 'materialy', label: 'Материалы', group: 'Материалы', cat: '' },
+  { key: 'eurobrus', label: 'Евробрус', group: 'Товары', cat: 'Евро брус' },
+  { key: 'komplekt', label: 'Комплектующие', group: 'Товары', cat: 'Комплектующие' },
+]

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { catalogGroups, catalogCats } from '@/lib/nomCatalog'
+import { CATALOG_CATEGORIES } from '@/lib/nomCatalog'
 import { overlayFor, producersFor } from '@/lib/nomTree'
 import { RAL_COLORS, RAL_BY_CODE, RalDot, extractRal } from '@/lib/ral'
 
@@ -13,8 +13,6 @@ interface NomHit { id: string; name: string; unit: string }
 interface NomFull { id: string; name: string; unit: string; group: string; cat: string; subgroup: string }
 
 const NOCOLOR = '__none__' // спец-чип «нет цвета»: только позиции без цвета в имени
-// Пустые/ненужные в заказах группы — прячем из Каталога (на экране Номенклатуры остаются).
-const HIDDEN_GROUPS = new Set(['Готовая продукция', 'Услуги'])
 
 // Нормализация как на экране «Номенклатура»: trim + нижний регистр + ё→е.
 const norm = (s: string) => (s || '').trim().toLowerCase().replace(/ё/g, 'е')
@@ -27,8 +25,7 @@ export default function NomPicker({ onPick, onClose }: {
   const [allItems, setAllItems] = useState<NomFull[]>([]) // вся номенклатура (как экран)
   const [loaded, setLoaded] = useState(false)
   const [color, setColor] = useState('')
-  const [groupName, setGroupName] = useState('')     // поле group (корень пути)
-  const [catName, setCatName] = useState('')         // поле cat (подпапка пути)
+  const [catKey, setCatKey] = useState('')           // выбранная категория (плоский список из 4)
   const [producerKey, setProducerKey] = useState('') // Евробрус: фильтр по subgroup
   const [sel, setSel] = useState<Record<string, string>>({}) // надстройки-СЛОВА
   const [cm, setCm] = useState('')
@@ -38,10 +35,11 @@ export default function NomPicker({ onPick, onClose }: {
   const [pad, setPad] = useState<null | { name1c: string; oral: string; unit: string; digits: string }>(null)
   const padRef = useRef(pad); padRef.current = pad
 
-  // Жёсткий путь по полям базы — ТОЛЬКО до уровня папки: group → cat. subgroup
-  // в фильтре Каталога НЕ участвует (цвет/вид/толщина — слова, см. ниже).
-  const groups = catalogGroups().filter(g => !HIDDEN_GROUPS.has(g))
-  const cats = groupName ? catalogCats(groupName) : []
+  // Категория — плоский выбор из 4 (Водосток/Материалы/Евробрус/Комплектующие).
+  // Просто быстрый фильтр по полям; ручной поиск не ограничен (находит всё).
+  const activeCat = CATALOG_CATEGORIES.find(c => c.key === catKey)
+  const groupName = activeCat?.group || ''
+  const catName = activeCat?.cat || ''
   const overlays = overlayFor(catName || groupName)
   const producers = producersFor(catName)              // непусто только в «Евро брус»
   const selectedProducer = producers.find(p => p.key === producerKey)
@@ -136,8 +134,8 @@ export default function NomPicker({ onPick, onClose }: {
 
   // ── Чипы ──
   function pickColor(c: string) { setColor(prev => prev === c ? '' : c) }
-  function pickGroup(name: string) { setGroupName(prev => prev === name ? '' : name); setCatName(''); setProducerKey(''); setSel({}); setCm('') }
-  function pickCat(name: string) { setCatName(prev => prev === name ? '' : name); setProducerKey(''); setSel({}); setCm('') }
+  function pickCategory(key: string) { setCatKey(prev => prev === key ? '' : key); setProducerKey(''); setSel({}); setCm('') }
+  const catCount = (c: { group: string; cat: string }) => c.cat ? countCat(c.group, c.cat) : countGroup(c.group)
   function pickProducer(k: string) { setProducerKey(prev => prev === k ? '' : k) }
   function pickItem(levelKey: string, itemKey: string, isMeasure: boolean) {
     setSel(prev => { const next = { ...prev }; if (next[levelKey] === itemKey) delete next[levelKey]; else next[levelKey] = itemKey; return next })
@@ -171,8 +169,7 @@ export default function NomPicker({ onPick, onClose }: {
 
   // Строка «Фильтр»: путь папки (group ▸ cat) + слова (цвет кодом, виды, текст).
   const crumbs: React.ReactNode[] = []
-  const path = [groupName, catName].filter(Boolean).join(' ▸ ')
-  if (path) crumbs.push(<span key="p" style={{ fontWeight: 700 }}>{path}</span>)
+  if (activeCat) crumbs.push(<span key="p" style={{ fontWeight: 700 }}>{activeCat.label}</span>)
   if (selectedProducer) crumbs.push(<span key="prod">{selectedProducer.label}</span>) // label, БЕЗ расшифровки
   selItems.forEach(it => crumbs.push(<span key={it.key}>«{it.measure ? (cm ? `Изделие · ${cm} см` : 'Изделие') : it.label}»</span>))
   if (cEntry) crumbs.push(<span key="c"><b style={{ color: PRIMARY }}>{colorLabel}</b> ({cEntry.name.toLowerCase()})</span>)
@@ -218,23 +215,17 @@ export default function NomPicker({ onPick, onClose }: {
             </div>
           </div>
 
-          {/* ТОВАР — корневые группы модели */}
+          {/* КАТЕГОРИЯ — плоский выбор из 4 (быстрый фильтр; поиск снизу находит всё) */}
           <div>
-            <div style={LBL}>ТОВАР</div>
+            <div style={LBL}>КАТЕГОРИЯ</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {groups.map(g => <button key={g} onClick={() => pickGroup(g)} style={pill(groupName === g)}>{g}{loaded && <span style={cnt(groupName === g)}>{countGroup(g)}</span>}</button>)}
+              {CATALOG_CATEGORIES.map(c => (
+                <button key={c.key} onClick={() => pickCategory(c.key)} style={pill(catKey === c.key)}>
+                  {c.label}{loaded && <span style={cnt(catKey === c.key)}>{catCount(c)}</span>}
+                </button>
+              ))}
             </div>
           </div>
-
-          {/* ПАПКА (cat) — глубже путь не идёт */}
-          {cats.length > 0 && (
-            <div>
-              <div style={LBL}>ПАПКА</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {cats.map(c => <button key={c} onClick={() => pickCat(c)} style={pill(catName === c)}>{c}{loaded && <span style={cnt(catName === c)}>{countCat(groupName, c)}</span>}</button>)}
-              </div>
-            </div>
-          )}
 
           {/* ПРОИЗВОДИТЕЛЬ (только «Евро брус») — фильтр по полю subgroup, ВЫШЕ толщины.
               Расшифровка под кнопкой — чисто декоративная, в поиск/имя не идёт. */}

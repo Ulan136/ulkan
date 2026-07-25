@@ -94,7 +94,7 @@ function LoginForm() {
         </label>
         {mode === 'email' && (
           <form onSubmit={handleEmail} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div><label style={lbl}>EMAIL</label><input style={inp} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@u-kan.kz" required /></div>
+            <div><label style={lbl}>EMAIL</label><input style={inp} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Ваш email" required /></div>
             <div><label style={lbl}>ПАРОЛЬ</label><input style={inp} type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required /></div>
             <button type="submit" disabled={loading} style={{ marginTop: 8, padding: '12px', background: '#d4613a', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>
               {loading ? 'Вход...' : 'ВОЙТИ →'}
@@ -113,13 +113,7 @@ function LoginForm() {
             </button>
           </form>
         )}
-        <div style={{ marginTop: 20, padding: 12, background: '#f1efec', borderRadius: 8, fontSize: 12, color: '#8a847c' }}>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>Демо доступ:</div>
-          <div>admin@u-kan.kz / admin123</div>
-          <div>buh@u-kan.kz / buh123</div>
-          <div style={{ marginTop: 4, borderTop: '1px solid #e6e2dc', paddingTop: 4 }}>Логист: телефон из настроек</div>
-        </div>
-        <div style={{ textAlign: 'center', marginTop: 16 }}>
+        <div style={{ textAlign: 'center', marginTop: 20 }}>
           <a href="/register" style={{ color: '#8a847c', fontSize: 13 }}>Новый клиент? Зарегистрироваться →</a>
         </div>
       </div>
