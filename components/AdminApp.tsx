@@ -20,6 +20,7 @@ import FilterScreen from '@/components/FilterScreen'
 import WarehouseScreen from '@/components/WarehouseScreen'
 import NomSearch from '@/components/NomSearch'
 import NomenclatureScreen from '@/components/NomenclatureScreen'
+import HistoryScreen from '@/components/HistoryScreen'
 import CardChat from '@/components/CardChat'
 import ChatWidget from '@/components/ChatWidget'
 import NomPicker, { type PickedPos } from '@/components/NomPicker'
@@ -749,6 +750,7 @@ export default function AdminApp({ user }: Props) {
   // Подсчёт для сайдбара
   const counts: Record<AdminScreen, number> = {
     dashboard: 0,
+    history: 0,
     incoming: active.length,
     reception: reception.length,
     outgoing: outgoing.length,
@@ -765,6 +767,7 @@ export default function AdminApp({ user }: Props) {
 
   const NAV: Array<{ key: string; label: string; icon: string }> = [
     { key: 'dashboard', label: 'Дашборд', icon: '📊' },
+    { key: 'history', label: 'История', icon: '🕓' },
     { key: 'incoming', label: 'Входящие', icon: '📥' },
     { key: 'reception', label: 'Приёмка', icon: '🔄' },
     { key: 'outgoing', label: 'Исходящие', icon: '📤' },
@@ -1878,6 +1881,10 @@ export default function AdminApp({ user }: Props) {
       // ─── НОМЕНКЛАТУРА ────────────────────────────────────────────────────
       case 'nomenclature':
         return <NomenclatureScreen />
+
+      // ─── ИСТОРИЯ (журнал действий) ───────────────────────────────────────
+      case 'history':
+        return <HistoryScreen users={settings?.users || []} />
 
             case 'settings': {
         const stabs: Array<[SettingsTab, string]> = [['users', `Пользователи`], ['projects', 'Проекты'], ['specprojects', 'СпецПроекты'], ['nomenclature', 'Номенклатура'], ['payment', 'Оплата']]
