@@ -19,6 +19,7 @@ model User {
   subUsers    User[]   @relation("SubUsers")
   slug        String?  @unique
   active      Boolean  @default(true)
+  priceType   String   @default("retail") // тип цены клиента: retail | opt
   createdAt   DateTime @default(now())
 
   orders        Order[]        @relation("OrderContact")
@@ -154,6 +155,9 @@ model Nomenclature {
   group    String @default("")
   cat      String @default("")
   subgroup String @default("")
+  priceIn     Float @default(0) // приход (закуп)
+  priceRetail Float @default(0) // розничная
+  priceOpt    Float @default(0) // оптовая
 
   specItems SpecProjectItem[]
   stock     Stock[]

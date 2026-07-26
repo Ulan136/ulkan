@@ -6,6 +6,7 @@ import { generatePosId } from '@/lib/ids'
 import { legForSupplier } from '@/services/legDetection'
 import { updateReserve } from '@/lib/stock'
 import { reserveCenterSkladPositions, incomeOnDeliveryToCenter, releaseDeliveredPosition, CENTER_SKLAD } from '@/services/stockOps'
+import { clientPriceType, resolvePrice } from '@/services/pricing'
 import { POS_STATUS, CARD_STATUS, SCREENS } from '@/lib/orderStatus'
 import { almatyDay } from '@/lib/reportDay'
 import { isHandedOff, isInDelivery, eqName } from '@/lib/positionState'
@@ -469,12 +470,18 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
       const existing = await prisma.position.findMany({ where: { cardId: order.id } })
       const newId = generatePosId(order.id, existing.length + 1)
       const posLeg = await legForSupplier(payload.supplier) // поставщик-филиал → 1
+      // Автоподтягивание цены по типу цены получателя, если цена не задана вручную.
+      let autoPrice = payload.price || 0
+      if (autoPrice === 0) {
+        const type = await clientPriceType(order.to, order.fromId)
+        autoPrice = (await resolvePrice(payload.name1c || '', type)) || 0
+      }
       const newPos = await prisma.position.create({
         data: {
           id: newId, cardId: order.id,
           name1c: payload.name1c || '', oral: payload.oral || '',
           qty: payload.qty || 0, unit: payload.unit || 'шт',
-          price: payload.price || 0, resp: payload.resp || '',
+          price: autoPrice, resp: payload.resp || '',
           supplier: payload.supplier || '', supplierId: payload.supplierId || null,
           status: payload.status || POS_STATUS.working,
           leg: posLeg,

@@ -10,6 +10,9 @@ interface NomItem {
   group: string
   cat: string
   subgroup: string
+  priceIn?: number
+  priceRetail?: number
+  priceOpt?: number
 }
 
 const INP: React.CSSProperties = { width: '100%', padding: '8px 12px', borderRadius: 7, fontSize: 13, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }
@@ -36,8 +39,40 @@ export default function NomenclatureScreen() {
   const [showAdd, setShowAdd] = useState(false)
   const [newItem, setNewItem] = useState({ name: '', unit: 'шт', group: '', cat: '', subgroup: '' })
   const [toast, setToast] = useState('')
+  const [priceEdit, setPriceEdit] = useState(false) // общий режим правки цен
+  const [pricesDraft, setPricesDraft] = useState<Record<string, { priceIn: string; priceRetail: string; priceOpt: string }>>({})
 
   function showMsg(msg: string) { setToast(msg); setTimeout(() => setToast(''), 2500) }
+
+  type PField = 'priceIn' | 'priceRetail' | 'priceOpt'
+  const priceVal = (item: NomItem, f: PField) => pricesDraft[item.id]?.[f] ?? String(item[f] ?? 0)
+  function setPrice(item: NomItem, f: PField, val: string) {
+    const clean = val.replace(/[^0-9.,]/g, '')
+    setPricesDraft(prev => ({
+      ...prev,
+      [item.id]: {
+        priceIn: prev[item.id]?.priceIn ?? String(item.priceIn ?? 0),
+        priceRetail: prev[item.id]?.priceRetail ?? String(item.priceRetail ?? 0),
+        priceOpt: prev[item.id]?.priceOpt ?? String(item.priceOpt ?? 0),
+        [f]: clean,
+      },
+    }))
+  }
+  const num = (s: string) => Number((s || '0').replace(',', '.')) || 0
+  async function savePrices() {
+    const ids = Object.keys(pricesDraft)
+    if (ids.length === 0) { setPriceEdit(false); return }
+    try {
+      for (const id of ids) {
+        const d = pricesDraft[id]; const item = items.find(i => i.id === id); if (!item) continue
+        await fetch('/api/nomenclature', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, name: item.name, unit: item.unit, cat: item.cat, group: item.group, subgroup: item.subgroup, priceIn: num(d.priceIn), priceRetail: num(d.priceRetail), priceOpt: num(d.priceOpt) }),
+        })
+      }
+      setPricesDraft({}); setPriceEdit(false); load(); showMsg('✓ Цены сохранены')
+    } catch { showMsg('Ошибка сохранения цен') }
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -125,6 +160,14 @@ export default function NomenclatureScreen() {
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <input style={{ ...INP, width: 240 }} placeholder="🔍 Поиск по названию..." value={search} onChange={e => { setSearch(e.target.value); if (e.target.value) { setSelGroup(null); setSelCat(null); setSelSubgroup(null) } }} />
           <button onClick={load} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>⟳</button>
+          {priceEdit ? (
+            <>
+              <button onClick={savePrices} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#2e8a5e', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit' }}>💾 Сохранить цены</button>
+              <button onClick={() => { setPriceEdit(false); setPricesDraft({}) }} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>Отмена</button>
+            </>
+          ) : (
+            <button onClick={() => setPriceEdit(true)} style={{ padding: '8px 16px', borderRadius: 8, border: '1.5px solid #e6c9b8', background: '#fff8f5', color: '#c0532a', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit' }}>💰 Редактировать цены</button>
+          )}
           <button onClick={openAdd} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit' }}>+ Добавить</button>
         </div>
       </div>
@@ -221,7 +264,7 @@ export default function NomenclatureScreen() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f8f6f3' }}>
-                  {['НАИМЕНОВАНИЕ', 'ЕД.', 'ГРУППА', 'КАТЕГОРИЯ', 'ПОДГРУППА', ''].map(h => (
+                  {['НАИМЕНОВАНИЕ', 'ЕД.', 'ГРУППА', 'КАТЕГОРИЯ', 'ПОДГРУППА', 'ПРИХОД', 'РОЗН.', 'ОПТ', ''].map(h => (
                     <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -281,6 +324,16 @@ export default function NomenclatureScreen() {
                               : <span style={{ fontSize: 12, color: '#8a847c' }}>{item.subgroup || '—'}</span>
                             }
                           </td>
+                          {/* Цены: приход / розн / опт — правятся в общем режиме «Редактировать цены» */}
+                          {(['priceIn', 'priceRetail', 'priceOpt'] as const).map(f => (
+                            <td key={f} style={{ padding: '9px 8px', width: 84 }}>
+                              {priceEdit
+                                ? <input value={priceVal(item, f)} inputMode="decimal" onChange={e => setPrice(item, f, e.target.value)}
+                                    style={{ ...INP, fontSize: 12, padding: '5px 6px', textAlign: 'right', border: `1.5px solid ${pricesDraft[item.id]?.[f] !== undefined ? COLORS.primary : '#e6e2dc'}` }} />
+                                : <span style={{ fontSize: 12, color: (item[f] ?? 0) > 0 ? '#26231f' : '#b8b1a6' }}>{(item[f] ?? 0) > 0 ? (item[f] as number).toLocaleString('ru-RU') : '—'}</span>
+                              }
+                            </td>
+                          ))}
                           <td style={{ padding: '9px 14px', width: 120 }}>
                             {editItem?.id === item.id
                               ? <div style={{ display: 'flex', gap: 4 }}>

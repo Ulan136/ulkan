@@ -10,13 +10,15 @@ export async function GET(req: NextRequest) {
   // им список пользователей не отдаём. И в любом случае — без password-хэша.
   const isAdmin = ['super_admin', 'bookkeeper'].includes(auth.session?.role || '')
 
-  const [users, projects, specProjects, suppliers, paymentStatuses] = await Promise.all([
-    isAdmin
-      ? prisma.user.findMany({
-          select: { id: true, name: true, phone: true, email: true, role: true, companyId: true, slug: true, active: true, createdAt: true },
-          orderBy: { createdAt: 'asc' },
-        })
-      : Promise.resolve([]),
+  // priceType — с фолбэком (колонки может ещё не быть в БД до ALTER).
+  const uSel = { id: true, name: true, phone: true, email: true, role: true, companyId: true, slug: true, active: true, createdAt: true }
+  let users: any[] = []
+  if (isAdmin) {
+    try { users = await prisma.user.findMany({ select: { ...uSel, priceType: true }, orderBy: { createdAt: 'asc' } }) }
+    catch { users = await prisma.user.findMany({ select: uSel, orderBy: { createdAt: 'asc' } }) }
+  }
+
+  const [projects, specProjects, suppliers, paymentStatuses] = await Promise.all([
     prisma.project.findMany({ include: { _count: { select: { orders: true } } }, orderBy: { createdAt: 'desc' } }),
     prisma.specProject.findMany({ include: { items: true, _count: { select: { orders: true } } }, orderBy: { createdAt: 'desc' } }),
     prisma.supplier.findMany({ orderBy: { name: 'asc' } }),

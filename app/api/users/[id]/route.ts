@@ -20,11 +20,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (body.slug !== undefined) updateData.slug = body.slug
   if (body.active !== undefined) updateData.active = body.active
   if (body.companyId !== undefined) updateData.companyId = body.companyId || null
+  if (body.priceType !== undefined) updateData.priceType = body.priceType || 'retail'
   if (body.password) updateData.password = await bcrypt.hash(body.password, 10)
 
   try {
-    // Получаем старое имя перед обновлением
-    const oldUser = await prisma.user.findUnique({ where: { id } })
+    // Получаем старое имя перед обновлением (select — чтобы не читать новые колонки до ALTER)
+    const oldUser = await prisma.user.findUnique({ where: { id }, select: { name: true } })
     
     const user = await prisma.user.update({ where: { id }, data: updateData })
 

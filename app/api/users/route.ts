@@ -11,8 +11,14 @@ const USER_PUBLIC = { id: true, name: true, phone: true, email: true, role: true
 export async function GET(req: NextRequest) {
   const auth = await requireSession(req, ['super_admin', 'bookkeeper'])
   if (!auth.ok) return auth.response
-  const users = await prisma.user.findMany({ select: USER_PUBLIC, orderBy: { createdAt: 'asc' } })
-  return NextResponse.json(users)
+  // priceType — с фолбэком: если колонки ещё нет в БД (не выполнен ALTER), не падаем.
+  try {
+    const users = await prisma.user.findMany({ select: { ...USER_PUBLIC, priceType: true }, orderBy: { createdAt: 'asc' } })
+    return NextResponse.json(users)
+  } catch {
+    const users = await prisma.user.findMany({ select: USER_PUBLIC, orderBy: { createdAt: 'asc' } })
+    return NextResponse.json(users)
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -21,7 +27,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { name, role, email, phone, password, companyId, slug: slugRaw } = body
+    const { name, role, email, phone, password, companyId, slug: slugRaw, priceType } = body
 
     let hashedPassword: string | null = null
     if (password) hashedPassword = await bcrypt.hash(password, 10)
@@ -48,6 +54,7 @@ export async function POST(req: NextRequest) {
         password: hashedPassword,
         companyId: companyId || null,
         slug: slug || null, active: true,
+        ...(priceType !== undefined ? { priceType: priceType || 'retail' } : {}),
       },
     })
 

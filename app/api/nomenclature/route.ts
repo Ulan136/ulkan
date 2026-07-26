@@ -25,21 +25,29 @@ export async function GET(req: NextRequest) {
   const hasField = baseConds.length > 0
   const baseWhere = hasField ? { AND: baseConds } : undefined
 
+  // Явный select базовых полей — поиск/каталог НЕ читают цены (устойчиво к тому,
+  // что колонки priceIn/... ещё не добавлены в БД до ALTER).
+  const NOM_BASE = { id: true, name: true, unit: true, group: true, cat: true, subgroup: true } as const
+
   if (all) {
     const auth = await requireSession(req)
     if (!auth.ok) return auth.response
-    const items = await prisma.nomenclature.findMany({
-      where: baseWhere,
-      orderBy: [{ group: 'asc' }, { cat: 'asc' }, { name: 'asc' }],
-    })
-    return NextResponse.json(items)
+    const orderBy = [{ group: 'asc' as const }, { cat: 'asc' as const }, { name: 'asc' as const }]
+    // Пытаемся с ценами; если колонок ещё нет — отдаём без них (не падаем).
+    try {
+      const items = await prisma.nomenclature.findMany({ where: baseWhere, orderBy, select: { ...NOM_BASE, priceIn: true, priceRetail: true, priceOpt: true } })
+      return NextResponse.json(items)
+    } catch {
+      const items = await prisma.nomenclature.findMany({ where: baseWhere, orderBy, select: NOM_BASE })
+      return NextResponse.json(items)
+    }
   }
 
   // Пустой запрос, но выбрана папка/производитель → отдать записи этой выборки
   // (тап по папке показывает её позиции без ввода слов).
   if (!q || q.length < 1) {
     if (hasField) {
-      const items = await prisma.nomenclature.findMany({ where: baseWhere, orderBy: { name: 'asc' }, take: limit })
+      const items = await prisma.nomenclature.findMany({ where: baseWhere, orderBy: { name: 'asc' }, take: limit, select: NOM_BASE })
       return NextResponse.json(items)
     }
     return NextResponse.json([])
@@ -56,14 +64,14 @@ export async function GET(req: NextRequest) {
   async function search(searchWords: string[], take: number) {
     return prisma.nomenclature.findMany({
       where: { AND: [...baseConds, ...searchWords.map(w => ({ name: { contains: w, mode: 'insensitive' as const } }))] },
-      orderBy: { name: 'asc' }, take,
+      orderBy: { name: 'asc' }, take, select: NOM_BASE,
     })
   }
 
   // Точное вхождение (оригинал и альтернатива)
   const [exact1, exact2] = await Promise.all([
-    prisma.nomenclature.findMany({ where: { AND: [...baseConds, { name: { contains: qNorm, mode: 'insensitive' as const } }] }, orderBy: { name: 'asc' }, take: limit }),
-    qAlt !== qNorm ? prisma.nomenclature.findMany({ where: { AND: [...baseConds, { name: { contains: qAlt, mode: 'insensitive' as const } }] }, orderBy: { name: 'asc' }, take: limit }) : Promise.resolve([]),
+    prisma.nomenclature.findMany({ where: { AND: [...baseConds, { name: { contains: qNorm, mode: 'insensitive' as const } }] }, orderBy: { name: 'asc' }, take: limit, select: NOM_BASE }),
+    qAlt !== qNorm ? prisma.nomenclature.findMany({ where: { AND: [...baseConds, { name: { contains: qAlt, mode: 'insensitive' as const } }] }, orderBy: { name: 'asc' }, take: limit, select: NOM_BASE }) : Promise.resolve([]),
   ])
   const exact = [...exact1, ...exact2.filter(i => !exact1.find(e => e.id === i.id))]
   if (exact.length >= 3) return NextResponse.json(exact.slice(0, limit))
@@ -84,7 +92,7 @@ export async function GET(req: NextRequest) {
   const allWords = [...new Set([...words, ...wordsAlt])]
   const byAny = await prisma.nomenclature.findMany({
     where: { AND: [...baseConds, { OR: allWords.map(w => ({ name: { contains: w, mode: 'insensitive' as const } })) }] },
-    orderBy: { name: 'asc' }, take: limit,
+    orderBy: { name: 'asc' }, take: limit, select: NOM_BASE,
   })
   const scored = byAny
     .map(item => ({ ...item, score: allWords.filter(w => item.name.toLowerCase().includes(w.toLowerCase())).length }))
@@ -95,10 +103,15 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await requireSession(req, ['super_admin', 'bookkeeper'])
   if (!auth.ok) return auth.response
-  const { name, unit, cat, group, subgroup } = await req.json()
+  const { name, unit, cat, group, subgroup, priceIn, priceRetail, priceOpt } = await req.json()
   if (!name) return NextResponse.json({ error: 'Название обязательно' }, { status: 400 })
   const item = await prisma.nomenclature.create({
-    data: { name, unit: unit || 'шт', cat: cat || '', group: group || '', subgroup: subgroup || '' }
+    data: {
+      name, unit: unit || 'шт', cat: cat || '', group: group || '', subgroup: subgroup || '',
+      ...(priceIn !== undefined ? { priceIn: Number(priceIn) || 0 } : {}),
+      ...(priceRetail !== undefined ? { priceRetail: Number(priceRetail) || 0 } : {}),
+      ...(priceOpt !== undefined ? { priceOpt: Number(priceOpt) || 0 } : {}),
+    }
   })
   invalidateNomTree()
   await pushSignal('settings')
@@ -108,10 +121,16 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const auth = await requireSession(req, ['super_admin', 'bookkeeper'])
   if (!auth.ok) return auth.response
-  const { id, name, unit, cat, group, subgroup } = await req.json()
+  const { id, name, unit, cat, group, subgroup, priceIn, priceRetail, priceOpt } = await req.json()
   if (!id) return NextResponse.json({ error: 'ID обязателен' }, { status: 400 })
   const item = await prisma.nomenclature.update({
-    where: { id }, data: { name, unit, cat, group, subgroup: subgroup || '' }
+    where: { id },
+    data: {
+      name, unit, cat, group, subgroup: subgroup || '',
+      ...(priceIn !== undefined ? { priceIn: Number(priceIn) || 0 } : {}),
+      ...(priceRetail !== undefined ? { priceRetail: Number(priceRetail) || 0 } : {}),
+      ...(priceOpt !== undefined ? { priceOpt: Number(priceOpt) || 0 } : {}),
+    }
   })
   invalidateNomTree()
   await pushSignal('settings')

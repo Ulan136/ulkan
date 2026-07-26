@@ -6,6 +6,7 @@ import { notifyAdmins } from '@/lib/notifications'
 import { orderInclude } from '@/lib/orderMetrics'
 import { branchNameSet } from '@/services/legDetection'
 import { reserveCenterSkladPositions } from '@/services/stockOps'
+import { applyAutoPrices } from '@/services/pricing'
 import { pushSignal } from '@/lib/pusherServer'
 
 export async function GET(req: NextRequest) {
@@ -58,6 +59,8 @@ export async function POST(req: NextRequest) {
         deadline: p.deadline ? new Date(p.deadline) : null,
         payment: p.payment || '',
       }))
+      // Автоподтягивание цены по типу цены получателя (устойчиво к отсутствию колонок).
+      await applyAutoPrices(posData, to, fromId)
     }
 
     // Комплектность при создании сразу в «Исходящие» (не черновик): получатель

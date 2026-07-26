@@ -1864,7 +1864,7 @@ export default function AdminApp({ user }: Props) {
                     </div>
                     <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                       <thead><tr style={{ background: '#f1efec' }}>
-                        {['ИМЯ', 'РОЛЬ', 'КОМПАНИЯ', 'ДОСТУП', 'СТАТУС', ''].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>{h}</th>)}
+                        {['ИМЯ', 'РОЛЬ', 'КОМПАНИЯ', 'ДОСТУП', 'СТАТУС', 'ТИП ЦЕНЫ', ''].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>{h}</th>)}
                       </tr></thead>
                       <tbody>{settings.users.map((u, i) => {
                         const rc = roleColors[u.role] || roleColors.client
@@ -1879,6 +1879,16 @@ export default function AdminApp({ user }: Props) {
                               {(u.phone || u.email) && <span style={{ fontSize: 12, color: '#8a847c', marginLeft: 8 }}>{u.phone || u.email}</span>}
                             </td>
                             <td style={{ padding: '10px 14px' }}><span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 20, fontWeight: 600, background: u.active ? '#e8f5ee' : '#faeaea', color: u.active ? '#2e8a5e' : '#b03020' }}>{u.active ? 'Активен' : 'Отключён'}</span></td>
+                            <td style={{ padding: '10px 14px' }}>
+                              {['client', 'supplier_client', 'branch'].includes(u.role) ? (
+                                <select value={(u as any).priceType || 'retail'} disabled={user.role !== 'super_admin'}
+                                  onChange={async e => { try { await updateUser(u.id, { priceType: e.target.value }); loadSettings(); showToast('✓ Тип цены обновлён') } catch (er: any) { showToast(er.message) } }}
+                                  style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: '1.5px solid #e6e2dc', fontFamily: 'inherit', background: '#fff' }}>
+                                  <option value="retail">Розничная</option>
+                                  <option value="opt">Оптовая</option>
+                                </select>
+                              ) : <span style={{ fontSize: 12, color: '#b8b1a6' }}>—</span>}
+                            </td>
                             <td style={{ padding: '10px 14px' }}>
                               {user.role === 'super_admin' && (
                                 <div style={{ display: 'flex', gap: 6 }}>
