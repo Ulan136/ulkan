@@ -521,6 +521,29 @@ export default function AdminApp({ user }: Props) {
   function recUpdatePos(i: number, field: string, val: string) {
     setRecPositions(p => p.map((x, idx) => idx === i ? { ...x, [field]: val } : x))
   }
+  // Тип цены выбранного получателя (клиента).
+  function priceTypeFor(toName: string): 'retail' | 'opt' {
+    const u = settings?.users.find(x => x.name === toName)
+    return (u as any)?.priceType === 'opt' ? 'opt' : 'retail'
+  }
+  // Подтянуть цену одной позиции по её имени 1С и типу цены получателя.
+  async function fetchPosPrice(name: string, type: 'retail' | 'opt'): Promise<number> {
+    const nm = (name || '').trim()
+    if (!nm) return 0
+    try {
+      const res = await fetch(`/api/nomenclature/price?name=${encodeURIComponent(nm)}&type=${type}`)
+      const d = await res.json()
+      return Number(d?.price) || 0
+    } catch { return 0 }
+  }
+  // Автоподстановка цен ВСЕХ позиций при выборе «Кому» (только пустые цены не трогаем ручные).
+  async function autofillPricesFor(toName: string) {
+    if (!toName) return
+    const type = priceTypeFor(toName)
+    const snapshot = recPositions
+    const prices = await Promise.all(snapshot.map(p => (Number(p.price) || 0) > 0 ? Promise.resolve(0) : fetchPosPrice(p.name1c || p.oral, type)))
+    setRecPositions(prev => prev.map((p, i) => (Number(p.price) || 0) === 0 && prices[i] > 0 ? { ...p, price: String(prices[i]) } : p))
+  }
   function recRemovePos(i: number) {
     setRecPositions(p => p.filter((_, idx) => idx !== i))
   }
@@ -1037,7 +1060,7 @@ export default function AdminApp({ user }: Props) {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
                     <div>
                       <label style={LBL}>К КОМУ (КЛИЕНТ) *</label>
-                      <UnifiedSelect value={recTo} onChange={v => { setRecTo(v); setRecContact('') }} placeholder="— выберите клиента —" settings={settings} />
+                      <UnifiedSelect value={recTo} onChange={v => { setRecTo(v); setRecContact(''); autofillPricesFor(v) }} placeholder="— выберите клиента —" settings={settings} />
                     </div>
                     {subUsers.length > 0 && (
                       <div>
@@ -1103,6 +1126,8 @@ export default function AdminApp({ user }: Props) {
                                   onChange={(name, unit) => {
                                     recUpdatePos(i, 'name1c', name)
                                     if (unit && !pos.unit) recUpdatePos(i, 'unit', unit)
+                                    // Выбрали позицию 1С + уже указан получатель → подтянуть цену по его типу.
+                                    if (name && recTo) fetchPosPrice(name, priceTypeFor(recTo)).then(pr => { if (pr > 0) recUpdatePos(i, 'price', String(pr)) })
                                   }}
                                   placeholder="Поиск 1С..."
                                   style={{ fontSize: 12, padding: '6px 8px' }}
