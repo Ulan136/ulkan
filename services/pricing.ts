@@ -24,8 +24,14 @@ export async function resolvePrice(name1c: string, priceType: PriceType): Promis
   const nm = (name1c || '').trim()
   if (!nm) return null
   try {
-    const nom = await prisma.nomenclature.findFirst({
-      where: { name: nm },
+    // Совпадение имени БЕЗ учёта регистра (и по точному, и по «первое вхождение»
+    // на случай мелких расхождений пробелов/хвостов).
+    let nom = await prisma.nomenclature.findFirst({
+      where: { name: { equals: nm, mode: 'insensitive' } },
+      select: { priceRetail: true, priceOpt: true },
+    })
+    if (!nom) nom = await prisma.nomenclature.findFirst({
+      where: { name: { contains: nm, mode: 'insensitive' } },
       select: { priceRetail: true, priceOpt: true },
     })
     if (!nom) return null

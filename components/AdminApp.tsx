@@ -509,14 +509,15 @@ export default function AdminApp({ user }: Props) {
     setRecPositions(p => [...p, { name1c: '', oral: '', qty: '', unit: 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: todayLocal(), payment: '' }])
   }
   // Каталог (NomPicker) → строки падают в форму создания.
-  function recAddFromCatalog(items: PickedPos[]) {
+  async function recAddFromCatalog(items: PickedPos[]) {
     setRecShowCatalog(false)
     if (!items.length) return
-    setRecPositions(p => {
-      const base = p.filter(x => x.name1c || x.oral) // выкинуть пустую стартовую строку
-      const added = items.map(it => ({ name1c: it.name1c, oral: it.oral, qty: String(it.qty), unit: it.unit || 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: '', payment: '' }))
-      return [...base, ...added]
-    })
+    const type = recTo ? priceTypeFor(recTo) : 'retail'
+    const added = await Promise.all(items.map(async it => {
+      const price = recTo ? await fetchPosPrice(it.name1c || it.oral, type) : 0 // подтянуть цену, если Кому выбран
+      return { name1c: it.name1c, oral: it.oral, qty: String(it.qty), unit: it.unit || 'шт', price: price > 0 ? String(price) : '', resp: '', supplierId: '', supplier: '', deadline: '', payment: '' }
+    }))
+    setRecPositions(prev => [...prev.filter(x => x.name1c || x.oral), ...added])
   }
   function recUpdatePos(i: number, field: string, val: string) {
     setRecPositions(p => p.map((x, idx) => idx === i ? { ...x, [field]: val } : x))
@@ -536,13 +537,15 @@ export default function AdminApp({ user }: Props) {
       return Number(d?.price) || 0
     } catch { return 0 }
   }
-  // Автоподстановка цен ВСЕХ позиций при выборе «Кому» (только пустые цены не трогаем ручные).
-  async function autofillPricesFor(toName: string) {
+  // Автоподстановка цен позиций по типу цены «Кому». force=true (кнопка) —
+  // пересчитать все; иначе (авто при выборе Кому) — только пустые, не трогая ручные.
+  async function autofillPricesFor(toName: string, force = false) {
     if (!toName) return
     const type = priceTypeFor(toName)
     const snapshot = recPositions
-    const prices = await Promise.all(snapshot.map(p => (Number(p.price) || 0) > 0 ? Promise.resolve(0) : fetchPosPrice(p.name1c || p.oral, type)))
-    setRecPositions(prev => prev.map((p, i) => (Number(p.price) || 0) === 0 && prices[i] > 0 ? { ...p, price: String(prices[i]) } : p))
+    const prices = await Promise.all(snapshot.map(p => (!force && (Number(p.price) || 0) > 0) ? Promise.resolve(0) : fetchPosPrice(p.name1c || p.oral, type)))
+    setRecPositions(prev => prev.map((p, i) => (prices[i] > 0 && (force || (Number(p.price) || 0) === 0)) ? { ...p, price: String(prices[i]) } : p))
+    if (force) showToast('💰 Цены подтянуты')
   }
   function recRemovePos(i: number) {
     setRecPositions(p => p.filter((_, idx) => idx !== i))
@@ -1196,6 +1199,9 @@ export default function AdminApp({ user }: Props) {
                       <button onClick={() => setRecShowCatalog(true)} style={{ border: 'none', borderRadius: 7, padding: '6px 16px', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>
                         📖 Каталог
                       </button>
+                      <button onClick={() => recTo ? autofillPricesFor(recTo, true) : showToast('Сначала выберите «Кому»')} style={{ border: '1.5px solid #e6c9b8', borderRadius: 7, padding: '6px 16px', background: '#fff8f5', color: '#c0532a', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>
+                        💰 Подтянуть цены{recTo ? ` (${priceTypeFor(recTo) === 'opt' ? 'опт' : 'розн'})` : ''}
+                      </button>
                     </div>
                     {recShowCatalog && <NomPicker onPick={recAddFromCatalog} onClose={() => setRecShowCatalog(false)} />}
                   </div>
@@ -1321,6 +1327,8 @@ export default function AdminApp({ user }: Props) {
                                           value={ed.name1c ?? pos.name1c}
                                           onChange={(name, unit) => {
                                             setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], name1c: name, ...(unit ? { unit } : {}) } }))
+                                            // Подтянуть цену по типу цены получателя карточки (стол приёмки).
+                                            if (name && order.to) fetchPosPrice(name, priceTypeFor(order.to)).then(pr => { if (pr > 0) setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], price: pr } })) })
                                           }}
                                           style={{ fontSize: 12, padding: '5px 8px', width: 160 }}
                                         />
