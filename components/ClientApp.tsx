@@ -175,7 +175,7 @@ export default function ClientApp({ user, clientUser }: Props) {
         <div style={{ maxWidth: 880, margin: '0 auto', display: 'flex', alignItems: 'center', height: 56 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/icon-192.png" alt="UKan" style={{ width: 34, height: 34, borderRadius: 8, display: 'block' }} />
+            <img src="/icons/icon-192.png" alt="UKan" style={{ width: 42, height: 42, borderRadius: 10, display: 'block' }} />
             <div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>{clientUser.name}</div>
               <div style={{ fontSize: 11, color: '#8a847c' }}>Кабинет заказчика</div>

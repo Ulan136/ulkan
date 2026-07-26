@@ -421,7 +421,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
         <div style={{ maxWidth: 432, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/icon-192.png" alt="UKan" style={{ width: 34, height: 34, borderRadius: 8, display: 'block' }} />
+            <img src="/icons/icon-192.png" alt="UKan" style={{ width: 42, height: 42, borderRadius: 10, display: 'block' }} />
             <div>
               <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>U-Kan · Портал</div>
               <div style={{ color: '#8c857a', fontSize: 11 }}>{myName}</div>

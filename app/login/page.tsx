@@ -76,10 +76,10 @@ function LoginForm() {
       <div style={{ width: 380, background: '#fff', borderRadius: 16, padding: 32, boxShadow: '0 2px 16px rgba(0,0,0,0.08)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 24 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/icon-192.png" alt="UKan" style={{ width: 42, height: 42, borderRadius: 10, display: 'block' }} />
+          <img src="/icons/icon-192.png" alt="UKan" style={{ width: 54, height: 54, borderRadius: 13, display: 'block' }} />
           <div>
-            <div style={{ fontWeight: 800, fontSize: 19, lineHeight: 1, color: '#211f1c' }}>UKan</div>
-            <div style={{ fontSize: 10.5, color: '#8a847c', fontWeight: 700, marginTop: 3, letterSpacing: '.04em' }}>U2B · ERP автоматизация</div>
+            <div style={{ fontWeight: 800, fontSize: 19, lineHeight: 1, color: '#211f1c' }}>U2B ERP</div>
+            <div style={{ fontSize: 11, color: '#8a847c', fontWeight: 700, marginTop: 4, letterSpacing: '.04em' }}>автоматизация бизнеса</div>
           </div>
         </div>
         <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 4 }}>Вход в систему</div>

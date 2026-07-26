@@ -1,6 +1,6 @@
 {
-  "name": "UKan — U2B ERP",
-  "short_name": "UKan",
+  "name": "U2B ERP — UKan",
+  "short_name": "U2B ERP",
   "description": "UKan — часть экосистемы U2B (ERP-автоматизация бизнеса)",
   "start_url": ".",
   "scope": "/",

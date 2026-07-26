@@ -2069,15 +2069,15 @@ export default function AdminApp({ user }: Props) {
       )}
 
       {/* Сайдбар */}
-      <div style={{ width: 220, background: COLORS.sidebar.bg, display: 'flex', flexDirection: 'column', flexShrink: 0, borderRight: `1px solid ${COLORS.sidebar.border}`, transition: 'transform .25s', zIndex: 100 }} className={sideOpen ? 'sidebar sidebar-open' : 'sidebar'}>
-        {/* Лого */}
+      <div style={{ width: 256, background: COLORS.sidebar.bg, display: 'flex', flexDirection: 'column', flexShrink: 0, borderRight: `1px solid ${COLORS.sidebar.border}`, transition: 'transform .25s', zIndex: 100 }} className={sideOpen ? 'sidebar sidebar-open' : 'sidebar'}>
+        {/* Лого (логотип уже содержит «UKan», текст не дублируем) */}
         <div style={{ padding: '20px 16px 16px', borderBottom: `1px solid ${COLORS.sidebar.border}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/icon-192.png" alt="UKan" style={{ width: 36, height: 36, borderRadius: 9, display: 'block' }} />
+            <img src="/icons/icon-192.png" alt="UKan" style={{ width: 54, height: 54, borderRadius: 13, display: 'block' }} />
             <div style={{ flex: 1 }}>
-              <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>UKan</div>
-              <div style={{ color: COLORS.sidebar.muted, fontSize: 10 }}>U2B · ERP</div>
+              <div style={{ color: '#fff', fontWeight: 800, fontSize: 16 }}>U2B ERP</div>
+              <div style={{ color: COLORS.sidebar.muted, fontSize: 11 }}>автоматизация бизнеса</div>
             </div>
             <button onClick={() => setSideOpen(false)} className="sidebar-close" style={{ background: 'none', border: 'none', color: COLORS.sidebar.muted, cursor: 'pointer', fontSize: 20, padding: '4px', display: 'none' }}>✕</button>
           </div>
@@ -2089,10 +2089,10 @@ export default function AdminApp({ user }: Props) {
             const isActive = screen === key
             const count = counts[key]
             return (
-              <button key={key} onClick={() => setScreen(key as AdminScreen)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', border: 'none', background: isActive ? 'rgba(212,97,58,.15)' : 'transparent', color: isActive ? COLORS.sidebar.active : COLORS.sidebar.text, cursor: 'pointer', fontFamily: 'inherit', fontWeight: isActive ? 700 : 400, fontSize: 13, textAlign: 'left', borderLeft: `3px solid ${isActive ? COLORS.sidebar.active : 'transparent'}` }}>
-                <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{icon}</span>
+              <button key={key} onClick={() => setScreen(key as AdminScreen)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', border: 'none', background: isActive ? 'rgba(212,97,58,.15)' : 'transparent', color: isActive ? COLORS.sidebar.active : COLORS.sidebar.text, cursor: 'pointer', fontFamily: 'inherit', fontWeight: isActive ? 700 : 500, fontSize: 15, textAlign: 'left', borderLeft: `3px solid ${isActive ? COLORS.sidebar.active : 'transparent'}` }}>
+                <span style={{ fontSize: 18, width: 22, textAlign: 'center' }}>{icon}</span>
                 <span style={{ flex: 1 }}>{label}</span>
-                {count > 0 && <span style={{ background: isActive ? COLORS.primary : COLORS.sidebar.badge, color: isActive ? '#fff' : COLORS.sidebar.text, fontSize: 10, padding: '1px 6px', borderRadius: 10, fontWeight: 700 }}>{count}</span>}
+                {count > 0 && <span style={{ background: isActive ? COLORS.primary : COLORS.sidebar.badge, color: isActive ? '#fff' : COLORS.sidebar.text, fontSize: 11, padding: '1px 7px', borderRadius: 10, fontWeight: 700 }}>{count}</span>}
               </button>
             )
           })}
