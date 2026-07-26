@@ -2066,10 +2066,11 @@ export default function AdminApp({ user }: Props) {
         {/* Лого */}
         <div style={{ padding: '20px 16px 16px', borderBottom: `1px solid ${COLORS.sidebar.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 34, height: 34, background: COLORS.primary, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16 }}>U</div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icons/icon-192.png" alt="UKan" style={{ width: 36, height: 36, borderRadius: 9, display: 'block' }} />
             <div style={{ flex: 1 }}>
-              <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>U-Kan</div>
-              <div style={{ color: COLORS.sidebar.muted, fontSize: 10 }}>v1.0</div>
+              <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>UKan</div>
+              <div style={{ color: COLORS.sidebar.muted, fontSize: 10 }}>U2B · ERP</div>
             </div>
             <button onClick={() => setSideOpen(false)} className="sidebar-close" style={{ background: 'none', border: 'none', color: COLORS.sidebar.muted, cursor: 'pointer', fontSize: 20, padding: '4px', display: 'none' }}>✕</button>
           </div>

@@ -1,7 +1,7 @@
 {
-  "name": "U-Kan",
-  "short_name": "U-Kan",
-  "description": "Система управления заказами",
+  "name": "UKan — U2B ERP",
+  "short_name": "UKan",
+  "description": "UKan — часть экосистемы U2B (ERP-автоматизация бизнеса)",
   "start_url": ".",
   "scope": "/",
   "display": "standalone",

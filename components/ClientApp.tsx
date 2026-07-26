@@ -174,7 +174,8 @@ export default function ClientApp({ user, clientUser }: Props) {
       <div style={{ background: '#fff', borderBottom: '1px solid #e6e2dc', padding: '0 20px' }}>
         <div style={{ maxWidth: 880, margin: '0 auto', display: 'flex', alignItems: 'center', height: 56 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 32, height: 32, background: '#d4613a', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14 }}>U</div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icons/icon-192.png" alt="UKan" style={{ width: 34, height: 34, borderRadius: 8, display: 'block' }} />
             <div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>{clientUser.name}</div>
               <div style={{ fontSize: 11, color: '#8a847c' }}>Кабинет заказчика</div>

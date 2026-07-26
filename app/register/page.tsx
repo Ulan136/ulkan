@@ -56,8 +56,12 @@ export default function RegisterPage() {
     <div style={{ minHeight: '100vh', background: '#f1efec', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ width: 480, background: '#fff', borderRadius: 16, padding: 32, boxShadow: '0 2px 16px rgba(0,0,0,0.08)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
-          <div style={{ width: 36, height: 36, background: '#d4613a', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16 }}>U</div>
-          <span style={{ fontWeight: 700, fontSize: 18 }}>U-Kan</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/icon-192.png" alt="UKan" style={{ width: 40, height: 40, borderRadius: 9, display: 'block' }} />
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 18, lineHeight: 1 }}>UKan</div>
+            <div style={{ fontSize: 10.5, color: '#8a847c', fontWeight: 700, marginTop: 3 }}>U2B · ERP</div>
+          </div>
         </div>
 
         <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 4 }}>Регистрация в U-Kan</div>

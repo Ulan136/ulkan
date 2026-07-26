@@ -27,10 +27,11 @@ export default function HomeClient() {
 
         {/* Шапка */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-          <div style={{ width: 40, height: 40, background: '#d4613a', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 18 }}>U</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/icon-192.png" alt="UKan" style={{ width: 44, height: 44, borderRadius: 10, display: 'block' }} />
           <div>
-            <div style={{ fontWeight: 700, fontSize: 20, color: '#211f1c' }}>U-Kan</div>
-            <div style={{ fontSize: 11, color: '#8a847c', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Система управления заказами · Логистика металла</div>
+            <div style={{ fontWeight: 800, fontSize: 20, color: '#211f1c' }}>UKan</div>
+            <div style={{ fontSize: 11, color: '#8a847c', letterSpacing: '0.05em', textTransform: 'uppercase' }}>U2B · ERP автоматизация бизнеса · логистика металла</div>
           </div>
           <a href="/login" style={{ ...btn('primary'), marginLeft: 'auto' }}>Войти →</a>
         </div>

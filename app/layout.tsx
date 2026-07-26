@@ -3,8 +3,9 @@ import './globals.css'
 import PWAManifest from '@/components/PWAManifest'
 
 export const metadata: Metadata = {
-  title: 'U-Kan — Система управления заказами',
-  description: 'Логистика металла · Управление заказами',
+  title: 'UKan — U2B ERP · управление заказами',
+  description: 'UKan — часть экосистемы U2B (ERP-автоматизация бизнеса). Логистика металла и управление заказами.',
+  icons: { icon: '/icons/icon-192.png', apple: '/icons/apple-touch-icon-180.png' },
 }
 
 // Next 15: цвет темы/вьюпорт — отдельным export viewport (не в metadata → без warning)

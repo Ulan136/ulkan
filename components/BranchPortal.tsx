@@ -378,7 +378,8 @@ export default function BranchPortal({ user, branchUser }: Props) {
       {/* Шапка */}
       <div style={{ background: '#211f1c', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 32, height: 32, background: PRIMARY, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14 }}>U</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/icon-192.png" alt="UKan" style={{ width: 34, height: 34, borderRadius: 8, display: 'block' }} />
           <div>
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>U-Kan · Филиал</div>
             <div style={{ color: '#8c857a', fontSize: 11 }}>{branchUser.name}</div>

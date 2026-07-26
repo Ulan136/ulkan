@@ -74,9 +74,13 @@ function LoginForm() {
   return (
     <div style={{ minHeight: '100vh', background: '#f1efec', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ width: 380, background: '#fff', borderRadius: 16, padding: 32, boxShadow: '0 2px 16px rgba(0,0,0,0.08)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
-          <div style={{ width: 36, height: 36, background: '#d4613a', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16 }}>U</div>
-          <span style={{ fontWeight: 700, fontSize: 18 }}>U-Kan</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 24 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/icon-192.png" alt="UKan" style={{ width: 42, height: 42, borderRadius: 10, display: 'block' }} />
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 19, lineHeight: 1, color: '#211f1c' }}>UKan</div>
+            <div style={{ fontSize: 10.5, color: '#8a847c', fontWeight: 700, marginTop: 3, letterSpacing: '.04em' }}>U2B · ERP автоматизация</div>
+          </div>
         </div>
         <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 4 }}>Вход в систему</div>
         <div style={{ color: '#8a847c', fontSize: 13, marginBottom: 20 }}>Выберите способ входа</div>
