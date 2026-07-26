@@ -522,6 +522,17 @@ export default function AdminApp({ user }: Props) {
   function recUpdatePos(i: number, field: string, val: string) {
     setRecPositions(p => p.map((x, idx) => idx === i ? { ...x, [field]: val } : x))
   }
+  // Стол приёмки: подтянуть цены всех позиций карточки по типу цены её получателя.
+  async function pullPricesForCard(order: any) {
+    const type = priceTypeFor(order.to || '')
+    let count = 0
+    for (const pos of order.positions) {
+      const pr = await fetchPosPrice(pos.name1c || pos.oral, type)
+      if (pr > 0 && pr !== pos.price) { await orderAction(order.id, 'updatePosDetail', { posId: pos.id, price: pr }); count++ }
+    }
+    if (count) loadOrders()
+    showToast(count ? `💰 Цены подтянуты (${count})` : 'Цены не найдены')
+  }
   // Тип цены выбранного получателя (клиента).
   function priceTypeFor(toName: string): 'retail' | 'opt' {
     const u = settings?.users.find(x => x.name === toName)
@@ -1142,9 +1153,9 @@ export default function AdminApp({ user }: Props) {
                               <td style={{ padding: '6px 4px', width: 60 }}>
                                 <input style={inpSm} value={pos.unit} onChange={e => recUpdatePos(i, 'unit', e.target.value)} placeholder="шт" />
                               </td>
-                              <td style={{ padding: '6px 4px', width: 100 }}>
+                              <td style={{ padding: '6px 4px', width: 120 }}>
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                                  <input style={inpSm} type="number" inputMode="decimal" value={pos.price || ''} onChange={e => recUpdatePos(i, 'price', e.target.value)} placeholder="0" />
+                                  <input style={{ ...inpSm, textAlign: 'right', fontWeight: 600 }} type="number" inputMode="decimal" value={pos.price || ''} onChange={e => recUpdatePos(i, 'price', e.target.value)} placeholder="0" />
                                   <button
                                     title="Оплата"
                                     onClick={() => recTogglePayment(i)}
@@ -1160,10 +1171,10 @@ export default function AdminApp({ user }: Props) {
                                   </select>
                                 )}
                               </td>
-                              <td style={{ padding: '6px 4px' }}>
+                              <td style={{ padding: '6px 4px', width: 128 }}>
                                 <UnifiedSelect value={pos.resp} onChange={v => recUpdatePos(i, 'resp', v)} placeholder="—" style={selSm} settings={settings} roles={['logist']} />
                               </td>
-                              <td style={{ padding: '6px 4px' }}>
+                              <td style={{ padding: '6px 4px', width: 128 }}>
                                 <UnifiedSelect value={pos.supplier} onChange={v => {
                                   const sup2 = suppliersList.find(s => s.name === v)
                                   recUpdatePos(i, 'supplier', v)
@@ -1240,6 +1251,7 @@ export default function AdminApp({ user }: Props) {
                         />
                         {order.deadline && <span style={{ fontSize: 12, color: '#8a847c' }}>срок {fmtDate(order.deadline)}</span>}
                         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                          <button onClick={() => pullPricesForCard(order)} style={{ border: '1.5px solid #e6c9b8', borderRadius: 7, padding: '5px 12px', background: '#fff8f5', color: '#c0532a', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>💰 Цены{order.to ? ` (${priceTypeFor(order.to) === 'opt' ? 'опт' : 'розн'})` : ''}</button>
                           <Btn size="sm" onClick={() => handleAction(order.id, 'returnToIncoming')}>← Вернуть</Btn>
                           <Btn size="sm" variant="primary" onClick={async () => {
                             // 1. Сначала сохраняем все несохранённые изменения позиций
@@ -1350,26 +1362,26 @@ export default function AdminApp({ user }: Props) {
                                     }
                                   </td>
                                   {/* ЦЕНА */}
-                                  <td style={{ padding: '6px 4px', width: 90 }}>
+                                  <td style={{ padding: '6px 4px', width: 96, whiteSpace: 'nowrap' }}>
                                     {isEditing
-                                      ? <input style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 80 }} type="number" inputMode="decimal" value={(ed.price ?? pos.price) || ''} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], price: e.target.value } }))} />
-                                      : <span style={{ fontSize: 12 }}>{pos.price > 0 ? fmtMoney(pos.price) : <span style={{ color: '#b8b1a6' }}>—</span>}</span>
+                                      ? <input style={{ ...INP, fontSize: 12, padding: '5px 6px', width: 84, textAlign: 'right' }} type="number" inputMode="decimal" value={(ed.price ?? pos.price) || ''} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], price: e.target.value } }))} />
+                                      : <span style={{ fontSize: 12.5, fontWeight: 700, color: pos.price > 0 ? '#26231f' : '#b8b1a6' }}>{pos.price > 0 ? fmtMoney(pos.price) : '—'}</span>
                                     }
                                   </td>
                                   {/* ЛОГИСТ */}
-                                  <td style={{ padding: '6px 4px' }}>
+                                  <td style={{ padding: '6px 4px', width: 120 }}>
                                     {isEditing
-                                      ? <UnifiedSelect value={ed.resp ?? pos.resp} onChange={v => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], resp: v } }))} placeholder="—" style={{ fontSize: 12, padding: '5px 8px', width: 160 }} settings={settings} roles={['logist']} />
+                                      ? <UnifiedSelect value={ed.resp ?? pos.resp} onChange={v => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], resp: v } }))} placeholder="—" style={{ fontSize: 12, padding: '5px 6px', width: 112 }} settings={settings} roles={['logist']} />
                                       : <span style={{ fontSize: 12 }}>{pos.resp || <span style={{ color: '#b8b1a6' }}>—</span>}</span>
                                     }
                                   </td>
                                   {/* ПОСТАВЩИК */}
-                                  <td style={{ padding: '6px 4px' }}>
+                                  <td style={{ padding: '6px 4px', width: 120 }}>
                                     {isEditing
                                       ? <UnifiedSelect value={ed.supplier ?? pos.supplier} onChange={v => {
                                           const sup2 = suppliersList.find(s => s.name === v)
                                           setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], supplier: v, supplierId: sup2?.id || '' } }))
-                                        }} placeholder="—" style={{ fontSize: 12, padding: '5px 8px', width: 160 }} settings={settings} />
+                                        }} placeholder="—" style={{ fontSize: 12, padding: '5px 6px', width: 112 }} settings={settings} />
                                       : <span style={{ fontSize: 12 }}>{pos.supplier || <span style={{ color: '#b8b1a6' }}>—</span>}</span>
                                     }
                                   </td>
