@@ -11,6 +11,16 @@ import { POS_STATUS, CARD_STATUS, SCREENS } from '@/lib/orderStatus'
 import { almatyDay } from '@/lib/reportDay'
 import { isHandedOff, isInDelivery, eqName } from '@/lib/positionState'
 
+// Системное сообщение в чат карточки об изменении (кто/что) — чтобы логист и все
+// участники сразу видели правку. Ошибка чата не должна ломать действие.
+async function postCardChange(prismaClient: any, cardId: string, session: any, text: string) {
+  try {
+    await prismaClient.cardMessage.create({
+      data: { cardId, userId: session?.id || 'system', userName: session?.name || 'Система', role: session?.role || 'system', text },
+    })
+  } catch { /* чат не критичен */ }
+}
+
 // Порядок статусов позиции для определения движения назад (revert).
 const STATUS_ORDER = [POS_STATUS.working, POS_STATUS.readyToShip, POS_STATUS.inTransit, POS_STATUS.delivered]
 const statusRank = (s: string): number => { const i = STATUS_ORDER.indexOf(s as any); return i === -1 ? 0 : i }
@@ -466,7 +476,7 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
       return null
     },
     effects: async (ctx) => {
-      const { order, payload, prisma } = ctx
+      const { order, payload, prisma, session } = ctx
       const existing = await prisma.position.findMany({ where: { cardId: order.id } })
       const newId = generatePosId(order.id, existing.length + 1)
       const posLeg = await legForSupplier(payload.supplier) // поставщик-филиал → 1
@@ -489,6 +499,8 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
         },
       })
       await reserveCenterSkladPositions([newPos])
+      // Инфо в чат карточки: добавлена позиция (видно всем участникам + логисту).
+      await postCardChange(prisma, order.id, session, `➕ Добавлена позиция: ${payload.name1c || payload.oral || 'позиция'} — ${payload.qty || 0} ${payload.unit || 'шт'}`)
       // Уведомляем логиста только для позиции второго плеча (leg=2).
       if (posLeg === 2 && payload.resp) {
         const logist = await prisma.user.findFirst({ where: { name: payload.resp, role: 'logist' } })
@@ -515,6 +527,10 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
       // Изменение количества ЧУЖОЙ рукой (не сам ответственный) → сигнал логисту:
       // мигнёт во вкладке «Изменения» его кабинета, пока он не откроет.
       const qtyChanged = posData.qty !== undefined && (Number(posData.qty) || 0) !== (oldPos?.qty ?? 0)
+      // Инфо в чат карточки: изменено количество (видно всем участникам + логисту).
+      if (qtyChanged) {
+        await postCardChange(prisma, order.id, session, `✏️ Изменено кол-во: ${oldPos?.name1c || oldPos?.oral || 'позиция'} — ${oldPos?.qty ?? 0} → ${Number(posData.qty) || 0} ${oldPos?.unit || 'шт'}`)
+      }
       const respName = (oldPos?.resp || '').trim()
       if (qtyChanged && respName && (oldPos?.leg ?? 2) === 2 && respName.toLowerCase() !== (session?.name || '').trim().toLowerCase()) {
         const logist = await prisma.user.findFirst({ where: { name: respName, role: 'logist' } })
