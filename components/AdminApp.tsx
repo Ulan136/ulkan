@@ -91,12 +91,14 @@ const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: '#8a847
 
 // ─── Модалка деталей карточки ────────────────────────────────────────────────
 
-function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings, myId }: {
+function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings, myId, canDelete, onDelete }: {
   order: Order; onClose: () => void
   onAction: (id: string, action: string, payload?: Record<string, unknown>) => Promise<void>
   suppliers: { id: string; name: string }[]; toast: (m: string) => void
   settings: SettingsData | null
   myId: string
+  canDelete?: boolean
+  onDelete?: () => void
 }) {
   const [history, setHistory] = useState<any[]>([])
   const [tab, setTab] = useState<'positions' | 'history' | 'chat' | null>(null)
@@ -230,6 +232,14 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
             {order.screen === 'archive' && (
               <Btn size="sm" onClick={() => handleStatusChange(order.id, 'unarchive')}>↺ Вернуть из архива</Btn>
             )}
+          </div>
+
+          {/* Отмена / удаление — прямо в карточке (отдельно от рабочих кнопок) */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14, paddingTop: 4, borderTop: '1px dashed #f1efec' }}>
+            {!order.isCancelled
+              ? <Btn size="sm" variant="danger" onClick={() => handleStatusChange(order.id, 'cancel')}>⊘ Отменить карточку</Btn>
+              : <Btn size="sm" onClick={() => handleStatusChange(order.id, 'restore')}>↺ Восстановить</Btn>}
+            {canDelete && onDelete && <Btn size="sm" variant="danger" onClick={onDelete}>🗑 Удалить навсегда</Btn>}
           </div>
 
           {/* Вкладки */}
@@ -1470,7 +1480,7 @@ export default function AdminApp({ user }: Props) {
                           <Btn variant="primary" size="sm" style={{ flex: 1 }} onClick={() => handleAction(order.id, 'take')}>
                             ПРИНЯТЬ В ОБРАБОТКУ →
                           </Btn>
-                          <Btn variant="danger" size="sm" onClick={() => handleAction(order.id, 'cancel')}>✕</Btn>
+                          <Btn size="sm" onClick={() => handleAction(order.id, 'returnToIncoming')}>← Вернуть</Btn>
                         </div>
                       </div>
                     ))}
@@ -2174,6 +2184,16 @@ export default function AdminApp({ user }: Props) {
           toast={showToast}
           settings={settings}
           myId={user.id}
+          canDelete={user.role === 'super_admin'}
+          onDelete={async () => {
+            if (!confirm(`Удалить карточку ${selectedOrder.id} НАВСЕГДА? Отменить нельзя.`)) return
+            try {
+              const res = await fetch(`/api/orders/${selectedOrder.id}`, { method: 'DELETE' })
+              const d = await res.json()
+              if (!res.ok) { showToast(d.error || 'Ошибка удаления'); return }
+              setSelectedOrder(null); loadOrders(); showToast('🗑 Карточка удалена')
+            } catch (e: any) { showToast(e.message || 'Ошибка сети') }
+          }}
         />
       )}
 
