@@ -15,8 +15,8 @@ interface NomItem {
   priceOpt?: number
 }
 
-const INP: React.CSSProperties = { width: '100%', padding: '8px 12px', borderRadius: 7, fontSize: 13, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }
-const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: '#8a847c', marginBottom: 4, display: 'block', letterSpacing: '.04em' }
+const INP: React.CSSProperties = { width: '100%', padding: '8px 12px', borderRadius: 7, fontSize: 14, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }
+const LBL: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#5f5952', marginBottom: 4, display: 'block', letterSpacing: '.04em' }
 
 export default function NomenclatureScreen() {
   const [items, setItems] = useState<NomItem[]>([])
@@ -156,19 +156,19 @@ export default function NomenclatureScreen() {
       {/* Шапка */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexShrink: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 20 }}>📦 Номенклатура</div>
-        <span style={{ fontSize: 13, color: '#8a847c' }}>{items.length} позиций</span>
+        <span style={{ fontSize: 14, color: '#5f5952' }}>{items.length} позиций</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <input style={{ ...INP, width: 240 }} placeholder="🔍 Поиск по названию..." value={search} onChange={e => { setSearch(e.target.value); if (e.target.value) { setSelGroup(null); setSelCat(null); setSelSubgroup(null) } }} />
           <button onClick={load} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>⟳</button>
           {priceEdit ? (
             <>
-              <button onClick={savePrices} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#2e8a5e', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit' }}>💾 Сохранить цены</button>
-              <button onClick={() => { setPriceEdit(false); setPricesDraft({}) }} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>Отмена</button>
+              <button onClick={savePrices} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#2e8a5e', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700, fontFamily: 'inherit' }}>💾 Сохранить цены</button>
+              <button onClick={() => { setPriceEdit(false); setPricesDraft({}) }} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>Отмена</button>
             </>
           ) : (
-            <button onClick={() => setPriceEdit(true)} style={{ padding: '8px 16px', borderRadius: 8, border: '1.5px solid #e6c9b8', background: '#fff8f5', color: '#c0532a', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit' }}>💰 Редактировать цены</button>
+            <button onClick={() => setPriceEdit(true)} style={{ padding: '8px 16px', borderRadius: 8, border: '1.5px solid #e6c9b8', background: '#fff8f5', color: '#c0532a', cursor: 'pointer', fontSize: 14, fontWeight: 700, fontFamily: 'inherit' }}>💰 Редактировать цены</button>
           )}
-          <button onClick={openAdd} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit' }}>+ Добавить</button>
+          <button onClick={openAdd} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700, fontFamily: 'inherit' }}>+ Добавить</button>
         </div>
       </div>
 
@@ -177,14 +177,14 @@ export default function NomenclatureScreen() {
 
         {/* ── Дерево групп ── */}
         <div style={{ width: 240, flexShrink: 0, background: '#fff', borderRadius: 12, boxShadow: '0 0 0 1.5px #e6e2dc', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '10px 14px', background: '#f8f6f3', borderBottom: '1px solid #e6e2dc', fontSize: 11, fontWeight: 700, color: '#8a847c', letterSpacing: '.04em' }}>ГРУППЫ</div>
+          <div style={{ padding: '10px 14px', background: '#f8f6f3', borderBottom: '1px solid #e6e2dc', fontSize: 12, fontWeight: 700, color: '#5f5952', letterSpacing: '.04em' }}>ГРУППЫ</div>
           <div style={{ overflowY: 'auto', flex: 1 }}>
 
             {/* Все */}
             <div onClick={() => { setSelGroup(null); setSelCat(null); setSelSubgroup(null); setSearch('') }}
-              style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, fontWeight: !selGroup && !search ? 700 : 400, color: !selGroup && !search ? COLORS.primary : '#26231f', background: !selGroup && !search ? '#fff8f5' : '#fff', borderLeft: `3px solid ${!selGroup && !search ? COLORS.primary : 'transparent'}`, display: 'flex', justifyContent: 'space-between' }}>
+              style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 14, fontWeight: !selGroup && !search ? 700 : 400, color: !selGroup && !search ? COLORS.primary : '#26231f', background: !selGroup && !search ? '#fff8f5' : '#fff', borderLeft: `3px solid ${!selGroup && !search ? COLORS.primary : 'transparent'}`, display: 'flex', justifyContent: 'space-between' }}>
               <span>Все</span>
-              <span style={{ fontSize: 11, color: '#8a847c' }}>{items.length}</span>
+              <span style={{ fontSize: 12, color: '#5f5952' }}>{items.length}</span>
             </div>
 
             {/* Группы */}
@@ -199,12 +199,12 @@ export default function NomenclatureScreen() {
                   <div style={{ display: 'flex', alignItems: 'center', padding: '9px 14px', cursor: 'pointer', background: isSelG ? '#fff8f5' : '#fff', borderLeft: `3px solid ${isSelG ? COLORS.primary : 'transparent'}` }}
                     onClick={() => { setSelGroup(g); setSelCat(null); setSelSubgroup(null); setSearch('') }}>
                     <span onClick={e => { e.stopPropagation(); setOpenGroups(p => ({ ...p, [g]: !p[g] })) }}
-                      style={{ marginRight: 6, fontSize: 11, color: '#8a847c', width: 14, textAlign: 'center', flexShrink: 0 }}>
+                      style={{ marginRight: 6, fontSize: 12, color: '#5f5952', width: 14, textAlign: 'center', flexShrink: 0 }}>
                       {cats.length > 0 ? (isOpen ? '▼' : '▶') : ''}
                     </span>
                     <span style={{ fontSize: 14, marginRight: 6 }}>📁</span>
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: isSelG ? 700 : 400, color: isSelG ? COLORS.primary : '#26231f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g}</span>
-                    <span style={{ fontSize: 11, color: '#8a847c', flexShrink: 0 }}>{countGroup(g)}</span>
+                    <span style={{ flex: 1, fontSize: 14, fontWeight: isSelG ? 700 : 400, color: isSelG ? COLORS.primary : '#26231f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g}</span>
+                    <span style={{ fontSize: 12, color: '#5f5952', flexShrink: 0 }}>{countGroup(g)}</span>
                   </div>
 
                   {/* Подгруппы (категории) */}
@@ -218,12 +218,12 @@ export default function NomenclatureScreen() {
                         <div style={{ display: 'flex', alignItems: 'center', padding: '8px 14px 8px 28px', cursor: 'pointer', background: isSelC ? '#fff8f5' : '#fff', borderLeft: `3px solid ${isSelC ? COLORS.primary : 'transparent'}` }}
                           onClick={() => { setSelGroup(g); setSelCat(cat); setSelSubgroup(null); setSearch('') }}>
                           <span onClick={e => { e.stopPropagation(); setOpenCats(p => ({ ...p, [`${g}/${cat}`]: !p[`${g}/${cat}`] })) }}
-                            style={{ marginRight: 6, fontSize: 10, color: '#8a847c', width: 12, textAlign: 'center', flexShrink: 0 }}>
+                            style={{ marginRight: 6, fontSize: 12, color: '#5f5952', width: 12, textAlign: 'center', flexShrink: 0 }}>
                             {subgroups.length > 0 ? (isCatOpen ? '▼' : '▶') : ''}
                           </span>
-                          <span style={{ fontSize: 13, marginRight: 6 }}>📂</span>
-                          <span style={{ flex: 1, fontSize: 12, fontWeight: isSelC ? 700 : 400, color: isSelC ? COLORS.primary : '#4a4640', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat}</span>
-                          <span style={{ fontSize: 10, color: '#8a847c', flexShrink: 0 }}>{countCat(g, cat)}</span>
+                          <span style={{ fontSize: 14, marginRight: 6 }}>📂</span>
+                          <span style={{ flex: 1, fontSize: 13, fontWeight: isSelC ? 700 : 400, color: isSelC ? COLORS.primary : '#4a4640', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat}</span>
+                          <span style={{ fontSize: 12, color: '#5f5952', flexShrink: 0 }}>{countCat(g, cat)}</span>
                         </div>
 
                         {/* Подподгруппы */}
@@ -233,9 +233,9 @@ export default function NomenclatureScreen() {
                             <div key={sub}
                               onClick={() => { setSelGroup(g); setSelCat(cat); setSelSubgroup(sub); setSearch('') }}
                               style={{ display: 'flex', alignItems: 'center', padding: '7px 14px 7px 46px', cursor: 'pointer', background: isSelS ? '#fff8f5' : '#fff', borderLeft: `3px solid ${isSelS ? COLORS.primary : 'transparent'}` }}>
-                              <span style={{ fontSize: 12, marginRight: 6 }}>📄</span>
-                              <span style={{ flex: 1, fontSize: 12, fontWeight: isSelS ? 700 : 400, color: isSelS ? COLORS.primary : '#6b655b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</span>
-                              <span style={{ fontSize: 10, color: '#8a847c', flexShrink: 0 }}>{countSubgroup(g, cat, sub)}</span>
+                              <span style={{ fontSize: 13, marginRight: 6 }}>📄</span>
+                              <span style={{ flex: 1, fontSize: 13, fontWeight: isSelS ? 700 : 400, color: isSelS ? COLORS.primary : '#6b655b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</span>
+                              <span style={{ fontSize: 12, color: '#5f5952', flexShrink: 0 }}>{countSubgroup(g, cat, sub)}</span>
                             </div>
                           )
                         })}
@@ -251,13 +251,13 @@ export default function NomenclatureScreen() {
         {/* ── Таблица товаров ── */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {/* Хлебные крошки */}
-          <div style={{ fontSize: 12, color: '#8a847c', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ fontSize: 13, color: '#5f5952', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ cursor: 'pointer', color: COLORS.primary }} onClick={() => { setSelGroup(null); setSelCat(null); setSelSubgroup(null) }}>Все</span>
             {selGroup && <><span>›</span><span style={{ cursor: 'pointer', color: COLORS.primary }} onClick={() => { setSelCat(null); setSelSubgroup(null) }}>{selGroup}</span></>}
             {selCat && <><span>›</span><span style={{ cursor: 'pointer', color: COLORS.primary }} onClick={() => setSelSubgroup(null)}>{selCat}</span></>}
             {selSubgroup && <><span>›</span><span style={{ color: '#26231f', fontWeight: 600 }}>{selSubgroup}</span></>}
             {search && <span style={{ color: '#26231f', fontWeight: 600 }}>Поиск: "{search}"</span>}
-            <span style={{ marginLeft: 'auto', color: '#8a847c' }}>{filtered.length} позиций</span>
+            <span style={{ marginLeft: 'auto', color: '#5f5952' }}>{filtered.length} позиций</span>
           </div>
 
           <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 0 0 1.5px #e6e2dc', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -265,19 +265,19 @@ export default function NomenclatureScreen() {
               <thead>
                 <tr style={{ background: '#f8f6f3' }}>
                   {['НАИМЕНОВАНИЕ', 'ЕД.', 'ГРУППА', 'КАТЕГОРИЯ', 'ПОДГРУППА', 'ПРИХОД', 'РОЗН.', 'ОПТ', ''].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                    <th key={h} style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
             </table>
             <div style={{ overflowY: 'auto', flex: 1 }}>
               {loading
-                ? <div style={{ padding: 30, textAlign: 'center', color: '#8a847c' }}>Загрузка...</div>
+                ? <div style={{ padding: 30, textAlign: 'center', color: '#5f5952' }}>Загрузка...</div>
                 : filtered.length === 0
-                ? <div style={{ padding: 30, textAlign: 'center', color: '#8a847c' }}>
+                ? <div style={{ padding: 30, textAlign: 'center', color: '#5f5952' }}>
                     {search ? 'Ничего не найдено' : 'Нет позиций в этой группе'}
                     <div style={{ marginTop: 12 }}>
-                      <button onClick={openAdd} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>+ Добавить позицию</button>
+                      <button onClick={openAdd} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>+ Добавить позицию</button>
                     </div>
                   </div>
                 : (
@@ -285,43 +285,43 @@ export default function NomenclatureScreen() {
                     <tbody>
                       {filtered.map((item, i) => (
                         <tr key={item.id} style={{ borderTop: '1px solid #f1efec' }}>
-                          <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 500 }}>
+                          <td style={{ padding: '9px 14px', fontSize: 14, fontWeight: 500 }}>
                             {editItem?.id === item.id
-                              ? <input style={{ ...INP, fontSize: 12 }} value={editItem.name} onChange={e => setEditItem(p => p ? { ...p, name: e.target.value } : p)} autoFocus />
+                              ? <input style={{ ...INP, fontSize: 13 }} value={editItem.name} onChange={e => setEditItem(p => p ? { ...p, name: e.target.value } : p)} autoFocus />
                               : item.name
                             }
                           </td>
                           <td style={{ padding: '9px 14px', width: 70 }}>
                             {editItem?.id === item.id
-                              ? <input style={{ ...INP, fontSize: 12, width: 55 }} value={editItem.unit} onChange={e => setEditItem(p => p ? { ...p, unit: e.target.value } : p)} />
-                              : <span style={{ fontSize: 12, color: '#8a847c' }}>{item.unit}</span>
+                              ? <input style={{ ...INP, fontSize: 13, width: 55 }} value={editItem.unit} onChange={e => setEditItem(p => p ? { ...p, unit: e.target.value } : p)} />
+                              : <span style={{ fontSize: 13, color: '#5f5952' }}>{item.unit}</span>
                             }
                           </td>
                           <td style={{ padding: '9px 14px', width: 130 }}>
                             {editItem?.id === item.id
-                              ? <select style={{ ...INP, fontSize: 12 }} value={editItem.group} onChange={e => setEditItem(p => p ? { ...p, group: e.target.value, cat: '', subgroup: '' } : p)}>
+                              ? <select style={{ ...INP, fontSize: 13 }} value={editItem.group} onChange={e => setEditItem(p => p ? { ...p, group: e.target.value, cat: '', subgroup: '' } : p)}>
                                   <option value="">—</option>
                                   {Object.keys(TREE).map(g => <option key={g} value={g}>{g}</option>)}
                                 </select>
-                              : <span style={{ fontSize: 12, color: '#8a847c' }}>{item.group || '—'}</span>
+                              : <span style={{ fontSize: 13, color: '#5f5952' }}>{item.group || '—'}</span>
                             }
                           </td>
                           <td style={{ padding: '9px 14px', width: 160 }}>
                             {editItem?.id === item.id
-                              ? <select style={{ ...INP, fontSize: 12 }} value={editItem.cat} onChange={e => setEditItem(p => p ? { ...p, cat: e.target.value, subgroup: '' } : p)}>
+                              ? <select style={{ ...INP, fontSize: 13 }} value={editItem.cat} onChange={e => setEditItem(p => p ? { ...p, cat: e.target.value, subgroup: '' } : p)}>
                                   <option value="">—</option>
                                   {editItem.group && Object.keys(TREE[editItem.group] || {}).map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
-                              : <span style={{ fontSize: 12, color: '#8a847c' }}>{item.cat || '—'}</span>
+                              : <span style={{ fontSize: 13, color: '#5f5952' }}>{item.cat || '—'}</span>
                             }
                           </td>
                           <td style={{ padding: '9px 14px', width: 140 }}>
                             {editItem?.id === item.id
-                              ? <select style={{ ...INP, fontSize: 12 }} value={editItem.subgroup} onChange={e => setEditItem(p => p ? { ...p, subgroup: e.target.value } : p)}>
+                              ? <select style={{ ...INP, fontSize: 13 }} value={editItem.subgroup} onChange={e => setEditItem(p => p ? { ...p, subgroup: e.target.value } : p)}>
                                   <option value="">—</option>
                                   {editItem.cat && (TREE[editItem.group]?.[editItem.cat] || []).map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
-                              : <span style={{ fontSize: 12, color: '#8a847c' }}>{item.subgroup || '—'}</span>
+                              : <span style={{ fontSize: 13, color: '#5f5952' }}>{item.subgroup || '—'}</span>
                             }
                           </td>
                           {/* Цены: приход / розн / опт — правятся в общем режиме «Редактировать цены» */}
@@ -329,20 +329,20 @@ export default function NomenclatureScreen() {
                             <td key={f} style={{ padding: '9px 8px', width: 84 }}>
                               {priceEdit
                                 ? <input value={priceVal(item, f)} inputMode="decimal" onChange={e => setPrice(item, f, e.target.value)}
-                                    style={{ ...INP, fontSize: 12, padding: '5px 6px', textAlign: 'right', border: `1.5px solid ${pricesDraft[item.id]?.[f] !== undefined ? COLORS.primary : '#e6e2dc'}` }} />
-                                : <span style={{ fontSize: 12, color: (item[f] ?? 0) > 0 ? '#26231f' : '#b8b1a6' }}>{(item[f] ?? 0) > 0 ? (item[f] as number).toLocaleString('ru-RU') : '—'}</span>
+                                    style={{ ...INP, fontSize: 13, padding: '5px 6px', textAlign: 'right', border: `1.5px solid ${pricesDraft[item.id]?.[f] !== undefined ? COLORS.primary : '#e6e2dc'}` }} />
+                                : <span style={{ fontSize: 13, color: (item[f] ?? 0) > 0 ? '#26231f' : '#837c72' }}>{(item[f] ?? 0) > 0 ? (item[f] as number).toLocaleString('ru-RU') : '—'}</span>
                               }
                             </td>
                           ))}
                           <td style={{ padding: '9px 14px', width: 120 }}>
                             {editItem?.id === item.id
                               ? <div style={{ display: 'flex', gap: 4 }}>
-                                  <button onClick={() => handleSave(editItem)} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', fontWeight: 600 }}>✓</button>
-                                  <button onClick={() => setEditItem(null)} style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                                  <button onClick={() => handleSave(editItem)} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', fontWeight: 600 }}>✓</button>
+                                  <button onClick={() => setEditItem(null)} style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 13 }}>✕</button>
                                 </div>
                               : <div style={{ display: 'flex', gap: 4 }}>
-                                  <button onClick={() => setEditItem({ ...item })} style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 12 }}>✏️</button>
-                                  <button onClick={() => handleDelete(item.id)} style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #faeaea', background: '#fff', cursor: 'pointer', fontSize: 12 }}>🗑</button>
+                                  <button onClick={() => setEditItem({ ...item })} style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 13 }}>✏️</button>
+                                  <button onClick={() => handleDelete(item.id)} style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #faeaea', background: '#fff', cursor: 'pointer', fontSize: 13 }}>🗑</button>
                                 </div>
                             }
                           </td>
@@ -392,8 +392,8 @@ export default function NomenclatureScreen() {
               )}
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
-              <button onClick={() => setShowAdd(false)} style={{ padding: '9px 18px', borderRadius: 8, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13, fontFamily: 'inherit' }}>Отмена</button>
-              <button onClick={handleCreate} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit' }}>Добавить →</button>
+              <button onClick={() => setShowAdd(false)} style={{ padding: '9px 18px', borderRadius: 8, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14, fontFamily: 'inherit' }}>Отмена</button>
+              <button onClick={handleCreate} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>Добавить →</button>
             </div>
           </div>
         </div>

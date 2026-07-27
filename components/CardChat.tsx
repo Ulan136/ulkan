@@ -87,21 +87,21 @@ export default function CardChat({ cardId, myId, height = 300, onCount }: {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height }}>
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '4px 2px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {!loaded ? <div style={{ color: '#8a847c', fontSize: 13, textAlign: 'center', padding: 20 }}>Загрузка…</div>
-          : denied ? <div style={{ color: '#b03020', fontSize: 13, textAlign: 'center', padding: 20 }}>🔒 Чат доступен только участникам заказа</div>
-          : error ? <div style={{ color: '#b03020', fontSize: 13, textAlign: 'center', padding: 20 }}>{error}</div>
-          : msgs.length === 0 ? <div style={{ color: '#8a847c', fontSize: 13, textAlign: 'center', padding: 20 }}>Сообщений пока нет. Напишите первым.</div>
+        {!loaded ? <div style={{ color: '#5f5952', fontSize: 14, textAlign: 'center', padding: 20 }}>Загрузка…</div>
+          : denied ? <div style={{ color: '#b03020', fontSize: 14, textAlign: 'center', padding: 20 }}>🔒 Чат доступен только участникам заказа</div>
+          : error ? <div style={{ color: '#b03020', fontSize: 14, textAlign: 'center', padding: 20 }}>{error}</div>
+          : msgs.length === 0 ? <div style={{ color: '#5f5952', fontSize: 14, textAlign: 'center', padding: 20 }}>Сообщений пока нет. Напишите первым.</div>
           : msgs.map(m => {
             const mine = m.userId === myId
             const rs = ROLE_STYLE[m.role] || { bg: '#efece8', color: '#6b655b' }
             return (
               <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-end' : 'flex-start' }}>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 3, flexDirection: mine ? 'row-reverse' : 'row' }}>
-                  <span style={{ fontSize: 12, fontWeight: 600 }}>{m.userName}</span>
-                  <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: rs.bg, color: rs.color }}>{ROLE_LABEL[m.role] || m.role}</span>
-                  <span style={{ fontSize: 10, color: '#a39c92' }}>{fmtTime(m.createdAt)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{m.userName}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: rs.bg, color: rs.color }}>{ROLE_LABEL[m.role] || m.role}</span>
+                  <span style={{ fontSize: 12, color: '#6b645b' }}>{fmtTime(m.createdAt)}</span>
                 </div>
-                <div style={{ maxWidth: '85%', padding: '7px 11px', borderRadius: 12, fontSize: 13, lineHeight: 1.4, whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: mine ? PRIMARY : '#f1efec', color: mine ? '#fff' : '#26231f' }}>{m.text}</div>
+                <div style={{ maxWidth: '85%', padding: '7px 11px', borderRadius: 12, fontSize: 14, lineHeight: 1.4, whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: mine ? PRIMARY : '#f1efec', color: mine ? '#fff' : '#26231f' }}>{m.text}</div>
               </div>
             )
           })}
@@ -110,7 +110,7 @@ export default function CardChat({ cardId, myId, height = 300, onCount }: {
         <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', paddingTop: 8, borderTop: '1px solid #f1efec', marginTop: 6 }}>
           <textarea value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey}
             placeholder="Сообщение по заказу..." rows={1}
-            style={{ flex: 1, resize: 'none', padding: '8px 10px', borderRadius: 8, border: '1.5px solid #e6e2dc', fontSize: 13, fontFamily: 'inherit', maxHeight: 90, outline: 'none', boxSizing: 'border-box' }} />
+            style={{ flex: 1, resize: 'none', padding: '8px 10px', borderRadius: 8, border: '1.5px solid #e6e2dc', fontSize: 14, fontFamily: 'inherit', maxHeight: 90, outline: 'none', boxSizing: 'border-box' }} />
           <button onClick={send} disabled={sending || !text.trim()} title="Отправить (Enter)"
             style={{ padding: '9px 14px', borderRadius: 8, border: 'none', background: PRIMARY, color: '#fff', fontWeight: 700, fontSize: 14, cursor: sending || !text.trim() ? 'not-allowed' : 'pointer', opacity: sending || !text.trim() ? 0.5 : 1, fontFamily: 'inherit', flexShrink: 0 }}>➤</button>
         </div>

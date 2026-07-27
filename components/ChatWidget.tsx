@@ -74,7 +74,7 @@ function ChatWidget({ myId, bottomOffset = 24 }: { myId: string; bottomOffset?: 
           style={{ position: 'fixed', right: 18, bottom: bottomOffset, zIndex: 8000, width: 56, height: 56, borderRadius: '50%', border: 'none', background: PRIMARY, color: '#fff', fontSize: 24, cursor: 'pointer', boxShadow: '0 6px 20px rgba(0,0,0,.28)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           💬
           {mounted && newCount > 0 && (
-            <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 20, height: 20, padding: '0 5px', borderRadius: 10, background: '#b03020', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 2px #fff' }}>{newCount}</span>
+            <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 20, height: 20, padding: '0 5px', borderRadius: 10, background: '#b03020', color: '#fff', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 2px #fff' }}>{newCount}</span>
           )}
         </button>
       )}
@@ -91,7 +91,7 @@ function ChatWidget({ myId, bottomOffset = 24 }: { myId: string; bottomOffset?: 
               <div style={{ fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {active ? active.cardId : 'Чаты по заказам'}
               </div>
-              {active && <div style={{ fontSize: 11, color: '#8c857a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{active.from} → {active.to || '—'}</div>}
+              {active && <div style={{ fontSize: 12, color: '#8c857a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{active.from} → {active.to || '—'}</div>}
             </div>
             <button onClick={() => { setOpen(false); setActiveCard(null) }} style={{ background: 'none', border: 'none', color: '#8c857a', fontSize: 20, cursor: 'pointer', padding: 0 }}>✕</button>
           </div>
@@ -105,21 +105,21 @@ function ChatWidget({ myId, bottomOffset = 24 }: { myId: string; bottomOffset?: 
             ) : (
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 {threads.length === 0
-                  ? <div style={{ color: '#8a847c', fontSize: 13, textAlign: 'center', padding: 30 }}>Пока нет чатов по вашим заказам</div>
+                  ? <div style={{ color: '#5f5952', fontSize: 14, textAlign: 'center', padding: 30 }}>Пока нет чатов по вашим заказам</div>
                   : threads.map(t => (
                     <button key={t.cardId} onClick={() => openThread(t.cardId)}
                       style={{ width: '100%', textAlign: 'left', border: 'none', borderBottom: '1px solid #f1efec', background: '#fff', padding: '11px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start', fontFamily: 'inherit' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 2 }}>
-                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: PRIMARY }}>{t.cardId}</span>
-                          <span style={{ fontSize: 10, color: '#a39c92' }}>{fmtWhen(t.lastAt)}</span>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: PRIMARY }}>{t.cardId}</span>
+                          <span style={{ fontSize: 12, color: '#6b645b' }}>{fmtWhen(t.lastAt)}</span>
                           {isNew(t) && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#b03020', flexShrink: 0 }} />}
                         </div>
-                        <div style={{ fontSize: 12, color: '#26231f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          <span style={{ color: '#8a847c' }}>{t.lastAuthor}:</span> {t.lastText}
+                        <div style={{ fontSize: 13, color: '#26231f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ color: '#5f5952' }}>{t.lastAuthor}:</span> {t.lastText}
                         </div>
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: '#8a847c', background: '#f1efec', borderRadius: 10, padding: '1px 7px', flexShrink: 0 }}>{t.count}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#5f5952', background: '#f1efec', borderRadius: 10, padding: '1px 7px', flexShrink: 0 }}>{t.count}</span>
                     </button>
                   ))}
               </div>

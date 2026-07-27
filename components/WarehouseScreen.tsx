@@ -49,9 +49,9 @@ function TypeBadge({ type }: { type: string }) {
     reserve: { label: 'Резерв',  bg: '#eef2ff', color: '#4a5aaa', icon: '🔒' },
     expense: { label: 'Расход',  bg: '#faeaea', color: '#b03020', icon: '📤' },
   }
-  const s = map[type] || { label: type, bg: '#f1efec', color: '#8a847c', icon: '•' }
+  const s = map[type] || { label: type, bg: '#f1efec', color: '#5f5952', icon: '•' }
   return (
-    <span style={{ fontSize: 11, fontWeight: 600, background: s.bg, color: s.color, padding: '2px 8px', borderRadius: 20, display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+    <span style={{ fontSize: 12, fontWeight: 600, background: s.bg, color: s.color, padding: '2px 8px', borderRadius: 20, display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
       {s.icon} {s.label}
     </span>
   )
@@ -99,17 +99,17 @@ function IncomeModal({ items, onClose, onSubmit }: {
     onClose()
   }
 
-  const INP: React.CSSProperties = { width: '100%', padding: '9px 13px', borderRadius: 7, fontSize: 13, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit' }
+  const INP: React.CSSProperties = { width: '100%', padding: '9px 13px', borderRadius: 7, fontSize: 14, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit' }
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 440 }}>
         <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 6 }}>📥 Приход на склад</div>
-        <div style={{ fontSize: 13, color: '#8a847c', marginBottom: 20 }}>Центр Склад · ручной приход</div>
+        <div style={{ fontSize: 14, color: '#5f5952', marginBottom: 20 }}>Центр Склад · ручной приход</div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 700, color: '#8a847c', marginBottom: 4, display: 'block', letterSpacing: '.04em' }}>НОМЕНКЛАТУРА</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#5f5952', marginBottom: 4, display: 'block', letterSpacing: '.04em' }}>НОМЕНКЛАТУРА</label>
             <select style={INP} value={selId} onChange={e => { setSelId(e.target.value); setCustomName('') }}>
               <option value="">— выбрать из номенклатуры —</option>
               {items.map(i => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
@@ -117,25 +117,25 @@ function IncomeModal({ items, onClose, onSubmit }: {
           </div>
           {!selId && (
             <div>
-              <label style={{ fontSize: 11, fontWeight: 700, color: '#8a847c', marginBottom: 4, display: 'block', letterSpacing: '.04em' }}>ИЛИ ВВЕДИТЕ ВРУЧНУЮ</label>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#5f5952', marginBottom: 4, display: 'block', letterSpacing: '.04em' }}>ИЛИ ВВЕДИТЕ ВРУЧНУЮ</label>
               <input style={INP} value={customName} onChange={e => setCustomName(e.target.value)} placeholder="Название товара..." />
             </div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
             <div>
-              <label style={{ fontSize: 11, fontWeight: 700, color: '#8a847c', marginBottom: 4, display: 'block', letterSpacing: '.04em' }}>КОЛИЧЕСТВО *</label>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#5f5952', marginBottom: 4, display: 'block', letterSpacing: '.04em' }}>КОЛИЧЕСТВО *</label>
               <input style={INP} type="number" value={qty} onChange={e => setQty(e.target.value)} placeholder="0" min="0.01" step="0.01" />
             </div>
             <div>
-              <label style={{ fontSize: 11, fontWeight: 700, color: '#8a847c', marginBottom: 4, display: 'block', letterSpacing: '.04em' }}>ЕД.</label>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#5f5952', marginBottom: 4, display: 'block', letterSpacing: '.04em' }}>ЕД.</label>
               <input style={INP} value={unit} onChange={e => setUnit(e.target.value)} placeholder="шт" />
             </div>
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 8, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13, fontFamily: 'inherit' }}>Отмена</button>
-          <button onClick={handle} disabled={loading || (!selId && !customName) || !qty} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit', opacity: loading ? .6 : 1 }}>
+          <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 8, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14, fontFamily: 'inherit' }}>Отмена</button>
+          <button onClick={handle} disabled={loading || (!selId && !customName) || !qty} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit', opacity: loading ? .6 : 1 }}>
             {loading ? 'Добавляю...' : '+ Добавить на склад'}
           </button>
         </div>
@@ -200,10 +200,10 @@ export default function WarehouseScreen({ onOpenCard }: Props) {
   const expenseCount = movements.filter(m => m.type === 'expense').length
 
   const pilBtn = (active: boolean): React.CSSProperties => ({
-    padding: '5px 12px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 12,
+    padding: '5px 12px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 13,
     cursor: 'pointer', fontFamily: 'inherit',
     background: active ? COLORS.primary : '#fff',
-    color: active ? '#fff' : '#8a847c',
+    color: active ? '#fff' : '#5f5952',
     boxShadow: '0 0 0 1.5px #e6e2dc',
   })
 
@@ -223,11 +223,11 @@ export default function WarehouseScreen({ onOpenCard }: Props) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 20 }}>🏭 Центр Склад</div>
-          <div style={{ fontSize: 12, color: '#8a847c', marginTop: 2 }}>Остатки и движение товаров</div>
+          <div style={{ fontSize: 13, color: '#5f5952', marginTop: 2 }}>Остатки и движение товаров</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={load} style={{ padding: '7px 14px', borderRadius: 8, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>⟳ Обновить</button>
-          <button onClick={() => setShowIncome(true)} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit' }}>
+          <button onClick={load} style={{ padding: '7px 14px', borderRadius: 8, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>⟳ Обновить</button>
+          <button onClick={() => setShowIncome(true)} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700, fontFamily: 'inherit' }}>
             + Приход
           </button>
         </div>
@@ -242,9 +242,9 @@ export default function WarehouseScreen({ onOpenCard }: Props) {
           { label: 'Расходов', val: expenseCount, sub: 'операций всего', color: '#b03020', bg: '#faeaea' },
         ].map(({ label, val, sub, color, bg }) => (
           <div key={label} style={{ background: bg, borderRadius: 12, padding: '16px 18px', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#8a847c', marginBottom: 4, letterSpacing: '.04em' }}>{label.toUpperCase()}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#5f5952', marginBottom: 4, letterSpacing: '.04em' }}>{label.toUpperCase()}</div>
             <div style={{ fontWeight: 700, fontSize: 28, color, lineHeight: 1 }}>{loading ? '—' : val}</div>
-            <div style={{ fontSize: 11, color: '#8a847c', marginTop: 4 }}>{sub}</div>
+            <div style={{ fontSize: 12, color: '#5f5952', marginTop: 4 }}>{sub}</div>
           </div>
         ))}
       </div>
@@ -257,7 +257,7 @@ export default function WarehouseScreen({ onOpenCard }: Props) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div style={{ fontWeight: 700, fontSize: 15 }}>Остатки</div>
             <input
-              style={{ padding: '6px 12px', borderRadius: 20, border: '1.5px solid #e6e2dc', fontSize: 12, outline: 'none', fontFamily: 'inherit', width: 200 }}
+              style={{ padding: '6px 12px', borderRadius: 20, border: '1.5px solid #e6e2dc', fontSize: 13, outline: 'none', fontFamily: 'inherit', width: 200 }}
               placeholder="🔍 Поиск..."
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -265,9 +265,9 @@ export default function WarehouseScreen({ onOpenCard }: Props) {
           </div>
 
           {loading
-            ? <div style={{ color: '#8a847c', fontSize: 13, padding: '20px 0' }}>Загрузка...</div>
+            ? <div style={{ color: '#5f5952', fontSize: 14, padding: '20px 0' }}>Загрузка...</div>
             : filteredStock.length === 0
-            ? <div style={{ color: '#8a847c', fontSize: 13, padding: '20px 0' }}>
+            ? <div style={{ color: '#5f5952', fontSize: 14, padding: '20px 0' }}>
                 {search ? 'Ничего не найдено' : 'На складе пусто'}
               </div>
             : (
@@ -276,7 +276,7 @@ export default function WarehouseScreen({ onOpenCard }: Props) {
                   <thead>
                     <tr style={{ background: '#f8f6f3' }}>
                       {['НОМЕНКЛАТУРА', 'ЕД.', 'НА СКЛАДЕ', 'РЕЗЕРВ', 'ДОСТУПНО'].map(h => (
-                        <th key={h} style={{ padding: '10px 14px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: h === 'НОМЕНКЛАТУРА' ? 'left' : 'center', letterSpacing: '.04em' }}>{h}</th>
+                        <th key={h} style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: h === 'НОМЕНКЛАТУРА' ? 'left' : 'center', letterSpacing: '.04em' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -290,24 +290,24 @@ export default function WarehouseScreen({ onOpenCard }: Props) {
                       return (
                         <tr key={s.id} style={{ borderTop: i > 0 ? '1px solid #f1efec' : 'none', background: isCrit ? '#fff5f5' : isLow ? '#fffbf0' : '#fff' }}>
                           <td style={{ padding: '12px 14px' }}>
-                            <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
-                            {s.nomenclature?.cat && <div style={{ fontSize: 11, color: '#8a847c' }}>{s.nomenclature.cat}</div>}
+                            <div style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</div>
+                            {s.nomenclature?.cat && <div style={{ fontSize: 12, color: '#5f5952' }}>{s.nomenclature.cat}</div>}
                             <Bar pct={availPct} color={availPct >= 50 ? '#3a9d6e' : availPct > 0 ? '#c4a832' : '#d4613a'} />
                           </td>
-                          <td style={{ padding: '12px 14px', textAlign: 'center', fontSize: 12, color: '#8a847c' }}>{s.unit}</td>
+                          <td style={{ padding: '12px 14px', textAlign: 'center', fontSize: 13, color: '#5f5952' }}>{s.unit}</td>
                           <td style={{ padding: '12px 14px', textAlign: 'center', fontSize: 14, fontWeight: 700 }}>{s.qty}</td>
                           <td style={{ padding: '12px 14px', textAlign: 'center' }}>
                             {s.reserved > 0
-                              ? <span style={{ fontSize: 12, fontWeight: 600, background: '#eef2ff', color: '#4a5aaa', padding: '2px 8px', borderRadius: 20 }}>🔒 {s.reserved}</span>
-                              : <span style={{ fontSize: 12, color: '#b8b1a6' }}>—</span>
+                              ? <span style={{ fontSize: 13, fontWeight: 600, background: '#eef2ff', color: '#4a5aaa', padding: '2px 8px', borderRadius: 20 }}>🔒 {s.reserved}</span>
+                              : <span style={{ fontSize: 13, color: '#837c72' }}>—</span>
                             }
                           </td>
                           <td style={{ padding: '12px 14px', textAlign: 'center' }}>
                             <span style={{ fontSize: 14, fontWeight: 700, color: available === 0 ? '#b03020' : available < s.qty * 0.2 ? '#c4a832' : '#2e8a5e' }}>
                               {available}
                             </span>
-                            {isLow && <div style={{ fontSize: 10, color: '#b03020', fontWeight: 600 }}>всё резерв</div>}
-                            {isCrit && <div style={{ fontSize: 10, color: '#b03020', fontWeight: 600 }}>нет на складе</div>}
+                            {isLow && <div style={{ fontSize: 12, color: '#b03020', fontWeight: 600 }}>всё резерв</div>}
+                            {isCrit && <div style={{ fontSize: 12, color: '#b03020', fontWeight: 600 }}>нет на складе</div>}
                           </td>
                         </tr>
                       )
@@ -317,7 +317,7 @@ export default function WarehouseScreen({ onOpenCard }: Props) {
 
                 {/* Итого строка */}
                 {filteredStock.length > 0 && (
-                  <div style={{ padding: '10px 14px', background: '#f8f6f3', borderTop: '1px solid #e6e2dc', display: 'flex', gap: 20, fontSize: 12, color: '#8a847c' }}>
+                  <div style={{ padding: '10px 14px', background: '#f8f6f3', borderTop: '1px solid #e6e2dc', display: 'flex', gap: 20, fontSize: 13, color: '#5f5952' }}>
                     <span>Итого позиций: <b style={{ color: '#26231f' }}>{filteredStock.length}</b></span>
                     <span>Всего в резерве: <b style={{ color: '#4a5aaa' }}>{filteredStock.reduce((s, i) => s + i.reserved, 0)}</b></span>
                     <span>Доступно товаров: <b style={{ color: '#2e8a5e' }}>{filteredStock.reduce((s, i) => s + Math.max(0, i.qty - i.reserved), 0)}</b></span>
@@ -347,29 +347,29 @@ export default function WarehouseScreen({ onOpenCard }: Props) {
           {/* Список движений */}
           <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 0 0 1.5px #e6e2dc', overflow: 'hidden', maxHeight: 'calc(100vh - 340px)', overflowY: 'auto' }}>
             {loading
-              ? <div style={{ padding: '20px', color: '#8a847c', fontSize: 13 }}>Загрузка...</div>
+              ? <div style={{ padding: '20px', color: '#5f5952', fontSize: 14 }}>Загрузка...</div>
               : filteredMovements.length === 0
-              ? <div style={{ padding: '20px', color: '#8a847c', fontSize: 13, textAlign: 'center' }}>Нет движений</div>
+              ? <div style={{ padding: '20px', color: '#5f5952', fontSize: 14, textAlign: 'center' }}>Нет движений</div>
               : filteredMovements.map((m, i) => (
                 <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < filteredMovements.length - 1 ? '1px solid #f1efec' : 'none' }}>
                   <TypeBadge type={m.type} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
+                    <div style={{ fontSize: 14, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
                     {m.cardId && (
                       <button
                         onClick={() => onOpenCard?.(m.cardId!)}
-                        style={{ fontSize: 11, color: COLORS.primary, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontWeight: 600 }}
+                        style={{ fontSize: 12, color: COLORS.primary, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontWeight: 600 }}
                       >
                         {m.cardId} →
                       </button>
                     )}
-                    {!m.cardId && <div style={{ fontSize: 11, color: '#b8b1a6' }}>ручной приход</div>}
+                    {!m.cardId && <div style={{ fontSize: 12, color: '#837c72' }}>ручной приход</div>}
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: m.type === 'income' ? '#2e8a5e' : m.type === 'reserve' ? '#4a5aaa' : '#b03020' }}>
                       {fmtQty(m.type, m.qty)} {m.unit}
                     </div>
-                    <div style={{ fontSize: 10, color: '#8a847c' }}>{fmtTime(m.createdAt)}</div>
+                    <div style={{ fontSize: 12, color: '#5f5952' }}>{fmtTime(m.createdAt)}</div>
                   </div>
                 </div>
               ))

@@ -49,11 +49,11 @@ export default function InstallPrompt() {
     }}>
       <div style={{ width: 40, height: 40, background: '#d4613a', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 18, flexShrink: 0 }}>U</div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>Установить U-Kan</div>
-        <div style={{ color: '#8c857a', fontSize: 11 }}>Быстрый доступ с экрана телефона</div>
+        <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>Установить U-Kan</div>
+        <div style={{ color: '#8c857a', fontSize: 12 }}>Быстрый доступ с экрана телефона</div>
       </div>
       <button onClick={handleDismiss} style={{ background: 'none', border: 'none', color: '#8c857a', fontSize: 18, cursor: 'pointer', padding: 4, flexShrink: 0 }}>✕</button>
-      <button onClick={handleInstall} style={{ background: '#d4613a', border: 'none', color: '#fff', fontWeight: 700, fontSize: 12, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+      <button onClick={handleInstall} style={{ background: '#d4613a', border: 'none', color: '#fff', fontWeight: 700, fontSize: 13, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
         Установить
       </button>
     </div>

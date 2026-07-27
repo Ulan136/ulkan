@@ -58,7 +58,7 @@ function UnifiedSelect({ value, onChange, placeholder = '— выберите �
   const sp = show('supplier_client') ? allUsers.filter((u: any) => u.role === 'supplier_client' && u.active !== false) : []
   const cl = show('client') ? allUsers.filter((u: any) => u.role === 'client' && u.active !== false) : []
   const br = show('branch') ? allUsers.filter((u: any) => u.role === 'branch' && u.active !== false) : []
-  const INP2: React.CSSProperties = { padding: '9px 12px', borderRadius: 8, fontSize: 13, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', width: '100%' }
+  const INP2: React.CSSProperties = { padding: '9px 12px', borderRadius: 8, fontSize: 14, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', width: '100%' }
   return (
     <select style={{ ...INP2, ...st }} value={value} onChange={e => onChange(e.target.value)}>
       <option value="">{placeholder}</option>
@@ -86,8 +86,8 @@ function Btn({ children, onClick, variant = 'default', size = 'md', disabled = f
   return <button style={base} onClick={onClick} disabled={disabled}>{children}</button>
 }
 
-const INP: React.CSSProperties = { width: '100%', padding: '9px 13px', borderRadius: 7, fontSize: 13, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', color: '#26231f' }
-const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: '#8a847c', marginBottom: 4, display: 'block', letterSpacing: '.04em' }
+const INP: React.CSSProperties = { width: '100%', padding: '9px 13px', borderRadius: 7, fontSize: 14, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', color: '#26231f' }
+const LBL: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#5f5952', marginBottom: 4, display: 'block', letterSpacing: '.04em' }
 
 // ─── Модалка деталей карточки ────────────────────────────────────────────────
 
@@ -150,10 +150,10 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 15, color: COLORS.primary }}>{order.id}</span>
           <StatusBadge status={order.status} />
           <SourceBadge source={order.source} />
-          <span style={{ fontSize: 11, color: '#8a847c', marginLeft: 4 }}>{fmtDate(order.createdAt)}</span>
+          <span style={{ fontSize: 12, color: '#5f5952', marginLeft: 4 }}>{fmtDate(order.createdAt)}</span>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-            {order.isChanged && <span style={{ fontSize: 11, background: '#fff0ea', color: '#c0532a', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>⚡ ИЗМЕНЕНИЕ</span>}
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8a847c', fontSize: 20, lineHeight: 1 }}>×</button>
+            {order.isChanged && <span style={{ fontSize: 12, background: '#fff0ea', color: '#c0532a', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>⚡ ИЗМЕНЕНИЕ</span>}
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5f5952', fontSize: 20, lineHeight: 1 }}>×</button>
           </div>
         </div>
 
@@ -163,17 +163,17 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{order.from} → <span style={{ color: COLORS.primary }}>{order.to || '—'}</span></div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
               <ProgressBar pct={pct} height={6} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: barColor(pct), flexShrink: 0 }}>{pct}%</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: barColor(pct), flexShrink: 0 }}>{pct}%</span>
             </div>
-            {order.deadline && <div style={{ fontSize: 12, color: '#8a847c' }}>Срок: {fmtDate(order.deadline)}</div>}
+            {order.deadline && <div style={{ fontSize: 13, color: '#5f5952' }}>Срок: {fmtDate(order.deadline)}</div>}
           </div>
 
           {/* Изменение от клиента */}
           {order.isChanged && (
             <div style={{ background: '#fff0ea', borderRadius: 10, padding: 14, marginBottom: 16, border: '1.5px solid #f3c8b0' }}>
-              <div style={{ fontWeight: 600, fontSize: 13, color: '#c0532a', marginBottom: 6 }}>⚡ Изменение от клиента</div>
-              <div style={{ fontSize: 13, marginBottom: 6 }}>{order.changeText}</div>
-              <div style={{ fontSize: 12, color: '#8a847c', marginBottom: 10 }}>Телефон: {order.changePhone}</div>
+              <div style={{ fontWeight: 600, fontSize: 14, color: '#c0532a', marginBottom: 6 }}>⚡ Изменение от клиента</div>
+              <div style={{ fontSize: 14, marginBottom: 6 }}>{order.changeText}</div>
+              <div style={{ fontSize: 13, color: '#5f5952', marginBottom: 10 }}>Телефон: {order.changePhone}</div>
               <Btn size="sm" variant="primary" onClick={() => handleStatusChange(order.id, 'confirmChg')}>Подтвердить</Btn>
             </div>
           )}
@@ -245,7 +245,7 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
           {/* Вкладки */}
           <div style={{ display: 'flex', gap: 4, marginBottom: tab ? 14 : 0 }}>
             {(['positions', 'history', 'chat'] as const).map(t => (
-              <button key={t} onClick={() => setTab(prev => prev === t ? null : t)} style={{ padding: '6px 14px', borderRadius: 7, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: tab === t ? COLORS.primary : '#f1efec', color: tab === t ? '#fff' : '#8a847c' }}>
+              <button key={t} onClick={() => setTab(prev => prev === t ? null : t)} style={{ padding: '6px 14px', borderRadius: 7, border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', background: tab === t ? COLORS.primary : '#f1efec', color: tab === t ? '#fff' : '#5f5952' }}>
                 {t === 'positions' ? `Позиции (${order.positions.length})` : t === 'history' ? 'История' : `💬 Чат${msgCount > 0 ? ` (${msgCount})` : ''}`}
                 {tab === t ? ' ▲' : ' ▼'}
               </button>
@@ -256,13 +256,13 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
           {tab === 'positions' && (
             <div>
               {order.positions.length === 0 && !addPos && (
-                <div style={{ color: '#8a847c', fontSize: 13, marginBottom: 12, padding: '10px 0', fontStyle: 'italic' }}>
+                <div style={{ color: '#5f5952', fontSize: 14, marginBottom: 12, padding: '10px 0', fontStyle: 'italic' }}>
                   Позиции не сформированы {order.comment ? '— заявка из комментария' : ''}
                 </div>
               )}
               {order.comment && order.positions.length === 0 && (
-                <div style={{ background: '#f1efec', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 13 }}>
-                  <div style={{ fontWeight: 600, fontSize: 11, color: '#8a847c', marginBottom: 4 }}>КОММЕНТАРИЙ</div>
+                <div style={{ background: '#f1efec', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 14 }}>
+                  <div style={{ fontWeight: 600, fontSize: 12, color: '#5f5952', marginBottom: 4 }}>КОММЕНТАРИЙ</div>
                   {order.comment}
                 </div>
               )}
@@ -271,47 +271,47 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
                   <thead>
                     <tr style={{ background: '#f8f6f3' }}>
-                      <th style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>№</th>
-                      <th style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>НАИМЕНОВАНИЕ</th>
-                      <th style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'right' }}>КОЛ-ВО</th>
-                      <th style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>СТАТУС</th>
-                      {canEditMoney && <th style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'right' }}>ЦЕНА</th>}
-                      {order.screen === 'bookkeeping' && <th style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'right' }}>СУММА</th>}
+                      <th style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left' }}>№</th>
+                      <th style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left' }}>НАИМЕНОВАНИЕ</th>
+                      <th style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'right' }}>КОЛ-ВО</th>
+                      <th style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left' }}>СТАТУС</th>
+                      {canEditMoney && <th style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'right' }}>ЦЕНА</th>}
+                      {order.screen === 'bookkeeping' && <th style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'right' }}>СУММА</th>}
                       {canEditMoney && <th style={{ padding: '7px 10px' }} />}
                     </tr>
                   </thead>
                   <tbody>
                     {order.positions.map((p, i) => {
                       const editing = canEditMoney && editPos === p.id
-                      const moneyInp: React.CSSProperties = { width: 74, padding: '4px 6px', borderRadius: 6, border: '1.5px solid #e6e2dc', fontSize: 12, textAlign: 'right', fontFamily: 'inherit' }
+                      const moneyInp: React.CSSProperties = { width: 74, padding: '4px 6px', borderRadius: 6, border: '1.5px solid #e6e2dc', fontSize: 13, textAlign: 'right', fontFamily: 'inherit' }
                       return (
                       <tr key={p.id} style={{ borderTop: '1px solid #f1efec' }}>
-                        <td style={{ padding: '8px 10px', fontSize: 12, color: '#8a847c' }}>{i + 1}</td>
+                        <td style={{ padding: '8px 10px', fontSize: 13, color: '#5f5952' }}>{i + 1}</td>
                         <td style={{ padding: '8px 10px' }}>
-                          <div style={{ fontWeight: 500, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}><RalDot code={extractRal(p.name1c || p.oral)} size={13} />{p.name1c || p.oral || '—'}</div>
-                          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#a39c92' }}>{p.id}</div>
-                          {p.oral && p.name1c && <div style={{ fontSize: 11, color: '#8a847c' }}>{p.oral}</div>}
-                          {p.resp && <div style={{ fontSize: 11, color: '#8a847c' }}>Логист: {p.resp}</div>}
-                          {p.supplier && <div style={{ fontSize: 11, color: '#8a847c' }}>Поставщик: {p.supplier}</div>}
+                          <div style={{ fontWeight: 500, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}><RalDot code={extractRal(p.name1c || p.oral)} size={13} />{p.name1c || p.oral || '—'}</div>
+                          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#6b645b' }}>{p.id}</div>
+                          {p.oral && p.name1c && <div style={{ fontSize: 12, color: '#5f5952' }}>{p.oral}</div>}
+                          {p.resp && <div style={{ fontSize: 12, color: '#5f5952' }}>Логист: {p.resp}</div>}
+                          {p.supplier && <div style={{ fontSize: 12, color: '#5f5952' }}>Поставщик: {p.supplier}</div>}
                         </td>
-                        <td style={{ padding: '8px 10px', fontSize: 13, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '8px 10px', fontSize: 14, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }}>
                           {editing
                             ? <input type="number" inputMode="decimal" value={priceEdit.qty} onChange={e => setPriceEdit(v => ({ ...v, qty: e.target.value }))} style={moneyInp} />
-                            : (p.qty > 0 ? `${p.qty} ${p.unit}` : <span style={{ color: '#8a847c' }}>—</span>)}
+                            : (p.qty > 0 ? `${p.qty} ${p.unit}` : <span style={{ color: '#5f5952' }}>—</span>)}
                         </td>
                         <td style={{ padding: '8px 10px' }}>
                           <StatusBadge status={p.status} />
-                          {p.late && <span style={{ fontSize: 10, background: '#faeaea', color: '#b03020', padding: '1px 5px', borderRadius: 20, fontWeight: 600, marginLeft: 4 }}>!</span>}
+                          {p.late && <span style={{ fontSize: 12, background: '#faeaea', color: '#b03020', padding: '1px 5px', borderRadius: 20, fontWeight: 600, marginLeft: 4 }}>!</span>}
                         </td>
                         {canEditMoney && (
-                          <td style={{ padding: '8px 10px', fontSize: 13, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <td style={{ padding: '8px 10px', fontSize: 14, textAlign: 'right', whiteSpace: 'nowrap' }}>
                             {editing
                               ? <input type="number" inputMode="decimal" value={priceEdit.price} onChange={e => setPriceEdit(v => ({ ...v, price: e.target.value }))} style={moneyInp} />
-                              : (p.price > 0 ? fmtMoney(p.price) : <span style={{ color: '#8a847c' }}>—</span>)}
+                              : (p.price > 0 ? fmtMoney(p.price) : <span style={{ color: '#5f5952' }}>—</span>)}
                           </td>
                         )}
                         {order.screen === 'bookkeeping' && (
-                          <td style={{ padding: '8px 10px', fontSize: 13, fontWeight: 600, textAlign: 'right', color: COLORS.primary }}>
+                          <td style={{ padding: '8px 10px', fontSize: 14, fontWeight: 600, textAlign: 'right', color: COLORS.primary }}>
                             {p.price > 0 ? fmtMoney(p.qty * p.price) : '—'}
                           </td>
                         )}
@@ -319,11 +319,11 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
                           <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', textAlign: 'right' }}>
                             {editing ? (
                               <span style={{ display: 'inline-flex', gap: 4 }}>
-                                <button onClick={() => saveMoneyEdit(p.id)} style={{ padding: '4px 8px', borderRadius: 6, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>✓</button>
-                                <button onClick={() => setEditPos(null)} style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', color: '#8a847c' }}>×</button>
+                                <button onClick={() => saveMoneyEdit(p.id)} style={{ padding: '4px 8px', borderRadius: 6, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>✓</button>
+                                <button onClick={() => setEditPos(null)} style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', color: '#5f5952' }}>×</button>
                               </span>
                             ) : (
-                              <button onClick={() => startMoneyEdit(p)} style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', color: '#8a847c' }}>✎ цена</button>
+                              <button onClick={() => startMoneyEdit(p)} style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', color: '#5f5952' }}>✎ цена</button>
                             )}
                           </td>
                         )}
@@ -336,7 +336,7 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
               {/* Сумма — только в бухгалтерии */}
               {order.screen === 'bookkeeping' && sum > 0 && (
                 <div style={{ background: '#fff8f5', border: '1.5px solid #f3c8b0', borderRadius: 10, padding: '12px 16px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 600, fontSize: 13 }}>Сумма заказа</span>
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>Сумма заказа</span>
                   <span style={{ fontWeight: 700, fontSize: 16, color: COLORS.primary }}>{fmtMoney(sum)}</span>
                 </div>
               )}
@@ -344,7 +344,7 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
               {/* Добавить позицию */}
               {addPos ? (
                 <div style={{ border: '1.5px dashed #d4613a', borderRadius: 10, padding: 14, marginBottom: 10 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Новая позиция</div>
+                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>Новая позиция</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
                     {/* НАИМ. 1С — поиск по номенклатуре */}
                     <div>
@@ -396,14 +396,14 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
           {/* История */}
           {tab === 'history' && (
             <div>
-              {history.length === 0 ? <div style={{ color: '#8a847c', fontSize: 13 }}>История пуста</div>
+              {history.length === 0 ? <div style={{ color: '#5f5952', fontSize: 14 }}>История пуста</div>
                 : history.map((h: any, i: number) => (
                   <div key={h.id} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: i < history.length - 1 ? '1px solid #f1efec' : 'none', alignItems: 'flex-start' }}>
                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: i === 0 ? COLORS.primary : '#d8d3cc', marginTop: 6, flexShrink: 0 }} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13 }}>{h.action}</div>
-                      {h.detail && <div style={{ fontSize: 12, color: '#8a847c' }}>{h.detail}</div>}
-                      <div style={{ fontSize: 11, color: '#8a847c' }}>{h.userName} · {fmtDateTime(h.createdAt)}</div>
+                      <div style={{ fontSize: 14 }}>{h.action}</div>
+                      {h.detail && <div style={{ fontSize: 13, color: '#5f5952' }}>{h.detail}</div>}
+                      <div style={{ fontSize: 12, color: '#5f5952' }}>{h.userName} · {fmtDateTime(h.createdAt)}</div>
                     </div>
                   </div>
                 ))
@@ -418,9 +418,9 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
 
           {/* Трекинг */}
           <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f1efec', display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input readOnly value={order.trackingLink} style={{ ...INP, flex: 1, color: '#8a847c', fontSize: 12 }} />
+            <input readOnly value={order.trackingLink} style={{ ...INP, flex: 1, color: '#5f5952', fontSize: 13 }} />
             <Btn size="sm" onClick={() => copy(order.trackingLink)}>{copied ? '✓' : '📋 Ссылка'}</Btn>
-            <a href={order.trackingLink} target="_blank" rel="noreferrer" style={{ ...({ padding: '6px 12px', borderRadius: 7, background: '#f1efec', color: '#26231f', textDecoration: 'none', fontSize: 12, fontWeight: 600 } as React.CSSProperties) }}>Трекинг →</a>
+            <a href={order.trackingLink} target="_blank" rel="noreferrer" style={{ ...({ padding: '6px 12px', borderRadius: 7, background: '#f1efec', color: '#26231f', textDecoration: 'none', fontSize: 13, fontWeight: 600 } as React.CSSProperties) }}>Трекинг →</a>
           </div>
         </div>
       </div>
@@ -435,23 +435,23 @@ function OrderCard({ order, onClick }: { order: Order; onClick: () => void }) {
   return (
     <div onClick={onClick} className="anim-fade" style={{ background: order.cold ? 'rgba(250,248,246,.6)' : '#fff', borderRadius: 12, padding: '14px 16px', boxShadow: '0 0 0 1.5px #e6e2dc', cursor: 'pointer', opacity: order.cold ? .6 : 1, marginBottom: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: COLORS.primary }}>{order.id}</span>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: COLORS.primary }}>{order.id}</span>
         {order.cold && <span>❄️</span>}
         <StatusBadge status={order.status} />
         <SourceBadge source={order.source} />
-        {order.isChanged && <span style={{ fontSize: 10, background: '#fff0ea', color: '#c0532a', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>⚡</span>}
-        {isOverdue(order) && <span style={{ fontSize: 10, background: '#faeaea', color: '#b03020', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>ПРОСРОЧ.</span>}
-        {order.postponed && <span style={{ fontSize: 10, background: '#eef2ff', color: '#4a5aaa', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>ОТЛОЖЕН</span>}
-        <span style={{ marginLeft: 'auto', fontSize: 11, color: '#8a847c' }}>{fmtDate(order.createdAt)}</span>
+        {order.isChanged && <span style={{ fontSize: 12, background: '#fff0ea', color: '#c0532a', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>⚡</span>}
+        {isOverdue(order) && <span style={{ fontSize: 12, background: '#faeaea', color: '#b03020', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>ПРОСРОЧ.</span>}
+        {order.postponed && <span style={{ fontSize: 12, background: '#eef2ff', color: '#4a5aaa', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>ОТЛОЖЕН</span>}
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: '#5f5952' }}>{fmtDate(order.createdAt)}</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: order.positions.length > 0 ? 8 : 0 }}>
-        <span style={{ fontWeight: 600, fontSize: 13, flex: 1 }}>{order.from}</span>
-        {order.to && <span style={{ fontSize: 12, color: '#8a847c' }}>→ {order.to}</span>}
-        <span style={{ fontSize: 13, fontWeight: 700, color: barColor(pct) }}>{pct}%</span>
+        <span style={{ fontWeight: 600, fontSize: 14, flex: 1 }}>{order.from}</span>
+        {order.to && <span style={{ fontSize: 13, color: '#5f5952' }}>→ {order.to}</span>}
+        <span style={{ fontSize: 14, fontWeight: 700, color: barColor(pct) }}>{pct}%</span>
       </div>
       {order.positions.length > 0 && <ProgressBar pct={pct} />}
-      {order.comment && order.positions.length === 0 && <div style={{ fontSize: 12, color: '#8a847c', marginTop: 4 }}>{order.comment.slice(0, 80)}{order.comment.length > 80 ? '...' : ''}</div>}
-      {cardSum(order) > 0 && <div style={{ fontSize: 11, color: '#8a847c', marginTop: 4 }}>{order.positions.length} позиций · {fmtMoney(cardSum(order))}</div>}
+      {order.comment && order.positions.length === 0 && <div style={{ fontSize: 13, color: '#5f5952', marginTop: 4 }}>{order.comment.slice(0, 80)}{order.comment.length > 80 ? '...' : ''}</div>}
+      {cardSum(order) > 0 && <div style={{ fontSize: 12, color: '#5f5952', marginTop: 4 }}>{order.positions.length} позиций · {fmtMoney(cardSum(order))}</div>}
     </div>
   )
 }
@@ -803,8 +803,8 @@ export default function AdminApp({ user }: Props) {
 
   function renderOrders(list: Order[], emptyMsg = 'Нет карточек') {
     const filtered = filterOrders(list)
-    if (loading) return <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
-    if (filtered.length === 0) return <div style={{ textAlign: 'center', padding: 40, color: '#8a847c', fontSize: 14 }}>{search ? 'Ничего не найдено' : emptyMsg}</div>
+    if (loading) return <div style={{ textAlign: 'center', padding: 40, color: '#5f5952' }}>Загрузка...</div>
+    if (filtered.length === 0) return <div style={{ textAlign: 'center', padding: 40, color: '#5f5952', fontSize: 14 }}>{search ? 'Ничего не найдено' : emptyMsg}</div>
     return filtered.map(o => <OrderCard key={o.id} order={o} onClick={() => setSelectedOrder(o)} />)
   }
 
@@ -819,7 +819,7 @@ export default function AdminApp({ user }: Props) {
               <div style={{ fontWeight: 700, fontSize: 20 }}>Дашборд</div>
               <Btn onClick={loadDashboard}>⟳ Обновить</Btn>
             </div>
-            {!dashboard ? <div style={{ color: '#8a847c' }}>Загрузка...</div> : (
+            {!dashboard ? <div style={{ color: '#5f5952' }}>Загрузка...</div> : (
               <>
                 {/* KPI плитки */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
@@ -831,7 +831,7 @@ export default function AdminApp({ user }: Props) {
                     { label: 'Оборот сегодня', val: fmtMoney(dashboard.kpi.turnoverToday), color: '#4a5aaa' },
                   ].map(({ label, val, color }) => (
                     <div key={label} style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
-                      <div style={{ fontSize: 11, color: '#8a847c', fontWeight: 600, marginBottom: 4 }}>{label.toUpperCase()}</div>
+                      <div style={{ fontSize: 12, color: '#5f5952', fontWeight: 600, marginBottom: 4 }}>{label.toUpperCase()}</div>
                       <div style={{ fontWeight: 700, fontSize: 22, color }}>{val}</div>
                     </div>
                   ))}
@@ -850,21 +850,21 @@ export default function AdminApp({ user }: Props) {
                       { label: 'Архив', val: dashboard.flow.archive, screen: 'archive' },
                     ].map(({ label, val, screen: s }) => (
                       <div key={label} onClick={() => setScreen(s as AdminScreen)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', cursor: 'pointer', borderBottom: '1px solid #f1efec' }}>
-                        <span style={{ fontSize: 13 }}>{label}</span>
-                        <span style={{ fontWeight: 700, fontSize: 15, color: val > 0 ? COLORS.primary : '#8a847c' }}>{val}</span>
+                        <span style={{ fontSize: 14 }}>{label}</span>
+                        <span style={{ fontWeight: 700, fontSize: 15, color: val > 0 ? COLORS.primary : '#5f5952' }}>{val}</span>
                       </div>
                     ))}
                   </div>
 
                   <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                     <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>Последние события</div>
-                    {dashboard.activity.length === 0 ? <div style={{ color: '#8a847c', fontSize: 13 }}>Нет данных</div>
+                    {dashboard.activity.length === 0 ? <div style={{ color: '#5f5952', fontSize: 14 }}>Нет данных</div>
                       : dashboard.activity.map((h: any, i: number) => (
                         <div key={i} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: i < dashboard.activity.length - 1 ? '1px solid #f1efec' : 'none', alignItems: 'flex-start' }}>
                           <div style={{ width: 5, height: 5, borderRadius: '50%', background: i === 0 ? COLORS.primary : '#d8d3cc', marginTop: 7, flexShrink: 0 }} />
                           <div>
-                            <div style={{ fontSize: 12 }}>{h.action}</div>
-                            <div style={{ fontSize: 11, color: '#8a847c' }}>{h.userName} · {fmtDateTime(h.createdAt)}</div>
+                            <div style={{ fontSize: 13 }}>{h.action}</div>
+                            <div style={{ fontSize: 12, color: '#5f5952' }}>{h.userName} · {fmtDateTime(h.createdAt)}</div>
                           </div>
                         </div>
                       ))
@@ -876,11 +876,11 @@ export default function AdminApp({ user }: Props) {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
                   <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                     <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>⚡ Внимание</div>
-                    {dashboard.attention.length === 0 ? <div style={{ color: '#8a847c', fontSize: 13 }}>Всё в порядке</div>
+                    {dashboard.attention.length === 0 ? <div style={{ color: '#5f5952', fontSize: 14 }}>Всё в порядке</div>
                       : dashboard.attention.map((a, i) => (
                         <div key={i} onClick={() => setScreen(a.screen as AdminScreen)} style={{ padding: '10px 12px', borderRadius: 8, marginBottom: 8, cursor: 'pointer', background: '#faf8f6', border: `1.5px solid ${a.hue}22` }}>
-                          <div style={{ fontWeight: 600, fontSize: 13, color: a.hue }}>{a.label}</div>
-                          <div style={{ fontSize: 11, color: '#8a847c' }}>{a.sub}</div>
+                          <div style={{ fontWeight: 600, fontSize: 14, color: a.hue }}>{a.label}</div>
+                          <div style={{ fontSize: 12, color: '#5f5952' }}>{a.sub}</div>
                         </div>
                       ))
                     }
@@ -889,25 +889,25 @@ export default function AdminApp({ user }: Props) {
                     <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>Топ клиенты</div>
                     {dashboard.topClients.map((c, i) => (
                       <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #f1efec' }}>
-                        <span style={{ fontSize: 13 }}>{c.name}</span>
+                        <span style={{ fontSize: 14 }}>{c.name}</span>
                         <div>
-                          <span style={{ fontWeight: 600, fontSize: 13 }}>{c.count}</span>
-                          <span style={{ fontSize: 11, color: '#8a847c', marginLeft: 6 }}>{c.pct}%</span>
+                          <span style={{ fontWeight: 600, fontSize: 14 }}>{c.count}</span>
+                          <span style={{ fontSize: 12, color: '#5f5952', marginLeft: 6 }}>{c.pct}%</span>
                         </div>
                       </div>
                     ))}
                   </div>
                   <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                     <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>СпецПроекты</div>
-                    {dashboard.specProjects.length === 0 ? <div style={{ color: '#8a847c', fontSize: 13 }}>Нет активных</div>
+                    {dashboard.specProjects.length === 0 ? <div style={{ color: '#5f5952', fontSize: 14 }}>Нет активных</div>
                       : dashboard.specProjects.map((sp, i) => (
                         <div key={i} style={{ marginBottom: 14 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                            <span style={{ fontSize: 13, fontWeight: 500 }}>{sp.name}</span>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: barColor(sp.pct) }}>{sp.pct}%</span>
+                            <span style={{ fontSize: 14, fontWeight: 500 }}>{sp.name}</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: barColor(sp.pct) }}>{sp.pct}%</span>
                           </div>
                           <ProgressBar pct={sp.pct} />
-                          <div style={{ fontSize: 11, color: '#8a847c', marginTop: 3 }}>{sp.cardCount} карточек</div>
+                          <div style={{ fontSize: 12, color: '#5f5952', marginTop: 3 }}>{sp.cardCount} карточек</div>
                         </div>
                       ))
                     }
@@ -939,14 +939,14 @@ export default function AdminApp({ user }: Props) {
             <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 16 }}>Входящие</div>
             <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
               {(Object.keys(incTabLabels) as IncTab[]).map(t => (
-                <button key={t} onClick={() => setIncTab(t)} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: incTab === t ? COLORS.primary : '#fff', color: incTab === t ? '#fff' : '#8a847c', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
+                <button key={t} onClick={() => setIncTab(t)} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', background: incTab === t ? COLORS.primary : '#fff', color: incTab === t ? '#fff' : '#5f5952', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                   {incTabLabels[t]}
                 </button>
               ))}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {incTabMap[incTab].length === 0
-                ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c', fontSize: 14 }}>
+                ? <div style={{ textAlign: 'center', padding: 40, color: '#5f5952', fontSize: 14 }}>
                     {search ? 'Ничего не найдено' : 'Нет карточек'}
                   </div>
                 : filterOrders(incTabMap[incTab]).map(o => {
@@ -955,12 +955,12 @@ export default function AdminApp({ user }: Props) {
                       <div key={o.id} style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                         {/* Строка 1: мета */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: COLORS.primary }}>{o.id}</span>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: COLORS.primary }}>{o.id}</span>
                           <StatusBadge status={o.status} />
                           <SourceBadge source={o.source} />
-                          {o.isChanged && <span style={{ fontSize: 10, background: '#fff0ea', color: '#c0532a', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>⚡ ИЗМЕНЕНО</span>}
-                          {o.postponed && <span style={{ fontSize: 10, background: '#eef2ff', color: '#4a5aaa', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>ОТЛОЖЕН</span>}
-                          <span style={{ marginLeft: 'auto', fontSize: 11, color: '#8a847c' }}>{fmtDate(o.createdAt)}</span>
+                          {o.isChanged && <span style={{ fontSize: 12, background: '#fff0ea', color: '#c0532a', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>⚡ ИЗМЕНЕНО</span>}
+                          {o.postponed && <span style={{ fontSize: 12, background: '#eef2ff', color: '#4a5aaa', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>ОТЛОЖЕН</span>}
+                          <span style={{ marginLeft: 'auto', fontSize: 12, color: '#5f5952' }}>{fmtDate(o.createdAt)}</span>
                           <button onClick={() => { navigator.clipboard.writeText(o.trackingLink); showToast('Ссылка скопирована!') }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: '2px 4px' }}>📎</button>
                           <Btn size="sm" onClick={() => setSelectedOrder(o)}>Открыть</Btn>
                         </div>
@@ -970,16 +970,16 @@ export default function AdminApp({ user }: Props) {
                         </div>
                         {/* Строка 3: превью комментария */}
                         {o.comment && (
-                          <div style={{ fontSize: 12, color: '#8a847c', marginBottom: 8, lineHeight: 1.5 }}>
+                          <div style={{ fontSize: 13, color: '#5f5952', marginBottom: 8, lineHeight: 1.5 }}>
                             {o.comment.slice(0, 100)}{o.comment.length > 100 ? '...' : ''}
                           </div>
                         )}
                         {/* Блок изменения */}
                         {o.isChanged && (
                           <div style={{ background: '#fff8e1', borderRadius: 8, padding: '8px 12px', marginBottom: 10, border: '1.5px solid #f5e4a0' }}>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: '#8a6f00', marginBottom: 2 }}>Изменение от клиента:</div>
-                            <div style={{ fontSize: 13 }}>{o.changeText}</div>
-                            {o.changePhone && <div style={{ fontSize: 12, color: '#8a847c', marginTop: 2 }}>📞 {o.changePhone}</div>}
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#8a6f00', marginBottom: 2 }}>Изменение от клиента:</div>
+                            <div style={{ fontSize: 14 }}>{o.changeText}</div>
+                            {o.changePhone && <div style={{ fontSize: 13, color: '#5f5952', marginTop: 2 }}>📞 {o.changePhone}</div>}
                           </div>
                         )}
                         {/* Прогресс если есть позиции */}
@@ -989,20 +989,21 @@ export default function AdminApp({ user }: Props) {
                             {/* Шторка позиций: раскрытие прямо в списке, без открытия карточки */}
                             <button
                               onClick={() => toggleIncExpanded(o.id)}
-                              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0 0', fontSize: 11, color: '#8a847c', fontWeight: 600 }}
+                              style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, background: incExpanded.has(o.id) ? '#fff0ea' : '#f6f3f0', border: `1.5px solid ${incExpanded.has(o.id) ? COLORS.primary : '#e6e2dc'}`, borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', padding: '7px 12px', fontSize: 13, color: incExpanded.has(o.id) ? COLORS.primaryDark : '#3a3631', fontWeight: 700, width: '100%' }}
                             >
                               <span style={{ display: 'inline-block', transition: 'transform .15s', transform: incExpanded.has(o.id) ? 'rotate(90deg)' : 'none' }}>▸</span>
-                              {o.positions.length} позиций · {fmtMoney(cardSum(o))}
+                              {incExpanded.has(o.id) ? 'Скрыть позиции' : `Показать позиции (${o.positions.length})`}
+                              <span style={{ marginLeft: 'auto', fontWeight: 600, color: '#5f5952' }}>{fmtMoney(cardSum(o))}</span>
                             </button>
                             {incExpanded.has(o.id) && (
                               <div style={{ marginTop: 6, border: '1px solid #f1efec', borderRadius: 8, overflow: 'hidden' }}>
                                 {o.positions.map((p, pi) => (
-                                  <div key={p.id || pi} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', fontSize: 12, background: pi % 2 ? '#faf9f7' : '#fff', borderTop: pi ? '1px solid #f1efec' : 'none' }}>
+                                  <div key={p.id || pi} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', fontSize: 13, background: pi % 2 ? '#faf9f7' : '#fff', borderTop: pi ? '1px solid #f1efec' : 'none' }}>
                                     <span style={{ flex: 1, fontWeight: 600 }}>
                                       <RalDot code={extractRal(p.name1c || p.oral)} size={12} />
                                       {p.oral || p.name1c || '—'}
                                     </span>
-                                    <span style={{ color: '#8a847c', whiteSpace: 'nowrap' }}>{p.qty} {p.unit}</span>
+                                    <span style={{ color: '#5f5952', whiteSpace: 'nowrap' }}>{p.qty} {p.unit}</span>
                                     <span style={{ whiteSpace: 'nowrap', color: p.price > 0 ? '#211f1c' : '#c0a', minWidth: 66, textAlign: 'right' }}>
                                       {p.price > 0 ? fmtMoney(p.price) : 'нет цены'}
                                     </span>
@@ -1042,7 +1043,7 @@ export default function AdminApp({ user }: Props) {
                           )}
                           {incTab === 'cancelled' && (
                             <>
-                              {o.cancelReason && <span style={{ fontSize: 12, color: '#8a847c' }}>Причина: {o.cancelReason}</span>}
+                              {o.cancelReason && <span style={{ fontSize: 13, color: '#5f5952' }}>Причина: {o.cancelReason}</span>}
                               <Btn size="sm" onClick={() => handleAction(o.id, 'restore')}>↺ Восстановить</Btn>
                             </>
                           )}
@@ -1072,7 +1073,7 @@ export default function AdminApp({ user }: Props) {
         const selectedClient = settings?.users.find(u => u.name === recTo)
         const subUsers = selectedClient ? (settings?.users.filter(u => u.companyId === selectedClient.id) || []) : []
 
-        const inpSm: React.CSSProperties = { padding: '7px 10px', borderRadius: 6, fontSize: 12, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', width: '100%' }
+        const inpSm: React.CSSProperties = { padding: '7px 10px', borderRadius: 6, fontSize: 13, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', width: '100%' }
         const selSm: React.CSSProperties = { ...inpSm, cursor: 'pointer' }
 
         return (
@@ -1088,7 +1089,7 @@ export default function AdminApp({ user }: Props) {
                   { label: 'Изменено', val: recChanged.length, bg: '#faeaea', color: '#b03020' },
                   { label: 'Черновики', val: recDrafts.length, bg: '#efece8', color: '#6b655b' },
                 ].map(({ label, val, bg, color }) => (
-                  <div key={label} style={{ background: bg, color, borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 700 }}>
+                  <div key={label} style={{ background: bg, color, borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 700 }}>
                     {label} {val}
                   </div>
                 ))}
@@ -1111,7 +1112,7 @@ export default function AdminApp({ user }: Props) {
                 style={{ padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: recFormOpen ? '1px solid #f1efec' : 'none' }}
               >
                 <span style={{ fontWeight: 700, fontSize: 15 }}>＋ Создать новый заказ</span>
-                <span style={{ fontSize: 18, color: '#8a847c', transform: recFormOpen ? 'rotate(45deg)' : 'none', transition: 'transform .2s' }}>＋</span>
+                <span style={{ fontSize: 18, color: '#5f5952', transform: recFormOpen ? 'rotate(45deg)' : 'none', transition: 'transform .2s' }}>＋</span>
               </div>
 
               {recFormOpen && (
@@ -1167,13 +1168,13 @@ export default function AdminApp({ user }: Props) {
 
                   {/* Таблица позиций */}
                   <div style={{ marginBottom: 12 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#8a847c', marginBottom: 8, letterSpacing: '.04em' }}>ПОЗИЦИИ</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#5f5952', marginBottom: 8, letterSpacing: '.04em' }}>ПОЗИЦИИ</div>
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
                         <thead>
                           <tr style={{ background: '#f1efec' }}>
                             {['НАИМЕНОВАНИЕ', 'КОЛ-ВО', 'ЕД.', 'ЦЕНА (ТГ)', 'ЛОГИСТ', 'ПОСТАВЩИК', 'СРОК', 'ОПЛАТА', ''].map(h => (
-                              <th key={h} style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                              <th key={h} style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
                           </tr>
                         </thead>
@@ -1190,7 +1191,7 @@ export default function AdminApp({ user }: Props) {
                                     if (name && recTo) fetchPosPrice(name, priceTypeFor(recTo)).then(pr => { if (pr > 0) recUpdatePos(i, 'price', String(pr)) })
                                   }}
                                   placeholder="Поиск 1С..."
-                                  style={{ fontSize: 12, padding: '6px 8px' }}
+                                  style={{ fontSize: 13, padding: '6px 8px' }}
                                 />
                               </td>
                               <td style={{ padding: '6px 4px', width: 70 }}>
@@ -1205,7 +1206,7 @@ export default function AdminApp({ user }: Props) {
                                   <button
                                     title="Оплата"
                                     onClick={() => recTogglePayment(i)}
-                                    style={{ padding: '5px 7px', borderRadius: 6, border: `1.5px solid ${recShowPayment.includes(i) ? COLORS.primary : '#e6e2dc'}`, background: recShowPayment.includes(i) ? '#fff8f5' : '#fff', cursor: 'pointer', fontSize: 13, flexShrink: 0 }}
+                                    style={{ padding: '5px 7px', borderRadius: 6, border: `1.5px solid ${recShowPayment.includes(i) ? COLORS.primary : '#e6e2dc'}`, background: recShowPayment.includes(i) ? '#fff8f5' : '#fff', cursor: 'pointer', fontSize: 14, flexShrink: 0 }}
                                   >💳</button>
                                 </div>
                                 {recShowPayment.includes(i) && (
@@ -1240,7 +1241,7 @@ export default function AdminApp({ user }: Props) {
                               </td>
                               <td style={{ padding: '6px 4px', width: 64 }}>
                                 <div style={{ display: 'flex', gap: 2 }}>
-                                  <button onClick={() => setRecPositions(p => { const copy = { ...p[i] }; const arr = [...p]; arr.splice(i + 1, 0, copy); return arr })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8a847c', fontSize: 15, padding: '2px 4px' }} title="Клонировать">📋</button>
+                                  <button onClick={() => setRecPositions(p => { const copy = { ...p[i] }; const arr = [...p]; arr.splice(i + 1, 0, copy); return arr })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5f5952', fontSize: 15, padding: '2px 4px' }} title="Клонировать">📋</button>
                                   <button onClick={() => recRemovePos(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b03020', fontSize: 15, padding: '2px 4px' }} title="Удалить">🗑</button>
                                 </div>
                               </td>
@@ -1250,13 +1251,13 @@ export default function AdminApp({ user }: Props) {
                       </table>
                     </div>
                     <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
-                      <button onClick={recAddPos} style={{ border: '1.5px dashed #d8d3cc', borderRadius: 7, padding: '6px 16px', background: 'none', cursor: 'pointer', fontSize: 12, color: '#8a847c', fontFamily: 'inherit' }}>
+                      <button onClick={recAddPos} style={{ border: '1.5px dashed #d8d3cc', borderRadius: 7, padding: '6px 16px', background: 'none', cursor: 'pointer', fontSize: 13, color: '#5f5952', fontFamily: 'inherit' }}>
                         ＋ Добавить позицию
                       </button>
-                      <button onClick={() => setRecShowCatalog(true)} style={{ border: 'none', borderRadius: 7, padding: '6px 16px', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>
+                      <button onClick={() => setRecShowCatalog(true)} style={{ border: 'none', borderRadius: 7, padding: '6px 16px', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit' }}>
                         📖 Каталог
                       </button>
-                      <button onClick={() => recTo ? autofillPricesFor(recTo, true) : showToast('Сначала выберите «Кому»')} style={{ border: '1.5px solid #e6c9b8', borderRadius: 7, padding: '6px 16px', background: '#fff8f5', color: '#c0532a', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>
+                      <button onClick={() => recTo ? autofillPricesFor(recTo, true) : showToast('Сначала выберите «Кому»')} style={{ border: '1.5px solid #e6c9b8', borderRadius: 7, padding: '6px 16px', background: '#fff8f5', color: '#c0532a', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit' }}>
                         💰 Подтянуть цены{recTo ? ` (${priceTypeFor(recTo) === 'opt' ? 'опт' : 'розн'})` : ''}
                       </button>
                     </div>
@@ -1267,7 +1268,7 @@ export default function AdminApp({ user }: Props) {
                   <div style={{ display: 'flex', gap: 10, paddingTop: 12, borderTop: '1px solid #f1efec' }}>
                     <Btn onClick={() => handleRecSubmit(true)}>Сохранить черновик</Btn>
                     <Btn variant="primary" onClick={() => handleRecSubmit(false)}>ОТПРАВИТЬ ЗАКАЗ →</Btn>
-                    <Btn variant="ghost" onClick={() => setRecFormOpen(false)} style={{ marginLeft: 'auto', color: '#8a847c' }}>Отмена</Btn>
+                    <Btn variant="ghost" onClick={() => setRecFormOpen(false)} style={{ marginLeft: 'auto', color: '#5f5952' }}>Отмена</Btn>
                   </div>
                 </div>
               )}
@@ -1278,26 +1279,26 @@ export default function AdminApp({ user }: Props) {
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
                   Стол приёмки
-                  <span style={{ fontSize: 12, background: '#fdf8e1', color: '#8a6f00', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{processing.length}</span>
+                  <span style={{ fontSize: 13, background: '#fdf8e1', color: '#8a6f00', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{processing.length}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {processing.map(order => (
                     <div key={order.id} style={{ background: '#fff', borderRadius: 14, boxShadow: '0 0 0 1.5px #e6e2dc', overflow: 'hidden' }}>
                       {/* Шапка карточки */}
                       <div style={{ padding: '12px 16px', background: '#faf8f6', borderBottom: '1px solid #f1efec', display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: COLORS.primary }}>{order.id}</span>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, color: COLORS.primary }}>{order.id}</span>
                         <StatusBadge status={order.status} />
-                        <span style={{ fontSize: 13, fontWeight: 500 }}>{order.from} →</span>
+                        <span style={{ fontSize: 14, fontWeight: 500 }}>{order.from} →</span>
                         <UnifiedSelect
                           value={order.to || ''}
                           onChange={v => handleAction(order.id, 'updateOrder', { to: v })}
                           placeholder="К кому / куда"
-                          style={{ fontSize: 12, padding: '4px 8px', minWidth: 140 }}
+                          style={{ fontSize: 13, padding: '4px 8px', minWidth: 140 }}
                           settings={settings}
                         />
-                        {order.deadline && <span style={{ fontSize: 12, color: '#8a847c' }}>срок {fmtDate(order.deadline)}</span>}
+                        {order.deadline && <span style={{ fontSize: 13, color: '#5f5952' }}>срок {fmtDate(order.deadline)}</span>}
                         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-                          <button onClick={() => pullPricesForCard(order)} style={{ border: '1.5px solid #e6c9b8', borderRadius: 7, padding: '5px 12px', background: '#fff8f5', color: '#c0532a', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>💰 Цены{order.to ? ` (${priceTypeFor(order.to) === 'opt' ? 'опт' : 'розн'})` : ''}</button>
+                          <button onClick={() => pullPricesForCard(order)} style={{ border: '1.5px solid #e6c9b8', borderRadius: 7, padding: '5px 12px', background: '#fff8f5', color: '#c0532a', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit' }}>💰 Цены{order.to ? ` (${priceTypeFor(order.to) === 'opt' ? 'опт' : 'розн'})` : ''}</button>
                           <Btn size="sm" onClick={() => handleAction(order.id, 'returnToIncoming')}>← Вернуть</Btn>
                           <Btn size="sm" variant="primary" onClick={async () => {
                             // 1. Сначала сохраняем все несохранённые изменения позиций
@@ -1356,7 +1357,7 @@ export default function AdminApp({ user }: Props) {
                       {/* Таблица позиций — редактирование */}
                       <div style={{ padding: '12px 16px', overflowX: 'auto' }}>
                         {order.positions.length === 0 && (
-                          <div style={{ background: '#fff8e1', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13, color: '#8a6f00', fontWeight: 500 }}>
+                          <div style={{ background: '#fff8e1', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 14, color: '#8a6f00', fontWeight: 500 }}>
                             💬 Со слов: {order.comment}
                           </div>
                         )}
@@ -1364,7 +1365,7 @@ export default function AdminApp({ user }: Props) {
                           <thead>
                             <tr style={{ background: '#f1efec' }}>
                               {['СО СЛОВ', 'НАИМ. 1С', 'КОЛ-ВО', 'ЕД.', 'ЦЕНА', 'ЛОГИСТ', 'ПОСТАВЩИК', 'СРОК', 'ОПЛАТА', ''].map(h => (
-                                <th key={h} style={{ padding: '7px 8px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                                <th key={h} style={{ padding: '7px 8px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                               ))}
                             </tr>
                           </thead>
@@ -1376,7 +1377,7 @@ export default function AdminApp({ user }: Props) {
                                 <tr key={pos.id} style={{ borderBottom: '1px solid #f1efec', background: !(ed.name1c !== undefined ? ed.name1c : pos.name1c) ? '#fff5f0' : 'transparent', cursor: isEditing ? 'default' : 'pointer' }} onClick={() => !isEditing && startEditPos(pos)}>
                                   {/* СО СЛОВ — жёлтый readonly */}
                                   <td style={{ padding: '6px 8px' }}>
-                                    <div style={{ background: '#fff8e1', borderRadius: 6, padding: '4px 8px', fontSize: 12, color: '#8a6f00', minWidth: 80, cursor: 'default' }}>{pos.oral || '—'}</div>
+                                    <div style={{ background: '#fff8e1', borderRadius: 6, padding: '4px 8px', fontSize: 13, color: '#8a6f00', minWidth: 80, cursor: 'default' }}>{pos.oral || '—'}</div>
                                   </td>
                                   {/* НАИМ 1С */}
                                   <td style={{ padding: '6px 4px' }}>
@@ -1388,37 +1389,37 @@ export default function AdminApp({ user }: Props) {
                                             // Подтянуть цену по типу цены получателя карточки (стол приёмки).
                                             if (name && order.to) fetchPosPrice(name, priceTypeFor(order.to)).then(pr => { if (pr > 0) setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], price: pr } })) })
                                           }}
-                                          style={{ fontSize: 12, padding: '5px 8px', width: 160 }}
+                                          style={{ fontSize: 13, padding: '5px 8px', width: 160 }}
                                         />
-                                      : <span style={{ fontSize: 12 }}>{pos.name1c || <span style={{ color: '#b8b1a6' }}>—</span>}</span>
+                                      : <span style={{ fontSize: 13 }}>{pos.name1c || <span style={{ color: '#837c72' }}>—</span>}</span>
                                     }
                                   </td>
                                   {/* КОЛ-ВО */}
                                   <td style={{ padding: '6px 4px', width: 70 }}>
                                     {isEditing
-                                      ? <input style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 60 }} type="number" inputMode="decimal" value={(ed.qty ?? pos.qty) || ''} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], qty: e.target.value } }))} />
-                                      : <span style={{ fontSize: 12 }}>{pos.qty}</span>
+                                      ? <input style={{ ...INP, fontSize: 13, padding: '5px 8px', width: 60 }} type="number" inputMode="decimal" value={(ed.qty ?? pos.qty) || ''} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], qty: e.target.value } }))} />
+                                      : <span style={{ fontSize: 13 }}>{pos.qty}</span>
                                     }
                                   </td>
                                   {/* ЕД. */}
                                   <td style={{ padding: '6px 4px', width: 50 }}>
                                     {isEditing
-                                      ? <input style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 44 }} value={ed.unit ?? pos.unit} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], unit: e.target.value } }))} />
-                                      : <span style={{ fontSize: 12 }}>{pos.unit}</span>
+                                      ? <input style={{ ...INP, fontSize: 13, padding: '5px 8px', width: 44 }} value={ed.unit ?? pos.unit} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], unit: e.target.value } }))} />
+                                      : <span style={{ fontSize: 13 }}>{pos.unit}</span>
                                     }
                                   </td>
                                   {/* ЦЕНА */}
                                   <td style={{ padding: '6px 4px', width: 96, whiteSpace: 'nowrap' }}>
                                     {isEditing
-                                      ? <input style={{ ...INP, fontSize: 12, padding: '5px 6px', width: 84, textAlign: 'right' }} type="number" inputMode="decimal" value={(ed.price ?? pos.price) || ''} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], price: e.target.value } }))} />
-                                      : <span style={{ fontSize: 12.5, fontWeight: 700, color: pos.price > 0 ? '#26231f' : '#b8b1a6' }}>{pos.price > 0 ? fmtMoney(pos.price) : '—'}</span>
+                                      ? <input style={{ ...INP, fontSize: 13, padding: '5px 6px', width: 84, textAlign: 'right' }} type="number" inputMode="decimal" value={(ed.price ?? pos.price) || ''} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], price: e.target.value } }))} />
+                                      : <span style={{ fontSize: 12.5, fontWeight: 700, color: pos.price > 0 ? '#26231f' : '#837c72' }}>{pos.price > 0 ? fmtMoney(pos.price) : '—'}</span>
                                     }
                                   </td>
                                   {/* ЛОГИСТ */}
                                   <td style={{ padding: '6px 4px', width: 120 }}>
                                     {isEditing
-                                      ? <UnifiedSelect value={ed.resp ?? pos.resp} onChange={v => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], resp: v } }))} placeholder="—" style={{ fontSize: 12, padding: '5px 6px', width: 112 }} settings={settings} roles={['logist']} />
-                                      : <span style={{ fontSize: 12 }}>{pos.resp || <span style={{ color: '#b8b1a6' }}>—</span>}</span>
+                                      ? <UnifiedSelect value={ed.resp ?? pos.resp} onChange={v => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], resp: v } }))} placeholder="—" style={{ fontSize: 13, padding: '5px 6px', width: 112 }} settings={settings} roles={['logist']} />
+                                      : <span style={{ fontSize: 13 }}>{pos.resp || <span style={{ color: '#837c72' }}>—</span>}</span>
                                     }
                                   </td>
                                   {/* ПОСТАВЩИК */}
@@ -1427,41 +1428,41 @@ export default function AdminApp({ user }: Props) {
                                       ? <UnifiedSelect value={ed.supplier ?? pos.supplier} onChange={v => {
                                           const sup2 = suppliersList.find(s => s.name === v)
                                           setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], supplier: v, supplierId: sup2?.id || '' } }))
-                                        }} placeholder="—" style={{ fontSize: 12, padding: '5px 6px', width: 112 }} settings={settings} />
-                                      : <span style={{ fontSize: 12 }}>{pos.supplier || <span style={{ color: '#b8b1a6' }}>—</span>}</span>
+                                        }} placeholder="—" style={{ fontSize: 13, padding: '5px 6px', width: 112 }} settings={settings} />
+                                      : <span style={{ fontSize: 13 }}>{pos.supplier || <span style={{ color: '#837c72' }}>—</span>}</span>
                                     }
                                   </td>
                                   {/* СРОК */}
                                   <td style={{ padding: '6px 4px', width: 110 }}>
                                     {isEditing
-                                      ? <input style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 100 }} type="date" value={ed.deadline ?? (pos.deadline ? pos.deadline.slice(0, 10) : '')} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], deadline: e.target.value } }))} />
-                                      : <span style={{ fontSize: 12 }}>{fmtDate(pos.deadline)}</span>
+                                      ? <input style={{ ...INP, fontSize: 13, padding: '5px 8px', width: 100 }} type="date" value={ed.deadline ?? (pos.deadline ? pos.deadline.slice(0, 10) : '')} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], deadline: e.target.value } }))} />
+                                      : <span style={{ fontSize: 13 }}>{fmtDate(pos.deadline)}</span>
                                     }
                                   </td>
                                   {/* ОПЛАТА */}
                                   <td style={{ padding: '6px 4px', width: 110 }}>
                                     {isEditing
-                                      ? <select style={{ ...INP, fontSize: 12, padding: '5px 8px', width: 100 }} value={ed.payment ?? pos.payment} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], payment: e.target.value } }))}>
+                                      ? <select style={{ ...INP, fontSize: 13, padding: '5px 8px', width: 100 }} value={ed.payment ?? pos.payment} onChange={e => setEditingPositions(p => ({ ...p, [pos.id]: { ...p[pos.id], payment: e.target.value } }))}>
                                           <option value="">—</option>
                                           <option value="Оплачено">Оплачено</option>
                                           <option value="Не оплачено">Не оплачено</option>
                                           <option value="Частично">Частично</option>
                                         </select>
-                                      : <span style={{ fontSize: 12 }}>{pos.payment || <span style={{ color: '#b8b1a6' }}>—</span>}</span>
+                                      : <span style={{ fontSize: 13 }}>{pos.payment || <span style={{ color: '#837c72' }}>—</span>}</span>
                                     }
                                   </td>
                                   {/* Действия */}
                                   <td style={{ padding: '6px 4px', width: 80 }}>
                                     {isEditing ? (
                                       <div style={{ display: 'flex', gap: 4 }}>
-                                        <button onClick={e => { e.stopPropagation(); saveEditingPosition(order.id, pos.id) }} style={{ padding: '4px 8px', borderRadius: 6, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>✓</button>
-                                        <button onClick={e => { e.stopPropagation(); setEditingPositions(p => { const n = { ...p }; delete n[pos.id]; return n }) }} style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                                        <button onClick={e => { e.stopPropagation(); saveEditingPosition(order.id, pos.id) }} style={{ padding: '4px 8px', borderRadius: 6, border: 'none', background: COLORS.primary, color: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>✓</button>
+                                        <button onClick={e => { e.stopPropagation(); setEditingPositions(p => { const n = { ...p }; delete n[pos.id]; return n }) }} style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 13 }}>✕</button>
                                       </div>
                                     ) : (
                                       <div style={{ display: 'flex', gap: 4 }}>
-                                        <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(`${pos.name1c || pos.oral} ${pos.qty} ${pos.unit}`); showToast('Скопировано!') }} style={{ padding: '4px 7px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 12 }} title="Копировать текст">📋</button>
-                                        <button onClick={async e => { e.stopPropagation(); await handleAction(order.id, 'addPos', { name1c: pos.name1c, oral: pos.oral, qty: pos.qty, unit: pos.unit, price: pos.price, resp: pos.resp, supplier: pos.supplier, supplierId: pos.supplierId, status: pos.status }); showToast('Позиция клонирована') }} style={{ padding: '4px 7px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 12 }} title="Клонировать позицию">🔁</button>
-                                        <button onClick={e => { e.stopPropagation(); handleAction(order.id, 'deletePos', { posId: pos.id }) }} style={{ padding: '4px 7px', borderRadius: 6, border: '1.5px solid #faeaea', background: '#fff', cursor: 'pointer', fontSize: 12 }}>🗑</button>
+                                        <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(`${pos.name1c || pos.oral} ${pos.qty} ${pos.unit}`); showToast('Скопировано!') }} style={{ padding: '4px 7px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 13 }} title="Копировать текст">📋</button>
+                                        <button onClick={async e => { e.stopPropagation(); await handleAction(order.id, 'addPos', { name1c: pos.name1c, oral: pos.oral, qty: pos.qty, unit: pos.unit, price: pos.price, resp: pos.resp, supplier: pos.supplier, supplierId: pos.supplierId, status: pos.status }); showToast('Позиция клонирована') }} style={{ padding: '4px 7px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 13 }} title="Клонировать позицию">🔁</button>
+                                        <button onClick={e => { e.stopPropagation(); handleAction(order.id, 'deletePos', { posId: pos.id }) }} style={{ padding: '4px 7px', borderRadius: 6, border: '1.5px solid #faeaea', background: '#fff', cursor: 'pointer', fontSize: 13 }}>🗑</button>
                                       </div>
                                     )}
                                   </td>
@@ -1471,7 +1472,7 @@ export default function AdminApp({ user }: Props) {
                           </tbody>
                         </table>
                         {order.positions.length === 0 && (
-                          <div style={{ marginTop: 8, color: '#8a847c', fontSize: 12, fontStyle: 'italic' }}>
+                          <div style={{ marginTop: 8, color: '#5f5952', fontSize: 13, fontStyle: 'italic' }}>
                             Нажмите "Взять в обработку" чтобы распарсить комментарий в позиции
                           </div>
                         )}
@@ -1486,25 +1487,25 @@ export default function AdminApp({ user }: Props) {
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
                 Ожидание
-                <span style={{ fontSize: 12, background: '#fff0ea', color: '#c0532a', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{waiting.length}</span>
+                <span style={{ fontSize: 13, background: '#fff0ea', color: '#c0532a', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{waiting.length}</span>
               </div>
               {waiting.length === 0
-                ? <div style={{ color: '#8a847c', fontSize: 13, padding: '16px 0' }}>Нет карточек в ожидании</div>
+                ? <div style={{ color: '#5f5952', fontSize: 14, padding: '16px 0' }}>Нет карточек в ожидании</div>
                 : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 12 }}>
                     {waiting.map(order => (
                       <div key={order.id} style={{ background: '#fff', borderRadius: 12, padding: 16, boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                         {/* Шапка */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: COLORS.primary }}>{order.id}</span>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: COLORS.primary }}>{order.id}</span>
                           <SourceBadge source={order.source} />
-                          <span style={{ marginLeft: 'auto', fontSize: 11, color: '#8a847c' }}>{fmtDate(order.createdAt)}</span>
+                          <span style={{ marginLeft: 'auto', fontSize: 12, color: '#5f5952' }}>{fmtDate(order.createdAt)}</span>
                         </div>
                         {/* Маршрут */}
                         <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>{order.from} → {order.to || '—'}</div>
                         {/* Комментарий превью (3 строки) */}
                         {order.comment && (
-                          <div style={{ fontSize: 12, color: '#8a847c', marginBottom: 12, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>
+                          <div style={{ fontSize: 13, color: '#5f5952', marginBottom: 12, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.5 }}>
                             {order.comment}
                           </div>
                         )}
@@ -1527,18 +1528,18 @@ export default function AdminApp({ user }: Props) {
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
                   Черновики
-                  <span style={{ fontSize: 12, background: '#efece8', color: '#6b655b', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{recDrafts.length}</span>
+                  <span style={{ fontSize: 13, background: '#efece8', color: '#6b655b', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{recDrafts.length}</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
                   {recDrafts.map(order => (
                     <div key={order.id} style={{ background: '#faf8f6', borderRadius: 12, padding: 16, border: '1.5px dashed #d8d3cc' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: '#8a847c' }}>{order.id}</span>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: '#5f5952' }}>{order.id}</span>
                         <StatusBadge status="Черновик" />
-                        <span style={{ marginLeft: 'auto', fontSize: 11, color: '#8a847c' }}>{fmtDate(order.createdAt)}</span>
+                        <span style={{ marginLeft: 'auto', fontSize: 12, color: '#5f5952' }}>{fmtDate(order.createdAt)}</span>
                       </div>
-                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{order.from}</div>
-                      {order.comment && <div style={{ fontSize: 12, color: '#8a847c', marginBottom: 10 }}>{order.comment.slice(0, 60)}...</div>}
+                      <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{order.from}</div>
+                      {order.comment && <div style={{ fontSize: 13, color: '#5f5952', marginBottom: 10 }}>{order.comment.slice(0, 60)}...</div>}
                       <div style={{ display: 'flex', gap: 8 }}>
                         <Btn size="sm" onClick={() => { setSelectedOrder(order) }}>Доработать</Btn>
                         <Btn size="sm" variant="primary" onClick={() => handleAction(order.id, 'accept')}>Отправить</Btn>
@@ -1569,13 +1570,13 @@ export default function AdminApp({ user }: Props) {
         return (
           <div className="anim-fade">
             <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 16 }}>
-              Исходящие <span style={{ fontSize: 14, color: '#8a847c', fontWeight: 400 }}>({outgoing.length})</span>
+              Исходящие <span style={{ fontSize: 14, color: '#5f5952', fontWeight: 400 }}>({outgoing.length})</span>
             </div>
 
             {/* Вкладки */}
             <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
               {outTabList.map(([key, label]) => (
-                <button key={key} onClick={() => setOutgoingTab(key)} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: outTab === key ? COLORS.primary : '#fff', color: outTab === key ? '#fff' : '#8a847c', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
+                <button key={key} onClick={() => setOutgoingTab(key)} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', background: outTab === key ? COLORS.primary : '#fff', color: outTab === key ? '#fff' : '#5f5952', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                   {label}
                 </button>
               ))}
@@ -1584,7 +1585,7 @@ export default function AdminApp({ user }: Props) {
             {/* Список карточек */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {outList.length === 0
-                ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c', fontSize: 14 }}>Нет карточек</div>
+                ? <div style={{ textAlign: 'center', padding: 40, color: '#5f5952', fontSize: 14 }}>Нет карточек</div>
                 : filterOrders(outList).map(o => {
                     const pct = cardProgress(o)
                     const overdue = isOverdue(o)
@@ -1593,16 +1594,16 @@ export default function AdminApp({ user }: Props) {
                         {/* Шапка карточки */}
                         <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1efec' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: COLORS.primary }}>{o.id}</span>
-                            {overdue && <span style={{ fontSize: 11, background: '#faeaea', color: '#b03020', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>⚠ Просрочено</span>}
-                            {pct >= 100 && <span style={{ fontSize: 11, background: '#e8f5ee', color: '#2e8a5e', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>✓ Готово</span>}
-                            {pct < 100 && !overdue && <span style={{ fontSize: 11, background: '#fff0ea', color: '#c0532a', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>В работе</span>}
-                            {o.isChanged && <span style={{ fontSize: 11, background: '#fdf8e1', color: '#8a6f00', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>⚡ Изменено клиентом</span>}
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, color: COLORS.primary }}>{o.id}</span>
+                            {overdue && <span style={{ fontSize: 12, background: '#faeaea', color: '#b03020', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>⚠ Просрочено</span>}
+                            {pct >= 100 && <span style={{ fontSize: 12, background: '#e8f5ee', color: '#2e8a5e', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>✓ Готово</span>}
+                            {pct < 100 && !overdue && <span style={{ fontSize: 12, background: '#fff0ea', color: '#c0532a', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>В работе</span>}
+                            {o.isChanged && <span style={{ fontSize: 12, background: '#fdf8e1', color: '#8a6f00', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>⚡ Изменено клиентом</span>}
                             <span style={{ marginLeft: 'auto', fontWeight: 700, fontSize: 16, color: barColor(pct) }}>{pct}%</span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <span style={{ fontWeight: 600, fontSize: 14 }}>{o.from} → {o.to || '—'}</span>
-                            {o.deadline && <span style={{ fontSize: 12, color: '#8a847c' }}>срок {fmtDate(o.deadline)}</span>}
+                            {o.deadline && <span style={{ fontSize: 13, color: '#5f5952' }}>срок {fmtDate(o.deadline)}</span>}
                           </div>
                           <div style={{ marginTop: 8 }}>
                             <ProgressBar pct={pct} height={6} />
@@ -1617,18 +1618,18 @@ export default function AdminApp({ user }: Props) {
                               return (
                                 <div key={pos.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 0', borderBottom: i < o.positions.length - 1 ? '1px solid #f8f6f3' : 'none' }}>
                                   <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}><RalDot code={extractRal(pos.name1c || pos.oral)} size={13} />{pos.name1c || pos.oral}</div>
-                                    <div style={{ fontSize: 11, color: '#8a847c' }}>{pos.qty} {pos.unit}{pos.resp ? ` · ${pos.resp}` : ''}{pos.supplier ? ` · ${pos.supplier}` : ''}</div>
+                                    <div style={{ fontSize: 14, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}><RalDot code={extractRal(pos.name1c || pos.oral)} size={13} />{pos.name1c || pos.oral}</div>
+                                    <div style={{ fontSize: 12, color: '#5f5952' }}>{pos.qty} {pos.unit}{pos.resp ? ` · ${pos.resp}` : ''}{pos.supplier ? ` · ${pos.supplier}` : ''}</div>
                                   </div>
                                   <div style={{ width: 120 }}>
                                     <ProgressBar pct={pPct} height={4} />
                                   </div>
-                                  {pos.late && <span style={{ fontSize: 10, background: '#faeaea', color: '#b03020', padding: '1px 6px', borderRadius: 20, fontWeight: 600, flexShrink: 0 }}>ПРОСРОЧ.</span>}
+                                  {pos.late && <span style={{ fontSize: 12, background: '#faeaea', color: '#b03020', padding: '1px 6px', borderRadius: 20, fontWeight: 600, flexShrink: 0 }}>ПРОСРОЧ.</span>}
                                   <select
                                     value={pos.status}
                                     onChange={e => handleAction(o.id, 'updatePos', { posId: pos.id, status: e.target.value })}
                                     onClick={e => e.stopPropagation()}
-                                    style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
+                                    style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
                                   >
                                     {['В работе', 'Готово к отгрузке', 'В пути', 'Доставлено', 'Принято филиалом'].map(s => <option key={s} value={s}>{s}</option>)}
                                   </select>
@@ -1640,7 +1641,7 @@ export default function AdminApp({ user }: Props) {
 
                         {/* Футер */}
                         <div style={{ padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          {cardSum(o) > 0 && <span style={{ fontSize: 13, fontWeight: 600, color: '#26231f' }}>Сумма: {fmtMoney(cardSum(o))}</span>}
+                          {cardSum(o) > 0 && <span style={{ fontSize: 14, fontWeight: 600, color: '#26231f' }}>Сумма: {fmtMoney(cardSum(o))}</span>}
                           <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                             <Btn size="sm" onClick={() => setSelectedOrder(o)}>Открыть</Btn>
                             <Btn size="sm" onClick={() => { navigator.clipboard.writeText(o.trackingLink); showToast('Ссылка скопирована!') }}>📎 Ссылка клиенту</Btn>
@@ -1673,10 +1674,10 @@ export default function AdminApp({ user }: Props) {
       case 'accounting':
         return (
           <div className="anim-fade">
-            <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 16 }}>К учёту <span style={{ fontSize: 14, color: '#8a847c', fontWeight: 400 }}>({accounting.length})</span></div>
+            <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 16 }}>К учёту <span style={{ fontSize: 14, color: '#5f5952', fontWeight: 400 }}>({accounting.length})</span></div>
             {(() => {
               const filtered = filterOrders(accounting)
-              if (filtered.length === 0) return <div style={{ textAlign: 'center', padding: 40, color: '#8a847c', fontSize: 14 }}>Нет карточек к учёту</div>
+              if (filtered.length === 0) return <div style={{ textAlign: 'center', padding: 40, color: '#5f5952', fontSize: 14 }}>Нет карточек к учёту</div>
               return filtered.map(o => (
                 <div key={o.id}>
                   <OrderCard order={o} onClick={() => setSelectedOrder(o)} />
@@ -1715,14 +1716,14 @@ export default function AdminApp({ user }: Props) {
             </div>
             <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
               {(['cards', 'reports', 'shifts'] as BookkeepingTab[]).map(t => (
-                <button key={t} onClick={() => { setBookTab(t); if (t !== 'cards') loadDailyReports() }} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: bookTab === t ? COLORS.primary : '#fff', color: bookTab === t ? '#fff' : '#8a847c', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
+                <button key={t} onClick={() => { setBookTab(t); if (t !== 'cards') loadDailyReports() }} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', background: bookTab === t ? COLORS.primary : '#fff', color: bookTab === t ? '#fff' : '#5f5952', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                   {t === 'cards' ? `Карточки (${bookkeeping.length})` : t === 'reports' ? 'Отчёты логистов' : 'Смены'}
                 </button>
               ))}
             </div>
             {bookTab === 'cards' && (() => {
                 const filtered = filterOrders(bookkeeping)
-                if (filtered.length === 0) return <div style={{ textAlign: 'center', padding: 40, color: '#8a847c', fontSize: 14 }}>Нет карточек</div>
+                if (filtered.length === 0) return <div style={{ textAlign: 'center', padding: 40, color: '#5f5952', fontSize: 14 }}>Нет карточек</div>
                 return filtered.map(o => (
                   <div key={o.id}>
                     <OrderCard order={o} onClick={() => setSelectedOrder(o)} />
@@ -1753,27 +1754,27 @@ export default function AdminApp({ user }: Props) {
                   {/* Фильтры */}
                   <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
                     {([['active', 'Новые'], ['done', 'Принятые'], ['archive', 'Архив']] as const).map(([k, l]) => (
-                      <button key={k} onClick={() => setReportFilter(k)} style={{ padding: '5px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: reportFilter === k ? COLORS.primary : '#fff', color: reportFilter === k ? '#fff' : '#8a847c', boxShadow: '0 0 0 1.5px #e6e2dc' }}>{l} ({dailyReports.filter(r => k === 'active' ? (r.status === 'processing' || r.status === 'draft') : r.status === k).length})</button>
+                      <button key={k} onClick={() => setReportFilter(k)} style={{ padding: '5px 14px', borderRadius: 20, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: reportFilter === k ? COLORS.primary : '#fff', color: reportFilter === k ? '#fff' : '#5f5952', boxShadow: '0 0 0 1.5px #e6e2dc' }}>{l} ({dailyReports.filter(r => k === 'active' ? (r.status === 'processing' || r.status === 'draft') : r.status === k).length})</button>
                     ))}
                     <div style={{ width: 1, height: 20, background: '#e6e2dc' }} />
-                    <input type="date" value={reportDateFrom} onChange={e => setReportDateFrom(e.target.value)} style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #e6e2dc', fontSize: 12, fontFamily: 'inherit' }} />
-                    <span style={{ fontSize: 12, color: '#8a847c' }}>—</span>
-                    <input type="date" value={reportDateTo} onChange={e => setReportDateTo(e.target.value)} style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #e6e2dc', fontSize: 12, fontFamily: 'inherit' }} />
-                    {(reportDateFrom || reportDateTo) && <button onClick={() => { setReportDateFrom(''); setReportDateTo('') }} style={{ padding: '4px 8px', borderRadius: 7, border: 'none', background: '#faeaea', color: '#b03020', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>✕ Даты</button>}
-                    <button onClick={() => loadDailyReports()} style={{ marginLeft: 'auto', padding: '5px 12px', borderRadius: 7, border: '1.5px solid #e6e2dc', background: '#fff', fontSize: 13, cursor: 'pointer' }}>⟳</button>
+                    <input type="date" value={reportDateFrom} onChange={e => setReportDateFrom(e.target.value)} style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #e6e2dc', fontSize: 13, fontFamily: 'inherit' }} />
+                    <span style={{ fontSize: 13, color: '#5f5952' }}>—</span>
+                    <input type="date" value={reportDateTo} onChange={e => setReportDateTo(e.target.value)} style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #e6e2dc', fontSize: 13, fontFamily: 'inherit' }} />
+                    {(reportDateFrom || reportDateTo) && <button onClick={() => { setReportDateFrom(''); setReportDateTo('') }} style={{ padding: '4px 8px', borderRadius: 7, border: 'none', background: '#faeaea', color: '#b03020', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>✕ Даты</button>}
+                    <button onClick={() => loadDailyReports()} style={{ marginLeft: 'auto', padding: '5px 12px', borderRadius: 7, border: '1.5px solid #e6e2dc', background: '#fff', fontSize: 14, cursor: 'pointer' }}>⟳</button>
 
                   </div>
 
                   {reportsError
-                    ? <div style={{ color: '#b03020', fontSize: 13, padding: '20px 0', fontWeight: 600 }}>⚠️ Ошибка загрузки отчётов. Нажмите ⟳ или обновите страницу.</div>
+                    ? <div style={{ color: '#b03020', fontSize: 14, padding: '20px 0', fontWeight: 600 }}>⚠️ Ошибка загрузки отчётов. Нажмите ⟳ или обновите страницу.</div>
                     : filtered.length === 0
-                    ? <div style={{ color: '#8a847c', fontSize: 13, padding: '20px 0' }}>Нет отчётов</div>
+                    ? <div style={{ color: '#5f5952', fontSize: 14, padding: '20px 0' }}>Нет отчётов</div>
                     : filtered.map(r => (
                       <div key={r.id} style={{ background: '#fff', borderRadius: 12, padding: 18, marginBottom: 12, boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                           <div>
                             <div style={{ fontWeight: 700, fontSize: 15 }}>{r.logist?.name} · {fmtDate(r.date)}</div>
-                            {r.comment && <div style={{ fontSize: 12, color: '#8a847c', marginTop: 2 }}>{r.comment}</div>}
+                            {r.comment && <div style={{ fontSize: 13, color: '#5f5952', marginTop: 2 }}>{r.comment}</div>}
                           </div>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                             <StatusBadge status={r.status === 'draft' ? 'Не закрыта' : r.status === 'processing' ? 'Новый' : r.status === 'done' ? 'Принят' : 'Архив'} />
@@ -1794,11 +1795,11 @@ export default function AdminApp({ user }: Props) {
                           </div>
                         </div>
                         <div style={{ overflowX: 'auto' }}>
-                          <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', minWidth: 600 }}>
+                          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse', minWidth: 600 }}>
                             <thead>
                               <tr style={{ background: '#f8f6f3' }}>
                                 {['ОТ КОГО', 'НАИМ.', 'ПРИХОД', 'КОММ.', 'КОМУ', 'РАСХОД', 'КОММ.', '№ НАКЛ.'].map(h => (
-                                  <th key={h} style={{ padding: '6px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                                  <th key={h} style={{ padding: '6px 10px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                                 ))}
                               </tr>
                             </thead>
@@ -1806,7 +1807,7 @@ export default function AdminApp({ user }: Props) {
                               {r.rows.map((row, i) => (
                                 <tr key={row.id} style={{ borderTop: '1px solid #f1efec' }}>
                                   {[row.fromWho, row.name, row.qtyIn, row.commentIn, row.toWho, row.qtyOut, row.commentOut, row.invoiceNum].map((v, j) => (
-                                    <td key={j} style={{ padding: '6px 10px', color: v ? '#26231f' : '#b8b1a6' }}>{v || '—'}</td>
+                                    <td key={j} style={{ padding: '6px 10px', color: v ? '#26231f' : '#837c72' }}>{v || '—'}</td>
                                   ))}
                                 </tr>
                               ))}
@@ -1835,7 +1836,7 @@ export default function AdminApp({ user }: Props) {
                 <div>
                   {/* Кнопка закрыть смену */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <div style={{ fontSize: 13, color: '#8a847c' }}>
+                    <div style={{ fontSize: 14, color: '#5f5952' }}>
                       Принятых отчётов: <strong style={{ color: '#26231f' }}>{dailyReports.filter(r => r.status === 'done').length}</strong>
                     </div>
                     <button onClick={async () => {
@@ -1844,14 +1845,14 @@ export default function AdminApp({ user }: Props) {
                       await Promise.all(toClose.map(r => updateDailyReport(r.id, 'archive')))
                       loadDailyReports()
                       showToast(`✓ Смена закрыта — ${toClose.length} отчётов`)
-                    }} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: COLORS.primary, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    }} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: COLORS.primary, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
                       ✓ Закрыть смену
                     </button>
                   </div>
 
                   {/* Архив закрытых смен по датам */}
                   {dates.length === 0
-                    ? <div style={{ color: '#8a847c', fontSize: 13, padding: '20px 0' }}>Нет закрытых смен</div>
+                    ? <div style={{ color: '#5f5952', fontSize: 14, padding: '20px 0' }}>Нет закрытых смен</div>
                     : dates.map(date => {
                         const reps = byDate[date]
                         const totalRows = reps.reduce((sum, r) => sum + r.rows.length, 0)
@@ -1860,15 +1861,15 @@ export default function AdminApp({ user }: Props) {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                               <div>
                                 <div style={{ fontWeight: 700, fontSize: 15 }}>📅 {new Date(date).toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
-                                <div style={{ fontSize: 12, color: '#8a847c', marginTop: 2 }}>{reps.length} логистов · {totalRows} позиций</div>
+                                <div style={{ fontSize: 13, color: '#5f5952', marginTop: 2 }}>{reps.length} логистов · {totalRows} позиций</div>
                               </div>
-                              <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: '#e8f5ee', color: '#2e8a5e', fontWeight: 600 }}>✓ Закрыта</span>
+                              <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: '#e8f5ee', color: '#2e8a5e', fontWeight: 600 }}>✓ Закрыта</span>
                             </div>
                             <div style={{ overflowX: 'auto' }}>
-                              <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', minWidth: 600 }}>
+                              <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse', minWidth: 600 }}>
                                 <thead><tr style={{ background: '#f8f6f3' }}>
                                   {['ЛОГИСТ', 'ОТ КОГО', 'НАИМ.', 'ПРИХОД', 'КОМУ', 'РАСХОД'].map(h => (
-                                    <th key={h} style={{ padding: '7px 10px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>{h}</th>
+                                    <th key={h} style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left' }}>{h}</th>
                                   ))}
                                 </tr></thead>
                                 <tbody>
@@ -1904,14 +1905,14 @@ export default function AdminApp({ user }: Props) {
             <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 16 }}>Архив</div>
             <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
               {([['cards', `Карточки (${archived.length})`], ['projects', `Проекты (${archProjects.length})`], ['specprojects', `СпецПроекты (${archSpecs.length})`]] as const).map(([t, l]) => (
-                <button key={t} onClick={() => setArchiveTab(t)} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: archiveTab === t ? COLORS.primary : '#fff', color: archiveTab === t ? '#fff' : '#8a847c', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
+                <button key={t} onClick={() => setArchiveTab(t)} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', background: archiveTab === t ? COLORS.primary : '#fff', color: archiveTab === t ? '#fff' : '#5f5952', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                   {l}
                 </button>
               ))}
             </div>
             {archiveTab === 'cards' && renderOrders(archived, 'Архив пуст')}
             {archiveTab === 'projects' && (
-              <div>{archProjects.map(p => <div key={p.id} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', marginBottom: 8, boxShadow: '0 0 0 1.5px #e6e2dc' }}><div style={{ fontWeight: 600 }}>{p.id} · {p.name}</div><div style={{ fontSize: 12, color: '#8a847c' }}>{p.description}</div></div>)}</div>
+              <div>{archProjects.map(p => <div key={p.id} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', marginBottom: 8, boxShadow: '0 0 0 1.5px #e6e2dc' }}><div style={{ fontWeight: 600 }}>{p.id} · {p.name}</div><div style={{ fontSize: 13, color: '#5f5952' }}>{p.description}</div></div>)}</div>
             )}
             {archiveTab === 'specprojects' && (
               <div>{archSpecs.map(sp => <div key={sp.id} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', marginBottom: 8, boxShadow: '0 0 0 1.5px #e6e2dc' }}><div style={{ fontWeight: 600 }}>{sp.id} · {sp.name}</div></div>)}</div>
@@ -1943,13 +1944,13 @@ export default function AdminApp({ user }: Props) {
             <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 16 }}>Настройки</div>
             <div style={{ display: 'flex', gap: 4, marginBottom: 20, flexWrap: 'wrap' }}>
               {stabs.map(([t, l]) => (
-                <button key={t} onClick={() => setSettingsTab(t)} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: settingsTab === t ? COLORS.primary : '#fff', color: settingsTab === t ? '#fff' : '#8a847c', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
+                <button key={t} onClick={() => setSettingsTab(t)} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', background: settingsTab === t ? COLORS.primary : '#fff', color: settingsTab === t ? '#fff' : '#5f5952', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                   {l}
                 </button>
               ))}
             </div>
 
-            {!settings ? <div style={{ color: '#8a847c' }}>Загрузка...</div> : (
+            {!settings ? <div style={{ color: '#5f5952' }}>Загрузка...</div> : (
               <>
                 {/* Пользователи */}
                 {settingsTab === 'users' && (
@@ -1959,30 +1960,30 @@ export default function AdminApp({ user }: Props) {
                     </div>
                     <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                       <thead><tr style={{ background: '#f1efec' }}>
-                        {['ИМЯ', 'РОЛЬ', 'КОМПАНИЯ', 'ДОСТУП', 'СТАТУС', 'ТИП ЦЕНЫ', ''].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>{h}</th>)}
+                        {['ИМЯ', 'РОЛЬ', 'КОМПАНИЯ', 'ДОСТУП', 'СТАТУС', 'ТИП ЦЕНЫ', ''].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left' }}>{h}</th>)}
                       </tr></thead>
                       <tbody>{settings.users.map((u, i) => {
                         const rc = roleColors[u.role] || roleColors.client
                         const accessUrl = u.role === 'branch' ? `${base}/branch/${u.slug}` : (u.role === 'client' || u.role === 'supplier_client') ? `${base}/client/${u.slug}` : u.role === 'logist' ? `${base}/rsp/${u.slug}` : ''
                         return (
                           <tr key={u.id} style={{ borderTop: i > 0 ? '1px solid #f1efec' : 'none' }}>
-                            <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13 }}>{u.name}</td>
-                            <td style={{ padding: '10px 14px' }}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: rc.bg, color: rc.color }}>{roleLabel[u.role] || u.role}</span></td>
-                            <td style={{ padding: '10px 14px', fontSize: 12, color: '#8a847c' }}>{u.companyId ? settings.users.find(x => x.id === u.companyId)?.name || '—' : '—'}</td>
+                            <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 14 }}>{u.name}</td>
+                            <td style={{ padding: '10px 14px' }}><span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: rc.bg, color: rc.color }}>{roleLabel[u.role] || u.role}</span></td>
+                            <td style={{ padding: '10px 14px', fontSize: 13, color: '#5f5952' }}>{u.companyId ? settings.users.find(x => x.id === u.companyId)?.name || '—' : '—'}</td>
                             <td style={{ padding: '10px 14px' }}>
-                              {accessUrl && <a href={accessUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: COLORS.primary, textDecoration: 'none' }}>Открыть</a>}
-                              {(u.phone || u.email) && <span style={{ fontSize: 12, color: '#8a847c', marginLeft: 8 }}>{u.phone || u.email}</span>}
+                              {accessUrl && <a href={accessUrl} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: COLORS.primary, textDecoration: 'none' }}>Открыть</a>}
+                              {(u.phone || u.email) && <span style={{ fontSize: 13, color: '#5f5952', marginLeft: 8 }}>{u.phone || u.email}</span>}
                             </td>
-                            <td style={{ padding: '10px 14px' }}><span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 20, fontWeight: 600, background: u.active ? '#e8f5ee' : '#faeaea', color: u.active ? '#2e8a5e' : '#b03020' }}>{u.active ? 'Активен' : 'Отключён'}</span></td>
+                            <td style={{ padding: '10px 14px' }}><span style={{ fontSize: 12, padding: '2px 7px', borderRadius: 20, fontWeight: 600, background: u.active ? '#e8f5ee' : '#faeaea', color: u.active ? '#2e8a5e' : '#b03020' }}>{u.active ? 'Активен' : 'Отключён'}</span></td>
                             <td style={{ padding: '10px 14px' }}>
                               {['client', 'supplier_client', 'branch'].includes(u.role) ? (
                                 <select value={(u as any).priceType || 'retail'} disabled={user.role !== 'super_admin'}
                                   onChange={async e => { try { await updateUser(u.id, { priceType: e.target.value }); loadSettings(); showToast('✓ Тип цены обновлён') } catch (er: any) { showToast(er.message) } }}
-                                  style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: '1.5px solid #e6e2dc', fontFamily: 'inherit', background: '#fff' }}>
+                                  style={{ fontSize: 13, padding: '4px 6px', borderRadius: 6, border: '1.5px solid #e6e2dc', fontFamily: 'inherit', background: '#fff' }}>
                                   <option value="retail">Розничная</option>
                                   <option value="opt">Оптовая</option>
                                 </select>
-                              ) : <span style={{ fontSize: 12, color: '#b8b1a6' }}>—</span>}
+                              ) : <span style={{ fontSize: 13, color: '#837c72' }}>—</span>}
                             </td>
                             <td style={{ padding: '10px 14px' }}>
                               {user.role === 'super_admin' && (
@@ -2019,16 +2020,16 @@ export default function AdminApp({ user }: Props) {
                     </div>
                     <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                       <thead><tr style={{ background: '#f1efec' }}>
-                        {['ID', 'НАЗВАНИЕ', 'ТИП', 'ЗАКАЗЧИК', 'КАРТОЧЕК', 'СТАТУС'].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>{h}</th>)}
+                        {['ID', 'НАЗВАНИЕ', 'ТИП', 'ЗАКАЗЧИК', 'КАРТОЧЕК', 'СТАТУС'].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left' }}>{h}</th>)}
                       </tr></thead>
                       <tbody>{settings.projects.map((p, i) => (
                         <tr key={p.id} style={{ borderTop: i > 0 ? '1px solid #f1efec' : 'none' }}>
-                          <td style={{ padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: COLORS.primary }}>{p.id}</td>
-                          <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13 }}>{p.name}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: '#8a847c' }}>Проект</td>
-                          <td style={{ padding: '10px 14px', fontSize: 12 }}>{settings.users.find(u => u.id === p.clientId)?.name || '—'}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 13 }}>{(p as any)._count?.orders || 0}</td>
-                          <td style={{ padding: '10px 14px' }}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: p.status === 'active' ? '#e8f5ee' : '#eef2ff', color: p.status === 'active' ? '#2e8a5e' : '#4a5aaa' }}>{p.status === 'active' ? 'Активен' : 'Архив'}</span></td>
+                          <td style={{ padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: COLORS.primary }}>{p.id}</td>
+                          <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 14 }}>{p.name}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, color: '#5f5952' }}>Проект</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13 }}>{settings.users.find(u => u.id === p.clientId)?.name || '—'}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 14 }}>{(p as any)._count?.orders || 0}</td>
+                          <td style={{ padding: '10px 14px' }}><span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: p.status === 'active' ? '#e8f5ee' : '#eef2ff', color: p.status === 'active' ? '#2e8a5e' : '#4a5aaa' }}>{p.status === 'active' ? 'Активен' : 'Архив'}</span></td>
                         </tr>
                       ))}</tbody>
                     </table>
@@ -2043,16 +2044,16 @@ export default function AdminApp({ user }: Props) {
                     </div>
                     <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                       <thead><tr style={{ background: '#f1efec' }}>
-                        {['ID', 'НАЗВАНИЕ', 'ЗАКАЗЧИК', 'КАРТОЧЕК', 'ПРОГРЕСС', 'СТАТУС', ''].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>{h}</th>)}
+                        {['ID', 'НАЗВАНИЕ', 'ЗАКАЗЧИК', 'КАРТОЧЕК', 'ПРОГРЕСС', 'СТАТУС', ''].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left' }}>{h}</th>)}
                       </tr></thead>
                       <tbody>{settings.specProjects.map((sp, i) => (
                         <tr key={sp.id} style={{ borderTop: i > 0 ? '1px solid #f1efec' : 'none' }}>
-                          <td style={{ padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: COLORS.primary }}>{sp.id}</td>
-                          <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13 }}>{sp.name}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 12 }}>{settings.users.find(u => u.id === sp.clientId)?.name || '—'}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 13 }}>{(sp as any)._count?.orders || 0}</td>
+                          <td style={{ padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: COLORS.primary }}>{sp.id}</td>
+                          <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 14 }}>{sp.name}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13 }}>{settings.users.find(u => u.id === sp.clientId)?.name || '—'}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 14 }}>{(sp as any)._count?.orders || 0}</td>
                           <td style={{ padding: '10px 14px', width: 120 }}><ProgressBar pct={0} /></td>
-                          <td style={{ padding: '10px 14px' }}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: sp.status === 'active' ? '#e8f5ee' : '#eef2ff', color: sp.status === 'active' ? '#2e8a5e' : '#4a5aaa' }}>{sp.status === 'active' ? 'Активен' : 'Архив'}</span></td>
+                          <td style={{ padding: '10px 14px' }}><span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: sp.status === 'active' ? '#e8f5ee' : '#eef2ff', color: sp.status === 'active' ? '#2e8a5e' : '#4a5aaa' }}>{sp.status === 'active' ? 'Активен' : 'Архив'}</span></td>
                           <td style={{ padding: '10px 14px' }}><Btn size="sm" onClick={async () => { const analysis = await fetchSpecProjectAnalysis(sp.id) as AnalysisRow[]; setShowSpecAnalysis({ sp, analysis }) }}>Аналитика</Btn></td>
                         </tr>
                       ))}</tbody>
@@ -2064,13 +2065,13 @@ export default function AdminApp({ user }: Props) {
                 {settingsTab === 'nomenclature' && (
                   <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                     <thead><tr style={{ background: '#f1efec' }}>
-                      {['НАИМЕНОВАНИЕ 1С', 'ЕД.', 'КАТЕГОРИЯ'].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>{h}</th>)}
+                      {['НАИМЕНОВАНИЕ 1С', 'ЕД.', 'КАТЕГОРИЯ'].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left' }}>{h}</th>)}
                     </tr></thead>
                     <tbody>{settings.nomenclature.map((n, i) => (
                       <tr key={n.id} style={{ borderTop: i > 0 ? '1px solid #f1efec' : 'none' }}>
-                        <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 500 }}>{n.name}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 12, color: '#8a847c' }}>{n.unit}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 12, color: '#8a847c' }}>{n.cat}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 500 }}>{n.name}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 13, color: '#5f5952' }}>{n.unit}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 13, color: '#5f5952' }}>{n.cat}</td>
                       </tr>
                     ))}</tbody>
                   </table>
@@ -2080,12 +2081,12 @@ export default function AdminApp({ user }: Props) {
                 {settingsTab === 'payment' && (
                   <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                     <thead><tr style={{ background: '#f1efec' }}>
-                      {['СТАТУС', 'АКТИВЕН'].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>{h}</th>)}
+                      {['СТАТУС', 'АКТИВЕН'].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left' }}>{h}</th>)}
                     </tr></thead>
                     <tbody>{settings.paymentStatuses.map((ps, i) => (
                       <tr key={ps.id} style={{ borderTop: i > 0 ? '1px solid #f1efec' : 'none' }}>
-                        <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 500 }}>{ps.name}</td>
-                        <td style={{ padding: '10px 14px' }}><span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 20, fontWeight: 600, background: ps.active ? '#e8f5ee' : '#faeaea', color: ps.active ? '#2e8a5e' : '#b03020' }}>{ps.active ? 'Да' : 'Нет'}</span></td>
+                        <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 500 }}>{ps.name}</td>
+                        <td style={{ padding: '10px 14px' }}><span style={{ fontSize: 12, padding: '2px 7px', borderRadius: 20, fontWeight: 600, background: ps.active ? '#e8f5ee' : '#faeaea', color: ps.active ? '#2e8a5e' : '#b03020' }}>{ps.active ? 'Да' : 'Нет'}</span></td>
                       </tr>
                     ))}</tbody>
                   </table>
@@ -2120,7 +2121,7 @@ export default function AdminApp({ user }: Props) {
             <img src="/icons/icon-192.png" alt="UKan" style={{ width: 54, height: 54, borderRadius: 13, display: 'block' }} />
             <div style={{ flex: 1 }}>
               <div style={{ color: '#fff', fontWeight: 800, fontSize: 16 }}>U2B ERP</div>
-              <div style={{ color: COLORS.sidebar.muted, fontSize: 11 }}>автоматизация бизнеса</div>
+              <div style={{ color: COLORS.sidebar.muted, fontSize: 12 }}>автоматизация бизнеса</div>
             </div>
             <button onClick={() => setSideOpen(false)} className="sidebar-close" style={{ background: 'none', border: 'none', color: COLORS.sidebar.muted, cursor: 'pointer', fontSize: 20, padding: '4px', display: 'none' }}>✕</button>
           </div>
@@ -2135,7 +2136,7 @@ export default function AdminApp({ user }: Props) {
               <button key={key} onClick={() => setScreen(key as AdminScreen)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', border: 'none', background: isActive ? 'rgba(212,97,58,.15)' : 'transparent', color: isActive ? COLORS.sidebar.active : COLORS.sidebar.text, cursor: 'pointer', fontFamily: 'inherit', fontWeight: isActive ? 700 : 500, fontSize: 15, textAlign: 'left', borderLeft: `3px solid ${isActive ? COLORS.sidebar.active : 'transparent'}` }}>
                 <span style={{ fontSize: 18, width: 22, textAlign: 'center' }}>{icon}</span>
                 <span style={{ flex: 1 }}>{label}</span>
-                {count > 0 && <span style={{ background: isActive ? COLORS.primary : COLORS.sidebar.badge, color: isActive ? '#fff' : COLORS.sidebar.text, fontSize: 11, padding: '1px 7px', borderRadius: 10, fontWeight: 700 }}>{count}</span>}
+                {count > 0 && <span style={{ background: isActive ? COLORS.primary : COLORS.sidebar.badge, color: isActive ? '#fff' : COLORS.sidebar.text, fontSize: 12, padding: '1px 7px', borderRadius: 10, fontWeight: 700 }}>{count}</span>}
               </button>
             )
           })}
@@ -2143,11 +2144,11 @@ export default function AdminApp({ user }: Props) {
 
         {/* Футер */}
         <div style={{ padding: '12px 16px', borderTop: `1px solid ${COLORS.sidebar.border}` }}>
-          <div style={{ color: COLORS.sidebar.text, fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{user.name}</div>
-          <div style={{ color: COLORS.sidebar.muted, fontSize: 11, marginBottom: 10 }}>{user.role === 'super_admin' ? 'Супер-Админ' : 'Бухгалтер'}</div>
+          <div style={{ color: COLORS.sidebar.text, fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{user.name}</div>
+          <div style={{ color: COLORS.sidebar.muted, fontSize: 12, marginBottom: 10 }}>{user.role === 'super_admin' ? 'Супер-Админ' : 'Бухгалтер'}</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={loadOrders} style={{ flex: 1, background: COLORS.sidebar.badge, border: 'none', borderRadius: 7, padding: '6px', color: COLORS.sidebar.text, cursor: 'pointer', fontSize: 13 }}>⟳</button>
-            <button onClick={logout} style={{ flex: 1, background: COLORS.sidebar.badge, border: 'none', borderRadius: 7, padding: '6px', color: COLORS.sidebar.muted, cursor: 'pointer', fontSize: 11, fontFamily: 'inherit' }}>Выйти</button>
+            <button onClick={loadOrders} style={{ flex: 1, background: COLORS.sidebar.badge, border: 'none', borderRadius: 7, padding: '6px', color: COLORS.sidebar.text, cursor: 'pointer', fontSize: 14 }}>⟳</button>
+            <button onClick={logout} style={{ flex: 1, background: COLORS.sidebar.badge, border: 'none', borderRadius: 7, padding: '6px', color: COLORS.sidebar.muted, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>Выйти</button>
           </div>
         </div>
       </div>
@@ -2159,7 +2160,7 @@ export default function AdminApp({ user }: Props) {
           <button onClick={() => setSideOpen(p => !p)} className="hamburger" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, padding: '2px 6px', color: '#26231f', display: 'none', flexShrink: 0 }}>☰</button>
           <div>
             <div style={{ fontWeight: 700, fontSize: 16 }}>{NAV.find(n => n.key === screen)?.label}</div>
-            <div style={{ fontSize: 11, color: '#8a847c' }}>{new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+            <div style={{ fontSize: 12, color: '#5f5952' }}>{new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
           </div>
 
           {/* Пилюли */}
@@ -2170,7 +2171,7 @@ export default function AdminApp({ user }: Props) {
               { label: `Просрочено: ${orders.filter(isOverdue).length}`, bg: '#faeaea', color: '#b03020' },
               { label: `К учёту: ${accounting.length}`, bg: '#e8f5ee', color: '#2e8a5e' },
             ].map(({ label, bg, color }) => (
-              <span key={label} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: bg, color, fontWeight: 600 }}>{label}</span>
+              <span key={label} style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: bg, color, fontWeight: 600 }}>{label}</span>
             ))}
           </div>
 
@@ -2186,11 +2187,11 @@ export default function AdminApp({ user }: Props) {
               {showNotifs && (
                 <div style={{ position: 'absolute', top: 40, right: 0, background: '#fff', borderRadius: 12, boxShadow: '0 4px 24px rgba(0,0,0,.12)', width: 320, maxHeight: 400, overflowY: 'auto', zIndex: 500, border: '1.5px solid #e6e2dc' }}>
                   <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1efec', fontWeight: 700, fontSize: 14 }}>Уведомления</div>
-                  {notifications.length === 0 ? <div style={{ padding: 16, color: '#8a847c', fontSize: 13 }}>Нет уведомлений</div>
+                  {notifications.length === 0 ? <div style={{ padding: 16, color: '#5f5952', fontSize: 14 }}>Нет уведомлений</div>
                     : notifications.slice(0, 15).map(n => (
                       <div key={n.id} onClick={() => markNotificationRead(n.id).then(loadNotifs)} style={{ padding: '10px 16px', borderBottom: '1px solid #f1efec', cursor: 'pointer', background: n.read ? '#fff' : '#fff8f5' }}>
-                        <div style={{ fontSize: 13, fontWeight: n.read ? 400 : 600 }}>{n.text}</div>
-                        <div style={{ fontSize: 11, color: '#8a847c', marginTop: 2 }}>{fmtDateTime(n.createdAt)}</div>
+                        <div style={{ fontSize: 14, fontWeight: n.read ? 400 : 600 }}>{n.text}</div>
+                        <div style={{ fontSize: 12, color: '#5f5952', marginTop: 2 }}>{fmtDateTime(n.createdAt)}</div>
                       </div>
                     ))
                   }
@@ -2269,7 +2270,7 @@ export default function AdminApp({ user }: Props) {
             <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Пользователь создан!</div>
             <div style={{ fontSize: 14, marginBottom: 4 }}>{showUserResult.user.name}</div>
             {showUserResult.accessUrl && (
-              <div style={{ background: '#f1efec', borderRadius: 8, padding: 12, margin: '16px 0', fontSize: 13, wordBreak: 'break-all' }}>
+              <div style={{ background: '#f1efec', borderRadius: 8, padding: 12, margin: '16px 0', fontSize: 14, wordBreak: 'break-all' }}>
                 {showUserResult.accessUrl}
                 <button onClick={() => { navigator.clipboard.writeText(showUserResult.accessUrl); showToast('Скопировано!') }} style={{ marginLeft: 8, border: 'none', background: 'none', cursor: 'pointer', fontSize: 14 }}>📋</button>
               </div>
@@ -2299,7 +2300,7 @@ export default function AdminApp({ user }: Props) {
               </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                 <input type="checkbox" checked={editingUser.active} onChange={e => setEditingUser(p => p ? ({ ...p, active: e.target.checked }) : p)} />
-                <span style={{ fontSize: 13 }}>Активен</span>
+                <span style={{ fontSize: 14 }}>Активен</span>
               </label>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                 <Btn onClick={() => setEditingUser(null)}>Отмена</Btn>
@@ -2365,7 +2366,7 @@ export default function AdminApp({ user }: Props) {
                   <button type="button" onClick={() => setNewSpec(p => ({ ...p, items: p.items.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b03020', fontSize: 20, padding: '8px 4px', alignSelf: 'flex-end' }}>×</button>
                 </div>
               ))}
-              <button type="button" onClick={() => setNewSpec(p => ({ ...p, items: [...p.items, { name: '', qty: '', unit: 'шт' }] }))} style={{ border: '1.5px dashed #e6e2dc', borderRadius: 7, padding: '8px', background: 'none', cursor: 'pointer', fontSize: 13, color: '#8a847c', fontFamily: 'inherit' }}>+ Добавить позицию</button>
+              <button type="button" onClick={() => setNewSpec(p => ({ ...p, items: [...p.items, { name: '', qty: '', unit: 'шт' }] }))} style={{ border: '1.5px dashed #e6e2dc', borderRadius: 7, padding: '8px', background: 'none', cursor: 'pointer', fontSize: 14, color: '#5f5952', fontFamily: 'inherit' }}>+ Добавить позицию</button>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                 <Btn onClick={() => setShowCreateSpec(false)}>Отмена</Btn>
                 <Btn variant="primary">Сохранить СпецПроект →</Btn>
@@ -2380,24 +2381,24 @@ export default function AdminApp({ user }: Props) {
         <div onClick={() => setShowSpecAnalysis(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div onClick={e => e.stopPropagation()} className="anim-pop" style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 600, maxHeight: '80vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-              <div><div style={{ fontWeight: 700, fontSize: 18 }}>{showSpecAnalysis.sp.name}</div><div style={{ fontSize: 12, color: '#8a847c' }}>Смета vs Собрано</div></div>
-              <button onClick={() => setShowSpecAnalysis(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: '#8a847c' }}>×</button>
+              <div><div style={{ fontWeight: 700, fontSize: 18 }}>{showSpecAnalysis.sp.name}</div><div style={{ fontSize: 13, color: '#5f5952' }}>Смета vs Собрано</div></div>
+              <button onClick={() => setShowSpecAnalysis(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: '#5f5952' }}>×</button>
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead><tr style={{ background: '#f1efec' }}>
-                {['НАИМ.', 'НУЖНО', 'ЕД.', 'СОБРАНО', 'ОСТАТОК', '%'].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left' }}>{h}</th>)}
+                {['НАИМ.', 'НУЖНО', 'ЕД.', 'СОБРАНО', 'ОСТАТОК', '%'].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left' }}>{h}</th>)}
               </tr></thead>
               <tbody>{showSpecAnalysis.analysis.map((row, i) => (
                 <tr key={i} style={{ borderTop: '1px solid #f1efec' }}>
-                  <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 500 }}>{row.name}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 13 }}>{row.needed}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 12, color: '#8a847c' }}>{row.unit}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600, color: barColor(row.pct) }}>{row.collected}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 13 }}>{row.remaining}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 500 }}>{row.name}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 14 }}>{row.needed}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 13, color: '#5f5952' }}>{row.unit}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 600, color: barColor(row.pct) }}>{row.collected}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 14 }}>{row.remaining}</td>
                   <td style={{ padding: '10px 14px', width: 80 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <ProgressBar pct={row.pct} />
-                      <span style={{ fontSize: 12, fontWeight: 700, color: barColor(row.pct), flexShrink: 0 }}>{row.pct}%</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: barColor(row.pct), flexShrink: 0 }}>{row.pct}%</span>
                     </div>
                   </td>
                 </tr>

@@ -44,7 +44,7 @@ function StatusBadge({ status }: { status: string }) {
     'Архив': { bg: '#efece8', color: '#6b655b' },
   }
   const s = map[status] || { bg: '#efece8', color: '#6b655b' }
-  return <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: s.bg, color: s.color }}>{status}</span>
+  return <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: s.bg, color: s.color }}>{status}</span>
 }
 
 function barColor(pct: number) { return pct >= 100 ? '#3a9d6e' : pct >= 60 ? '#c4a832' : PRIMARY }
@@ -204,23 +204,23 @@ export default function BranchPortal({ user, branchUser }: Props) {
         <div style={{ padding: '14px 16px', cursor: 'pointer' }} onClick={() => openOrder(o.id)}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: PRIMARY }}>{o.id}</span>
+              <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, color: PRIMARY }}>{o.id}</span>
               <StatusBadge status={o.status} />
             </div>
-            <span style={{ fontSize: 11, color: '#8a847c', flexShrink: 0 }}>{fmtDate(o.createdAt)}</span>
+            <span style={{ fontSize: 12, color: '#5f5952', flexShrink: 0 }}>{fmtDate(o.createdAt)}</span>
           </div>
-          <div style={{ fontSize: 13, marginBottom: 8 }}>
-            <span style={{ color: '#8a847c' }}>{o.from}</span>
-            <span style={{ color: '#8a847c', margin: '0 4px' }}>→</span>
+          <div style={{ fontSize: 14, marginBottom: 8 }}>
+            <span style={{ color: '#5f5952' }}>{o.from}</span>
+            <span style={{ color: '#5f5952', margin: '0 4px' }}>→</span>
             <strong>{o.to || 'не распределено'}</strong>
-            {o.deadline && <span style={{ color: '#8a847c', fontSize: 12, marginLeft: 8 }}>до {fmtDate(o.deadline)}</span>}
+            {o.deadline && <span style={{ color: '#5f5952', fontSize: 13, marginLeft: 8 }}>до {fmtDate(o.deadline)}</span>}
           </div>
           {/* Прогресс бар */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ flex: 1, height: 5, background: '#f1efec', borderRadius: 3, overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${pct}%`, background: barColor(pct), borderRadius: 3, transition: 'width .3s' }} />
             </div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: barColor(pct), minWidth: 36, textAlign: 'right' }}>{pct}%</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: barColor(pct), minWidth: 36, textAlign: 'right' }}>{pct}%</span>
           </div>
         </div>
 
@@ -250,7 +250,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
                 )}
                 {/* Мои позиции в доставке — только просмотр */}
                 {myHanded.length > 0 && !canRecall && (
-                  <div style={{ fontSize: 12, color: '#8a847c', padding: '8px 0' }}>📦 Доставка в процессе</div>
+                  <div style={{ fontSize: 13, color: '#5f5952', padding: '8px 0' }}>📦 Доставка в процессе</div>
                 )}
               </div>
             )}
@@ -258,7 +258,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
             {/* Вкладки Позиции / История / Чат */}
             <div style={{ display: 'flex', gap: 4, padding: '10px 16px 0' }}>
               {(['positions', 'history', 'chat'] as const).map(t => (
-                <button key={t} onClick={() => setDetailTab(t)} style={{ padding: '5px 12px', borderRadius: 7, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: detailTab === t ? PRIMARY : '#f1efec', color: detailTab === t ? '#fff' : '#8a847c' }}>
+                <button key={t} onClick={() => setDetailTab(t)} style={{ padding: '5px 12px', borderRadius: 7, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: detailTab === t ? PRIMARY : '#f1efec', color: detailTab === t ? '#fff' : '#5f5952' }}>
                   {t === 'positions' ? `Позиции (${o.positions.length})` : t === 'history' ? 'История' : `💬 Чат${msgCount[o.id] ? ` (${msgCount[o.id]})` : ''}`}
                 </button>
               ))}
@@ -268,7 +268,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
             {detailTab === 'positions' && (
               <div style={{ padding: '10px 16px' }}>
                 {o.positions.length === 0
-                  ? <div style={{ fontSize: 13, color: '#8a847c', padding: '8px 0' }}>Нет позиций</div>
+                  ? <div style={{ fontSize: 14, color: '#5f5952', padding: '8px 0' }}>Нет позиций</div>
                   : o.positions.map(p => (
                     <div key={p.id} style={{ padding: '8px 0', borderBottom: '1px solid #f8f6f3' }}>
                       {editPosId === p.id ? (
@@ -279,13 +279,13 @@ export default function BranchPortal({ user, branchUser }: Props) {
                       ) : (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}><RalDot code={extractRal(p.name1c || p.oral)} size={13} />{p.name1c || p.oral || '—'}</div>
-                            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#a39c92' }}>{p.id}</div>
-                            {p.resp && <div style={{ fontSize: 11, color: '#8a847c' }}>Логист: {p.resp}</div>}
-                            {p.supplier && <div style={{ fontSize: 11, color: '#8a847c' }}>Поставщик: {p.supplier}</div>}
+                            <div style={{ fontSize: 14, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}><RalDot code={extractRal(p.name1c || p.oral)} size={13} />{p.name1c || p.oral || '—'}</div>
+                            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#6b645b' }}>{p.id}</div>
+                            {p.resp && <div style={{ fontSize: 12, color: '#5f5952' }}>Логист: {p.resp}</div>}
+                            {p.supplier && <div style={{ fontSize: 12, color: '#5f5952' }}>Поставщик: {p.supplier}</div>}
                           </div>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-                            <span style={{ fontSize: 12, color: '#8a847c' }}>{p.qty > 0 ? `${p.qty} ${p.unit}` : '—'}</span>
+                            <span style={{ fontSize: 13, color: '#5f5952' }}>{p.qty > 0 ? `${p.qty} ${p.unit}` : '—'}</span>
                             <StatusBadge status={p.status} />
                             {isEditablePos(p) && (
                               <button onClick={() => { editingRef.current = true; setEditPosId(p.id) }} style={editBtn(false)}>Изменить</button>
@@ -307,7 +307,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
                       onCancel={() => { editingRef.current = false; setAddingCardId(null) }} />
                   ) : (
                     <button onClick={() => { editingRef.current = true; setAddingCardId(o.id) }}
-                      style={{ marginTop: 10, width: '100%', padding: '9px', border: '1.5px dashed #d8d3cc', borderRadius: 8, background: 'none', cursor: 'pointer', fontSize: 13, color: '#8a847c', fontFamily: 'inherit', fontWeight: 600 }}>
+                      style={{ marginTop: 10, width: '100%', padding: '9px', border: '1.5px dashed #d8d3cc', borderRadius: 8, background: 'none', cursor: 'pointer', fontSize: 14, color: '#5f5952', fontFamily: 'inherit', fontWeight: 600 }}>
                       ＋ Добавить позицию
                     </button>
                   )
@@ -319,13 +319,13 @@ export default function BranchPortal({ user, branchUser }: Props) {
             {detailTab === 'history' && (
               <div style={{ padding: '10px 16px' }}>
                 {hist.length === 0
-                  ? <div style={{ fontSize: 13, color: '#8a847c', padding: '8px 0' }}>Нет истории</div>
+                  ? <div style={{ fontSize: 14, color: '#5f5952', padding: '8px 0' }}>Нет истории</div>
                   : hist.map(h => (
                     <div key={h.id} style={{ display: 'flex', gap: 10, padding: '7px 0', borderBottom: '1px solid #f8f6f3', alignItems: 'flex-start' }}>
                       <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#e6e2dc', marginTop: 6, flexShrink: 0 }} />
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13 }}>{h.action}</div>
-                        <div style={{ fontSize: 11, color: '#8a847c' }}>{h.userName} · {fmtTime(h.createdAt)}</div>
+                        <div style={{ fontSize: 14 }}>{h.action}</div>
+                        <div style={{ fontSize: 12, color: '#5f5952' }}>{h.userName} · {fmtTime(h.createdAt)}</div>
                       </div>
                     </div>
                   ))
@@ -342,7 +342,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
 
             {/* Трекинг */}
             <div style={{ padding: '10px 16px 14px' }}>
-              <a href={o.trackingLink} target="_blank" rel="noreferrer" style={{ color: PRIMARY, fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>
+              <a href={o.trackingLink} target="_blank" rel="noreferrer" style={{ color: PRIMARY, fontSize: 14, textDecoration: 'none', fontWeight: 500 }}>
                 Трекинг →
               </a>
             </div>
@@ -358,7 +358,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
         <div style={{ background: '#fff', borderRadius: 14, padding: 28, maxWidth: 340, textAlign: 'center', boxShadow: '0 8px 40px rgba(0,0,0,.15)' }}>
           <div style={{ fontSize: 34, marginBottom: 10 }}>🔒</div>
           <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 6 }}>Сессия устарела</div>
-          <div style={{ color: '#8a847c', fontSize: 14, marginBottom: 18 }}>Войдите заново, чтобы продолжить.</div>
+          <div style={{ color: '#5f5952', fontSize: 14, marginBottom: 18 }}>Войдите заново, чтобы продолжить.</div>
           <button onClick={() => logout()} style={{ padding: '11px 24px', background: PRIMARY, color: '#fff', border: 'none', borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
             Выйти и войти заново
           </button>
@@ -382,19 +382,19 @@ export default function BranchPortal({ user, branchUser }: Props) {
           <img src="/icons/icon-192.png" alt="UKan" style={{ width: 42, height: 42, borderRadius: 10, display: 'block' }} />
           <div>
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>U-Kan · Филиал</div>
-            <div style={{ color: '#8c857a', fontSize: 11 }}>{branchUser.name}</div>
+            <div style={{ color: '#8c857a', fontSize: 12 }}>{branchUser.name}</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={load} style={{ background: 'none', border: 'none', color: '#8c857a', fontSize: 18, cursor: 'pointer', padding: 4 }}>⟳</button>
-          <button onClick={() => logout()} style={{ background: 'none', border: '1px solid #444', color: '#ccc', fontSize: 12, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' }}>Выйти</button>
+          <button onClick={() => logout()} style={{ background: 'none', border: '1px solid #444', color: '#ccc', fontSize: 13, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' }}>Выйти</button>
         </div>
       </div>
 
       {/* Контент */}
       <div style={{ padding: '16px 12px 80px' }}>
         {loading && orders.length === 0 && (
-          <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
+          <div style={{ textAlign: 'center', padding: 40, color: '#5f5952' }}>Загрузка...</div>
         )}
 
         {/* ВХОДЯЩИЕ */}
@@ -405,7 +405,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
               ? <div style={{ background: '#fff', borderRadius: 14, padding: 40, textAlign: 'center', boxShadow: '0 0 0 1px #e6e2dc' }}>
                   <div style={{ fontSize: 32, marginBottom: 10 }}>📥</div>
                   <div style={{ fontWeight: 600, marginBottom: 6 }}>Нет входящих</div>
-                  <div style={{ color: '#8a847c', fontSize: 13 }}>Карточки появятся когда вас назначат получателем</div>
+                  <div style={{ color: '#5f5952', fontSize: 14 }}>Карточки появятся когда вас назначат получателем</div>
                 </div>
               : incoming.map(o => <OrderCard key={o.id} o={o} showActions={true} />)
             }
@@ -444,15 +444,15 @@ export default function BranchPortal({ user, branchUser }: Props) {
               <form onSubmit={handleNewOrder}>
                 <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Новая заявка</div>
                 <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: '#8a847c', display: 'block', marginBottom: 4 }}>ОТ КОГО</label>
-                  <input style={{ ...INP, background: '#f8f6f3', color: '#8a847c' }} value={branchUser.name} disabled />
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#5f5952', display: 'block', marginBottom: 4 }}>ОТ КОГО</label>
+                  <input style={{ ...INP, background: '#f8f6f3', color: '#5f5952' }} value={branchUser.name} disabled />
                 </div>
                 <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: '#8a847c', display: 'block', marginBottom: 4 }}>КОМУ / КУДА</label>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#5f5952', display: 'block', marginBottom: 4 }}>КОМУ / КУДА</label>
                   <input style={INP} value={newTo} onChange={e => setNewTo(e.target.value)} placeholder="Получатель..." />
                 </div>
                 <div style={{ marginBottom: 20 }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: '#8a847c', display: 'block', marginBottom: 4 }}>ОПИСАНИЕ *</label>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#5f5952', display: 'block', marginBottom: 4 }}>ОПИСАНИЕ *</label>
                   <textarea style={{ ...INP, minHeight: 100, resize: 'vertical' } as any} value={newText} onChange={e => setNewText(e.target.value)} placeholder="Что нужно заказать..." required />
                 </div>
                 <button type="submit" disabled={newLoading} style={{ width: '100%', padding: '12px', background: PRIMARY, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -477,9 +477,9 @@ export default function BranchPortal({ user, branchUser }: Props) {
         ]).map(({ key, icon, label, badge }) => (
           <button key={key} onClick={() => setTab(key)} style={{ flex: 1, padding: '10px 4px 8px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, position: 'relative', fontFamily: 'inherit' }}>
             <span style={{ fontSize: 20 }}>{icon}</span>
-            <span style={{ fontSize: 10, fontWeight: tab === key ? 700 : 400, color: tab === key ? PRIMARY : '#8c857a' }}>{label}</span>
+            <span style={{ fontSize: 12, fontWeight: tab === key ? 700 : 400, color: tab === key ? PRIMARY : '#8c857a' }}>{label}</span>
             {badge > 0 && (
-              <span style={{ position: 'absolute', top: 6, right: '50%', transform: 'translateX(8px)', background: PRIMARY, color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 10, minWidth: 16, textAlign: 'center' }}>{badge}</span>
+              <span style={{ position: 'absolute', top: 6, right: '50%', transform: 'translateX(8px)', background: PRIMARY, color: '#fff', fontSize: 11, fontWeight: 700, padding: '1px 5px', borderRadius: 10, minWidth: 16, textAlign: 'center' }}>{badge}</span>
             )}
             {tab === key && <div style={{ position: 'absolute', bottom: 0, left: '20%', right: '20%', height: 2, background: PRIMARY, borderRadius: 1 }} />}
           </button>

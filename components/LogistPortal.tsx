@@ -317,7 +317,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
   const shiftOut   = shiftRows.filter(r => r.name).reduce((s, r) => s + (Number(r.qtyOut) || 0), 0)  // Σ расход
 
   const inp: React.CSSProperties = { width: '100%', padding: '10px 13px', borderRadius: 8, fontSize: 14, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }
-  const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: '#8a847c', marginBottom: 4, display: 'block', letterSpacing: '.04em' }
+  const lbl: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#5f5952', marginBottom: 4, display: 'block', letterSpacing: '.04em' }
 
   // ── 3 кнопки статуса ──
   function StatusBtns({ cardId, posId, posStatus, posName, fromWho, toWho, qty }: { cardId: string; posId: string; posStatus: string; posName: string; fromWho: string; toWho: string; qty: number }) {
@@ -332,7 +332,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
         {btns.map((b, i) => (
           <button key={b.label} onClick={() => handleStatus(cardId, posId, b.status, posName, fromWho, toWho, qty)}
             disabled={updating === posId || posStatus === 'Доставлено'}
-            style={{ padding: '10px 4px', borderRadius: 8, border: 'none', fontWeight: 700, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', background: i <= activeIdx ? PRIMARY : '#f1efec', color: i <= activeIdx ? '#fff' : '#8a847c', opacity: updating === posId ? .6 : 1 }}>
+            style={{ padding: '10px 4px', borderRadius: 8, border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: i <= activeIdx ? PRIMARY : '#f1efec', color: i <= activeIdx ? '#fff' : '#5f5952', opacity: updating === posId ? .6 : 1 }}>
             {b.label}
           </button>
         ))}
@@ -357,13 +357,13 @@ export default function LogistPortal({ user, logistUser }: Props) {
               <div style={{ fontWeight: 700, fontSize: 16, flex: 1, display: 'flex', alignItems: 'center', gap: 7 }}><RalDot code={extractRal(pos.name1c || pos.oral)} />{pos.name1c || pos.oral}</div>
               <span style={{ fontWeight: 700, fontSize: 18, color: PRIMARY, marginLeft: 10 }}>{pos.qty} {pos.unit}</span>
             </div>
-            <div style={{ fontSize: 13, color: '#8a847c', marginBottom: 4 }}>{order.from} → {order.to || '—'}</div>
-            {order.comment && <div style={{ fontSize: 12, background: '#f8f6f3', borderRadius: 6, padding: '6px 10px', marginBottom: 6 }}>{order.comment.slice(0, 80)}</div>}
+            <div style={{ fontSize: 14, color: '#5f5952', marginBottom: 4 }}>{order.from} → {order.to || '—'}</div>
+            {order.comment && <div style={{ fontSize: 13, background: '#f8f6f3', borderRadius: 6, padding: '6px 10px', marginBottom: 6 }}>{order.comment.slice(0, 80)}</div>}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: PRIMARY, fontWeight: 600 }}>{order.id}</span>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#a39c92' }}>{pos.id}</span>
-              {pos.late && <span style={{ fontSize: 10, background: '#faeaea', color: '#b03020', padding: '1px 6px', borderRadius: 20, fontWeight: 600 }}>ПРОСРОЧ.</span>}
-              <span style={{ fontSize: 10, background: pos.status === 'Доставлено' ? '#e8f5ee' : '#fff0ea', color: pos.status === 'Доставлено' ? '#2e8a5e' : '#c0532a', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{pos.status}</span>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: PRIMARY, fontWeight: 600 }}>{order.id}</span>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#6b645b' }}>{pos.id}</span>
+              {pos.late && <span style={{ fontSize: 12, background: '#faeaea', color: '#b03020', padding: '1px 6px', borderRadius: 20, fontWeight: 600 }}>ПРОСРОЧ.</span>}
+              <span style={{ fontSize: 12, background: pos.status === 'Доставлено' ? '#e8f5ee' : '#fff0ea', color: pos.status === 'Доставлено' ? '#2e8a5e' : '#c0532a', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{pos.status}</span>
               {editable && <button onClick={() => { editingRef.current = true; setEditPosId(pos.id) }} style={{ ...editBtn(false), marginLeft: 'auto' }}>Изменить</button>}
             </div>
             <StatusBtns cardId={order.id} posId={pos.id} posStatus={pos.status} posName={pos.name1c || pos.oral} fromWho={pos.supplier || order.from} toWho={order.to || ''} qty={pos.qty} />
@@ -372,7 +372,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
               const opening = chatOpenPos !== pos.id
               setChatOpenPos(opening ? pos.id : null)
               if (opening) fetch(`/api/orders/${order.id}/messages`).then(r => r.ok ? r.json() : []).then((d: any) => { const n = Array.isArray(d) ? d.length : 0; setMsgCount(prev => prev[order.id] === n ? prev : { ...prev, [order.id]: n }) }).catch(() => {})
-            }} style={{ marginTop: 10, width: '100%', padding: '8px', border: 'none', borderRadius: 8, background: chatOpenPos === pos.id ? PRIMARY : '#f1efec', color: chatOpenPos === pos.id ? '#fff' : '#8a847c', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', fontWeight: 600 }}>
+            }} style={{ marginTop: 10, width: '100%', padding: '8px', border: 'none', borderRadius: 8, background: chatOpenPos === pos.id ? PRIMARY : '#f1efec', color: chatOpenPos === pos.id ? '#fff' : '#5f5952', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit', fontWeight: 600 }}>
               💬 Чат{msgCount[order.id] ? ` (${msgCount[order.id]})` : ''}
             </button>
             {chatOpenPos === pos.id && (
@@ -387,7 +387,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
                 onCancel={() => { editingRef.current = false; setAddingCardId(null) }} />
             ) : (
               <button onClick={() => { editingRef.current = true; setAddingCardId(order.id) }}
-                style={{ marginTop: 10, width: '100%', padding: '9px', border: '1.5px dashed #d8d3cc', borderRadius: 8, background: 'none', cursor: 'pointer', fontSize: 13, color: '#8a847c', fontFamily: 'inherit', fontWeight: 600 }}>
+                style={{ marginTop: 10, width: '100%', padding: '9px', border: '1.5px dashed #d8d3cc', borderRadius: 8, background: 'none', cursor: 'pointer', fontSize: 14, color: '#5f5952', fontFamily: 'inherit', fontWeight: 600 }}>
                 ＋ Добавить позицию
               </button>
             ))}
@@ -403,7 +403,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
         <div style={{ background: '#fff', borderRadius: 14, padding: 28, maxWidth: 340, textAlign: 'center', boxShadow: '0 8px 40px rgba(0,0,0,.15)' }}>
           <div style={{ fontSize: 34, marginBottom: 10 }}>🔒</div>
           <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 6 }}>Сессия устарела</div>
-          <div style={{ color: '#8a847c', fontSize: 14, marginBottom: 18 }}>Войдите заново, чтобы продолжить.</div>
+          <div style={{ color: '#5f5952', fontSize: 14, marginBottom: 18 }}>Войдите заново, чтобы продолжить.</div>
           <button onClick={() => logout()} style={{ padding: '11px 24px', background: PRIMARY, color: '#fff', border: 'none', borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
             Выйти и войти заново
           </button>
@@ -424,14 +424,14 @@ export default function LogistPortal({ user, logistUser }: Props) {
             <img src="/icons/icon-192.png" alt="UKan" style={{ width: 42, height: 42, borderRadius: 10, display: 'block' }} />
             <div>
               <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>U-Kan · Портал</div>
-              <div style={{ color: '#8c857a', fontSize: 11 }}>{myName}</div>
+              <div style={{ color: '#8c857a', fontSize: 12 }}>{myName}</div>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={load} style={{ background: DARK2, border: 'none', borderRadius: 7, padding: '6px 10px', color: loading ? '#d4613a' : '#cfc9c0', cursor: 'pointer', fontSize: 14, transition: 'color .3s' }}>
                 {loading ? '⟳' : '⟳'}
               </button>
-            <button onClick={logout} style={{ background: DARK2, border: 'none', borderRadius: 7, padding: '6px 12px', color: '#cfc9c0', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>Выйти</button>
+            <button onClick={logout} style={{ background: DARK2, border: 'none', borderRadius: 7, padding: '6px 12px', color: '#cfc9c0', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>Выйти</button>
           </div>
         </div>
       </div>
@@ -444,9 +444,9 @@ export default function LogistPortal({ user, logistUser }: Props) {
           <div>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>📥 Входящие · ко мне</div>
             <DateFilter period={period} day={day} onChange={(p, d) => { setPeriod(p); setDay(d) }} />
-            {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
+            {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#5f5952' }}>Загрузка...</div>
               : posIn.length === 0
-              ? <div style={{ background: '#fff', borderRadius: 14, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 10 }}>✅</div><div style={{ color: '#8a847c' }}>Нет входящих позиций</div></div>
+              ? <div style={{ background: '#fff', borderRadius: 14, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 10 }}>✅</div><div style={{ color: '#5f5952' }}>Нет входящих позиций</div></div>
               : posIn.map(({ pos, order }) => <PosCard key={pos.id} pos={pos} order={order} />)
             }
           </div>
@@ -457,9 +457,9 @@ export default function LogistPortal({ user, logistUser }: Props) {
           <div>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>📤 Исходящие · доставлено мной</div>
             <DateFilter period={period} day={day} onChange={(p, d) => { setPeriod(p); setDay(d) }} />
-            {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
+            {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#5f5952' }}>Загрузка...</div>
               : posOut.length === 0
-              ? <div style={{ background: '#fff', borderRadius: 14, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 10 }}>📭</div><div style={{ color: '#8a847c' }}>Пока нет доставленных позиций</div></div>
+              ? <div style={{ background: '#fff', borderRadius: 14, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 10 }}>📭</div><div style={{ color: '#5f5952' }}>Пока нет доставленных позиций</div></div>
               : posOut.map(({ pos, order }) => <PosCard key={`out-${pos.id}`} pos={pos} order={order} />)
             }
           </div>
@@ -469,10 +469,10 @@ export default function LogistPortal({ user, logistUser }: Props) {
         {tab === 'changes' && (
           <div>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>⚡ Изменения</div>
-            <div style={{ fontSize: 12, color: '#8a847c', marginBottom: 14 }}>Кто-то добавил позицию или изменил число в ваших карточках. Откройте и подтвердите.</div>
-            {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
+            <div style={{ fontSize: 13, color: '#5f5952', marginBottom: 14 }}>Кто-то добавил позицию или изменил число в ваших карточках. Откройте и подтвердите.</div>
+            {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#5f5952' }}>Загрузка...</div>
               : posChanged.length === 0
-              ? <div style={{ background: '#fff', borderRadius: 14, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 10 }}>✅</div><div style={{ color: '#8a847c' }}>Нет новых изменений</div></div>
+              ? <div style={{ background: '#fff', borderRadius: 14, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 10 }}>✅</div><div style={{ color: '#5f5952' }}>Нет новых изменений</div></div>
               : Array.from(new Set(posChanged.map(x => x.order.id))).map(cardId => {
                   const items = posChanged.filter(x => x.order.id === cardId)
                   const order = items[0].order
@@ -481,10 +481,10 @@ export default function LogistPortal({ user, logistUser }: Props) {
                     <div key={cardId} className="uk-blink" style={{ background: '#fff', border: '1.5px solid #f0c9b8', borderLeft: '4px solid #c1121c', borderRadius: 12, padding: '12px 14px', marginBottom: 10 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                         <span style={{ fontWeight: 700, fontSize: 14 }}>{order.id}</span>
-                        <span style={{ fontSize: 11, color: '#8a847c' }}>от {order.from} · для {order.to || '—'}</span>
-                        <button onClick={() => markCardSeen(cardId)} style={{ marginLeft: 'auto', padding: '6px 12px', borderRadius: 8, border: 'none', background: PRIMARY, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: 'inherit', flexShrink: 0 }}>✓ Просмотрено</button>
+                        <span style={{ fontSize: 12, color: '#5f5952' }}>от {order.from} · для {order.to || '—'}</span>
+                        <button onClick={() => markCardSeen(cardId)} style={{ marginLeft: 'auto', padding: '6px 12px', borderRadius: 8, border: 'none', background: PRIMARY, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit', flexShrink: 0 }}>✓ Просмотрено</button>
                       </div>
-                      {note && <div style={{ fontSize: 12, color: '#c0532a', marginBottom: 8, fontWeight: 600 }}>{note.text}</div>}
+                      {note && <div style={{ fontSize: 13, color: '#c0532a', marginBottom: 8, fontWeight: 600 }}>{note.text}</div>}
                       {items.map(({ pos, order }) => <PosCard key={`chg-${pos.id}`} pos={pos} order={order} />)}
                     </div>
                   )
@@ -513,15 +513,15 @@ export default function LogistPortal({ user, logistUser }: Props) {
         {tab === 'shift' && (
           <div>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>📊 Отчёт по смене</div>
-            <div style={{ fontSize: 12, color: '#8a847c', marginBottom: 16 }}>
+            <div style={{ fontSize: 13, color: '#5f5952', marginBottom: 16 }}>
               {new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })} · {new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
             </div>
 
             {/* Индикатор: редактируем ПРОШЛУЮ смену */}
             {editingDate && !reportSent && (
               <div style={{ background: '#fff0ea', border: '1.5px solid #e6c9b8', borderRadius: 10, padding: '10px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                <span style={{ fontSize: 13, color: '#c0532a', fontWeight: 600 }}>✎ Смена за {editingDate.split('-').reverse().join('.')}</span>
-                <button onClick={backToToday} style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #e6c9b8', background: '#fff', color: '#c0532a', cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'inherit' }}>← К сегодняшней</button>
+                <span style={{ fontSize: 14, color: '#c0532a', fontWeight: 600 }}>✎ Смена за {editingDate.split('-').reverse().join('.')}</span>
+                <button onClick={backToToday} style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #e6c9b8', background: '#fff', color: '#c0532a', cursor: 'pointer', fontWeight: 600, fontSize: 13, fontFamily: 'inherit' }}>← К сегодняшней</button>
               </div>
             )}
 
@@ -529,14 +529,14 @@ export default function LogistPortal({ user, logistUser }: Props) {
                 Смена ждёт закрытия сколько угодно; закрывается ПОД СВОИМ числом. */}
             {!editingDate && !reportSent && pastDrafts.length > 0 && (
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#8a6f00', letterSpacing: '.04em', marginBottom: 8 }}>⚠ НЕЗАКРЫТЫЕ СМЕНЫ</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#8a6f00', letterSpacing: '.04em', marginBottom: 8 }}>⚠ НЕЗАКРЫТЫЕ СМЕНЫ</div>
                 {pastDrafts.map(pd => (
                   <div key={pd.id} style={{ background: '#fff', border: '1.5px solid #f0d98a', borderLeft: '4px solid #d4a017', borderRadius: 12, padding: '12px 14px', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, boxShadow: '0 1px 4px rgba(0,0,0,.05)' }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: '#26231f' }}>Смена {fmtAlmatyDate(pd.date)}</div>
-                      <div style={{ fontSize: 12, color: '#8a6f00', marginTop: 2 }}>не закрыта · {pd.rowCount} строк</div>
+                      <div style={{ fontSize: 13, color: '#8a6f00', marginTop: 2 }}>не закрыта · {pd.rowCount} строк</div>
                     </div>
-                    <button onClick={() => openPastDraft(pd.date)} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: PRIMARY, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit', flexShrink: 0 }}>Открыть →</button>
+                    <button onClick={() => openPastDraft(pd.date)} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: PRIMARY, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit', flexShrink: 0 }}>Открыть →</button>
                   </div>
                 ))}
               </div>
@@ -547,27 +547,27 @@ export default function LogistPortal({ user, logistUser }: Props) {
                 <div style={{ background: '#e8f5ee', borderRadius: 14, padding: 24, textAlign: 'center', marginBottom: 16 }}>
                   <div style={{ fontSize: 36, marginBottom: 8 }}>✅</div>
                   <div style={{ fontWeight: 700, fontSize: 18, color: '#2e8a5e' }}>Отчёт отправлен!</div>
-                  <div style={{ fontSize: 13, color: '#2e8a5e', marginTop: 4 }}>Ожидает подтверждения бухгалтера</div>
+                  <div style={{ fontSize: 14, color: '#2e8a5e', marginTop: 4 }}>Ожидает подтверждения бухгалтера</div>
                 </div>
                 {/* Таблица отправленного */}
                 <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 12, overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 500 }}>
                     <thead><tr style={{ background: '#f8f6f3' }}>
                       {['НАИМ.', 'ОТ КОГО', 'ШТ', 'КОММ.', 'КОМУ', 'ШТ', 'КОММ.', '№ НАКЛ.'].map(h => (
-                        <th key={h} style={{ padding: '7px 8px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                        <th key={h} style={{ padding: '7px 8px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr></thead>
                     <tbody>
                       {shiftRows.filter(r => r.name).map((r, i) => (
                         <tr key={r.id} style={{ borderTop: '1px solid #f1efec' }}>
-                          <td style={{ padding: '7px 8px', fontSize: 12, fontWeight: 500 }}>{r.name}</td>
-                          <td style={{ padding: '7px 8px', fontSize: 12 }}>{r.fromWho || '—'}</td>
-                          <td style={{ padding: '7px 8px', fontSize: 12 }}>{r.qtyIn || '—'}</td>
-                          <td style={{ padding: '7px 8px', fontSize: 12, color: '#8a847c' }}>{r.commentIn || '—'}</td>
-                          <td style={{ padding: '7px 8px', fontSize: 12 }}>{r.toWho || '—'}</td>
-                          <td style={{ padding: '7px 8px', fontSize: 12 }}>{r.qtyOut || '—'}</td>
-                          <td style={{ padding: '7px 8px', fontSize: 12, color: '#8a847c' }}>{r.commentOut || '—'}</td>
-                          <td style={{ padding: '7px 8px', fontSize: 12, color: '#8a847c' }}>{r.invoiceNum || '—'}</td>
+                          <td style={{ padding: '7px 8px', fontSize: 13, fontWeight: 500 }}>{r.name}</td>
+                          <td style={{ padding: '7px 8px', fontSize: 13 }}>{r.fromWho || '—'}</td>
+                          <td style={{ padding: '7px 8px', fontSize: 13 }}>{r.qtyIn || '—'}</td>
+                          <td style={{ padding: '7px 8px', fontSize: 13, color: '#5f5952' }}>{r.commentIn || '—'}</td>
+                          <td style={{ padding: '7px 8px', fontSize: 13 }}>{r.toWho || '—'}</td>
+                          <td style={{ padding: '7px 8px', fontSize: 13 }}>{r.qtyOut || '—'}</td>
+                          <td style={{ padding: '7px 8px', fontSize: 13, color: '#5f5952' }}>{r.commentOut || '—'}</td>
+                          <td style={{ padding: '7px 8px', fontSize: 13, color: '#5f5952' }}>{r.invoiceNum || '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -588,7 +588,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
                   ].map(({ label, val, bg, color }) => (
                     <div key={label} style={{ background: bg, borderRadius: 10, padding: '12px', textAlign: 'center', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
                       <div style={{ fontWeight: 700, fontSize: 24, color }}>{val}</div>
-                      <div style={{ fontSize: 11, color: '#8a847c', marginTop: 2 }}>{label}</div>
+                      <div style={{ fontSize: 12, color: '#5f5952', marginTop: 2 }}>{label}</div>
                     </div>
                   ))}
                 </div>
@@ -600,24 +600,24 @@ export default function LogistPortal({ user, logistUser }: Props) {
                       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
                         <thead><tr style={{ background: '#f8f6f3' }}>
                           {['НАИМ.', 'ОТ КОГО', 'ШТ', 'КОММ.', 'КОМУ', 'ШТ', 'КОММ.', '№ НАКЛ.', ''].map((h, hi) => (
-                            <th key={hi} style={{ padding: '8px', fontSize: 10, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                            <th key={hi} style={{ padding: '8px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                           ))}
                         </tr></thead>
                         <tbody>
                           {shiftRows.filter(r => r.name).map(r => (
                             <tr key={r.id} style={{ borderTop: '1px solid #f1efec', background: r.auto ? '#fafff8' : '#fff' }}>
-                              <td style={{ padding: '8px', fontSize: 12, fontWeight: 500 }}>{r.name}{r.auto && <span style={{ fontSize: 9, color: '#2e8a5e', marginLeft: 4 }}>авто</span>}</td>
-                              <td style={{ padding: '8px', fontSize: 12 }}>{r.fromWho || '—'}</td>
-                              <td style={{ padding: '8px', fontSize: 12 }}>{r.qtyIn || '—'}</td>
-                              <td style={{ padding: '8px', fontSize: 12, color: '#8a847c' }}>{r.commentIn || '—'}</td>
-                              <td style={{ padding: '8px', fontSize: 12 }}>{r.toWho || '—'}</td>
-                              <td style={{ padding: '8px', fontSize: 12 }}>{r.qtyOut || '—'}</td>
-                              <td style={{ padding: '8px', fontSize: 12, color: '#8a847c' }}>{r.commentOut || '—'}</td>
-                              <td style={{ padding: '8px', fontSize: 12, color: '#8a847c' }}>{r.invoiceNum || '—'}</td>
+                              <td style={{ padding: '8px', fontSize: 13, fontWeight: 500 }}>{r.name}{r.auto && <span style={{ fontSize: 11, color: '#2e8a5e', marginLeft: 4 }}>авто</span>}</td>
+                              <td style={{ padding: '8px', fontSize: 13 }}>{r.fromWho || '—'}</td>
+                              <td style={{ padding: '8px', fontSize: 13 }}>{r.qtyIn || '—'}</td>
+                              <td style={{ padding: '8px', fontSize: 13, color: '#5f5952' }}>{r.commentIn || '—'}</td>
+                              <td style={{ padding: '8px', fontSize: 13 }}>{r.toWho || '—'}</td>
+                              <td style={{ padding: '8px', fontSize: 13 }}>{r.qtyOut || '—'}</td>
+                              <td style={{ padding: '8px', fontSize: 13, color: '#5f5952' }}>{r.commentOut || '—'}</td>
+                              <td style={{ padding: '8px', fontSize: 13, color: '#5f5952' }}>{r.invoiceNum || '—'}</td>
                               <td style={{ padding: '8px' }}>
                                 <div style={{ display: 'flex', gap: 3 }}>
-                                  <button onClick={() => openEdit(r)} style={{ padding: '3px 6px', borderRadius: 5, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 11 }}>✏️</button>
-                                  <button onClick={() => deleteRow(r.id)} style={{ padding: '3px 6px', borderRadius: 5, border: '1.5px solid #faeaea', background: '#fff', cursor: 'pointer', fontSize: 11 }}>🗑</button>
+                                  <button onClick={() => openEdit(r)} style={{ padding: '3px 6px', borderRadius: 5, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 12 }}>✏️</button>
+                                  <button onClick={() => deleteRow(r.id)} style={{ padding: '3px 6px', borderRadius: 5, border: '1.5px solid #faeaea', background: '#fff', cursor: 'pointer', fontSize: 12 }}>🗑</button>
                                 </div>
                               </td>
                             </tr>
@@ -630,7 +630,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
 
                 {/* Добавить строку */}
                 <button onClick={() => { setEditRow(null); setAddData({ name: '', qtyIn: '', fromWho: '', commentIn: '', toWho: '', qtyOut: '', commentOut: '', invoiceNum: '' }); setShowAddRow(true) }}
-                  style={{ width: '100%', padding: '11px', border: '2px dashed #d8d3cc', borderRadius: 10, background: 'none', cursor: 'pointer', fontSize: 13, color: '#8a847c', fontFamily: 'inherit', marginBottom: 12 }}>
+                  style={{ width: '100%', padding: '11px', border: '2px dashed #d8d3cc', borderRadius: 10, background: 'none', cursor: 'pointer', fontSize: 14, color: '#5f5952', fontFamily: 'inherit', marginBottom: 12 }}>
                   + Добавить строку
                 </button>
 
@@ -638,7 +638,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
                 <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 12 }}>
                   <div style={{ marginBottom: 12 }}>
                     <label style={lbl}>ДЕНЬ СМЕНЫ</label>
-                    <div style={{ ...inp, background: '#f8f6f3', color: '#8a847c', display: 'flex', alignItems: 'center' }}>
+                    <div style={{ ...inp, background: '#f8f6f3', color: '#5f5952', display: 'flex', alignItems: 'center' }}>
                       {(editingDate || almatyTodayStr()).split('-').reverse().join('.')}{editingDate ? ' · прошлая смена' : ' · сегодня'}
                     </div>
                   </div>
@@ -711,9 +711,9 @@ export default function LogistPortal({ user, logistUser }: Props) {
             <button key={key} onClick={() => setTab(key)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, position: 'relative' }}>
               <div className={blink ? 'uk-blink' : undefined} style={{ position: 'relative', display: 'inline-flex' }}>
                 <span style={{ fontSize: 22 }}>{icon}</span>
-                {badge > 0 && <span style={{ position: 'absolute', top: -4, right: -8, background: blink ? '#c1121c' : PRIMARY, color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 4px', borderRadius: 10, minWidth: 14, textAlign: 'center' }}>{badge}</span>}
+                {badge > 0 && <span style={{ position: 'absolute', top: -4, right: -8, background: blink ? '#c1121c' : PRIMARY, color: '#fff', fontSize: 11, fontWeight: 700, padding: '1px 4px', borderRadius: 10, minWidth: 14, textAlign: 'center' }}>{badge}</span>}
               </div>
-              <span style={{ fontSize: 10, fontWeight: tab === key ? 700 : 400, color: tab === key ? PRIMARY : '#8c857a' }}>{label}</span>
+              <span style={{ fontSize: 12, fontWeight: tab === key ? 700 : 400, color: tab === key ? PRIMARY : '#8c857a' }}>{label}</span>
             </button>
           ))}
         </div>

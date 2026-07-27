@@ -69,7 +69,7 @@ function LoginForm() {
   }
 
   const inp: React.CSSProperties = { width: '100%', padding: '10px 14px', borderRadius: 8, fontSize: 14, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', color: '#26231f', boxSizing: 'border-box' }
-  const lbl: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 4, display: 'block' }
+  const lbl: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: '#5f5952', marginBottom: 4, display: 'block' }
 
   return (
     <div style={{ minHeight: '100vh', background: '#f1efec', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -79,20 +79,20 @@ function LoginForm() {
           <img src="/icons/icon-192.png" alt="UKan" style={{ width: 54, height: 54, borderRadius: 13, display: 'block' }} />
           <div>
             <div style={{ fontWeight: 800, fontSize: 19, lineHeight: 1, color: '#211f1c' }}>U2B ERP</div>
-            <div style={{ fontSize: 11, color: '#8a847c', fontWeight: 700, marginTop: 4, letterSpacing: '.04em' }}>автоматизация бизнеса</div>
+            <div style={{ fontSize: 12, color: '#5f5952', fontWeight: 700, marginTop: 4, letterSpacing: '.04em' }}>автоматизация бизнеса</div>
           </div>
         </div>
         <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 4 }}>Вход в систему</div>
-        <div style={{ color: '#8a847c', fontSize: 13, marginBottom: 20 }}>Выберите способ входа</div>
+        <div style={{ color: '#5f5952', fontSize: 14, marginBottom: 20 }}>Выберите способ входа</div>
         <div style={{ display: 'flex', background: '#f1efec', borderRadius: 10, padding: 4, marginBottom: 20 }}>
           {[['email', '📧 Email + пароль'], ['phone', '📱 По телефону']].map(([m, l]) => (
-            <button key={m} onClick={() => { setMode(m as any); setError('') }} style={{ flex: 1, padding: '8px', borderRadius: 7, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: mode === m ? '#fff' : 'transparent', color: mode === m ? '#26231f' : '#8a847c', boxShadow: mode === m ? '0 1px 4px rgba(0,0,0,.1)' : 'none' }}>
+            <button key={m} onClick={() => { setMode(m as any); setError('') }} style={{ flex: 1, padding: '8px', borderRadius: 7, border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', background: mode === m ? '#fff' : 'transparent', color: mode === m ? '#26231f' : '#5f5952', boxShadow: mode === m ? '0 1px 4px rgba(0,0,0,.1)' : 'none' }}>
               {l}
             </button>
           ))}
         </div>
-        {error && <div style={{ background: '#faeaea', color: '#b03020', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>{error}</div>}
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, cursor: 'pointer', fontSize: 13, color: '#4a4640', userSelect: 'none' }}>
+        {error && <div style={{ background: '#faeaea', color: '#b03020', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 14 }}>{error}</div>}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, cursor: 'pointer', fontSize: 14, color: '#4a4640', userSelect: 'none' }}>
           <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#d4613a', cursor: 'pointer' }} />
           Запомнить меня на этом устройстве
         </label>
@@ -110,7 +110,7 @@ function LoginForm() {
             <div>
               <label style={lbl}>ТЕЛЕФОН</label>
               <input style={inp} type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+7 700 000 00 00" required />
-              <div style={{ fontSize: 11, color: '#8a847c', marginTop: 4 }}>Для клиентов и логистов — телефон является паролем</div>
+              <div style={{ fontSize: 12, color: '#5f5952', marginTop: 4 }}>Для клиентов и логистов — телефон является паролем</div>
             </div>
             <button type="submit" disabled={loading} style={{ marginTop: 8, padding: '12px', background: '#d4613a', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>
               {loading ? 'Вход...' : 'ВОЙТИ ПО ТЕЛЕФОНУ →'}
@@ -118,7 +118,7 @@ function LoginForm() {
           </form>
         )}
         <div style={{ textAlign: 'center', marginTop: 20 }}>
-          <a href="/register" style={{ color: '#8a847c', fontSize: 13 }}>Новый клиент? Зарегистрироваться →</a>
+          <a href="/register" style={{ color: '#5f5952', fontSize: 14 }}>Новый клиент? Зарегистрироваться →</a>
         </div>
       </div>
     </div>

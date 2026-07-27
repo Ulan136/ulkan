@@ -26,7 +26,7 @@ function StatusBadge({ status }: { status: string }) {
     'Бухгалтерия': { bg: '#e8f5ee', color: '#2e8a5e' }, 'Отменён': { bg: '#faeaea', color: '#b03020' }, 'Черновик': { bg: '#efece8', color: '#6b655b' },
   }
   const s = map[status] || { bg: '#efece8', color: '#6b655b' }
-  return <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, fontWeight: 600, background: s.bg, color: s.color }}>{status}</span>
+  return <span style={{ fontSize: 12, padding: '2px 10px', borderRadius: 20, fontWeight: 600, background: s.bg, color: s.color }}>{status}</span>
 }
 
 function barColor(pct: number) { return pct >= 100 ? '#3a9d6e' : pct >= 60 ? '#c4a832' : '#d4613a' }
@@ -155,7 +155,7 @@ export default function ClientApp({ user, clientUser }: Props) {
         <div style={{ background: '#fff', borderRadius: 14, padding: 28, maxWidth: 340, textAlign: 'center', boxShadow: '0 8px 40px rgba(0,0,0,.15)' }}>
           <div style={{ fontSize: 34, marginBottom: 10 }}>🔒</div>
           <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 6 }}>Сессия устарела</div>
-          <div style={{ color: '#8a847c', fontSize: 14, marginBottom: 18 }}>Войдите заново, чтобы продолжить.</div>
+          <div style={{ color: '#5f5952', fontSize: 14, marginBottom: 18 }}>Войдите заново, чтобы продолжить.</div>
           <button onClick={() => logout()} style={{ padding: '11px 24px', background: '#d4613a', color: '#fff', border: 'none', borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
             Выйти и войти заново
           </button>
@@ -178,20 +178,20 @@ export default function ClientApp({ user, clientUser }: Props) {
             <img src="/icons/icon-192.png" alt="UKan" style={{ width: 42, height: 42, borderRadius: 10, display: 'block' }} />
             <div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>{clientUser.name}</div>
-              <div style={{ fontSize: 11, color: '#8a847c' }}>Кабинет заказчика</div>
+              <div style={{ fontSize: 12, color: '#5f5952' }}>Кабинет заказчика</div>
             </div>
           </div>
 
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
             {/* Ссылки */}
-            <div style={{ fontSize: 12, color: '#8a847c', display: 'flex', gap: 12 }}>
+            <div style={{ fontSize: 13, color: '#5f5952', display: 'flex', gap: 12 }}>
               <span>Ваш кабинет:
-                <button onClick={() => copy(`${base}/client/${clientUser.slug}`, 'cab')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#d4613a', marginLeft: 6, fontFamily: 'inherit', fontSize: 12 }}>
+                <button onClick={() => copy(`${base}/client/${clientUser.slug}`, 'cab')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#d4613a', marginLeft: 6, fontFamily: 'inherit', fontSize: 13 }}>
                   {copied === 'cab' ? '✓' : '📋 Скопировать'}
                 </button>
               </span>
             </div>
-            <button onClick={logout} style={{ padding: '6px 14px', border: '1.5px solid #e6e2dc', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 13, color: '#8a847c', fontFamily: 'inherit' }}>
+            <button onClick={logout} style={{ padding: '6px 14px', border: '1.5px solid #e6e2dc', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 14, color: '#5f5952', fontFamily: 'inherit' }}>
               Выйти
             </button>
           </div>
@@ -209,12 +209,12 @@ export default function ClientApp({ user, clientUser }: Props) {
             { key: 'finance', label: '💰 Финансы' },
             { key: 'notifications', label: `Уведомления${unread > 0 ? ` (${unread})` : ''}` },
           ].map(t => (
-            <button key={t.key} onClick={() => setTab(t.key as any)} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', background: tab === t.key ? '#d4613a' : '#fff', color: tab === t.key ? '#fff' : '#26231f', boxShadow: '0 0 0 1px #e6e2dc' }}>
+            <button key={t.key} onClick={() => setTab(t.key as any)} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', background: tab === t.key ? '#d4613a' : '#fff', color: tab === t.key ? '#fff' : '#26231f', boxShadow: '0 0 0 1px #e6e2dc' }}>
               {t.label}
             </button>
           ))}
           <div style={{ marginLeft: 'auto' }}>
-            <button onClick={load} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>⟳</button>
+            <button onClick={load} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>⟳</button>
           </div>
         </div>
 
@@ -222,12 +222,12 @@ export default function ClientApp({ user, clientUser }: Props) {
         {tab === 'incoming' && (
           <div className="anim-fade">
             <DateFilter period={period} day={day} onChange={(p, d) => { setPeriod(p); setDay(d) }} />
-            {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
+            {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#5f5952' }}>Загрузка...</div>
               : incomingOrders.length === 0 ? (
                 <div style={{ background: '#fff', borderRadius: 14, padding: 40, textAlign: 'center', boxShadow: '0 0 0 1px #e6e2dc' }}>
                   <div style={{ fontSize: 32, marginBottom: 12 }}>📥</div>
                   <div style={{ fontWeight: 600, marginBottom: 8 }}>Нет входящих карточек</div>
-                  <div style={{ color: '#8a847c', fontSize: 13 }}>Карточки появятся когда вас назначат получателем</div>
+                  <div style={{ color: '#5f5952', fontSize: 14 }}>Карточки появятся когда вас назначат получателем</div>
                 </div>
               ) : incomingOrders.map(o => {
                 const pct = cardProgress(o)
@@ -239,21 +239,21 @@ export default function ClientApp({ user, clientUser }: Props) {
                     <div style={{ padding: '14px 16px', cursor: 'pointer' }} onClick={() => setSelectedOrder(selectedOrder?.id === o.id ? null : o)}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: '#d4613a' }}>{o.id}</span>
+                          <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, color: '#d4613a' }}>{o.id}</span>
                           <StatusBadge status={o.status} />
                         </div>
-                        <span style={{ fontSize: 12, color: '#8a847c' }}>{fmtDate(o.createdAt)}</span>
+                        <span style={{ fontSize: 13, color: '#5f5952' }}>{fmtDate(o.createdAt)}</span>
                       </div>
-                      <div style={{ fontSize: 13, color: '#26231f', marginBottom: 6 }}>
+                      <div style={{ fontSize: 14, color: '#26231f', marginBottom: 6 }}>
                         {o.from} → <strong>{o.to || 'не распределено'}</strong>
-                        {o.deadline && <span style={{ color: '#8a847c', marginLeft: 8 }}>до {fmtDate(o.deadline)}</span>}
+                        {o.deadline && <span style={{ color: '#5f5952', marginLeft: 8 }}>до {fmtDate(o.deadline)}</span>}
                       </div>
                       {/* Прогресс */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{ flex: 1, height: 5, background: '#f1efec', borderRadius: 3, overflow: 'hidden' }}>
                           <div style={{ height: '100%', width: `${pct}%`, background: barColor(pct), borderRadius: 3, transition: 'width .3s' }} />
                         </div>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: barColor(pct), minWidth: 36, textAlign: 'right' }}>{pct}%</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: barColor(pct), minWidth: 36, textAlign: 'right' }}>{pct}%</span>
                       </div>
                     </div>
 
@@ -263,15 +263,15 @@ export default function ClientApp({ user, clientUser }: Props) {
                         {/* Позиции */}
                         {o.positions.length > 0 && (
                           <div style={{ marginBottom: 14 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#8a847c', marginBottom: 8, letterSpacing: '.04em' }}>ПОЗИЦИИ</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#5f5952', marginBottom: 8, letterSpacing: '.04em' }}>ПОЗИЦИИ</div>
                             {o.positions.map((p, i) => (
                               <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid #f1efec' }}>
                                 <div>
-                                  <div style={{ fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}><RalDot code={extractRal(p.name1c || p.oral)} size={13} />{p.name1c || p.oral}</div>
-                                  {p.resp && <div style={{ fontSize: 11, color: '#8a847c' }}>Логист: {p.resp}</div>}
+                                  <div style={{ fontSize: 14, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}><RalDot code={extractRal(p.name1c || p.oral)} size={13} />{p.name1c || p.oral}</div>
+                                  {p.resp && <div style={{ fontSize: 12, color: '#5f5952' }}>Логист: {p.resp}</div>}
                                 </div>
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                  <span style={{ fontSize: 12, color: '#8a847c' }}>{p.qty > 0 ? `${p.qty} ${p.unit}` : '—'}</span>
+                                  <span style={{ fontSize: 13, color: '#5f5952' }}>{p.qty > 0 ? `${p.qty} ${p.unit}` : '—'}</span>
                                   <StatusBadge status={p.status} />
                                 </div>
                               </div>
@@ -285,7 +285,7 @@ export default function ClientApp({ user, clientUser }: Props) {
                             <button onClick={async () => {
                               await orderAction(o.id, 'branchAccept', { branchName: clientUser.name })
                               load(); setToast('✓ Товар принят')
-                            }} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#d4613a', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit' }}>
+                            }} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#d4613a', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
                               ✓ Принял товар
                             </button>
                           )}
@@ -293,16 +293,16 @@ export default function ClientApp({ user, clientUser }: Props) {
                             <button onClick={async () => {
                               await orderAction(o.id, 'branchForward', { branchName: clientUser.name })
                               load(); setToast('✓ Передано логисту')
-                            }} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#d4613a', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit' }}>
+                            }} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#d4613a', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
                               К доставке →
                             </button>
                           )}
                           {!allDelivered && (
-                            <span style={{ fontSize: 12, color: '#8a847c', padding: '9px 0' }}>⏳ Ожидаем доставку от логиста...</span>
+                            <span style={{ fontSize: 13, color: '#5f5952', padding: '9px 0' }}>⏳ Ожидаем доставку от логиста...</span>
                           )}
                         </div>
 
-                        <a href={o.trackingLink} target="_blank" rel="noreferrer" style={{ color: '#d4613a', fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>
+                        <a href={o.trackingLink} target="_blank" rel="noreferrer" style={{ color: '#d4613a', fontSize: 14, textDecoration: 'none', fontWeight: 500 }}>
                           Трекинг →
                         </a>
                       </div>
@@ -317,7 +317,7 @@ export default function ClientApp({ user, clientUser }: Props) {
         {tab === 'orders' && (
           <div className="anim-fade">
             <DateFilter period={period} day={day} onChange={(p, d) => { setPeriod(p); setDay(d) }} />
-            {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#8a847c' }}>Загрузка...</div>
+            {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#5f5952' }}>Загрузка...</div>
               : myOrders.length === 0 ? (
                 <div style={{ background: '#fff', borderRadius: 14, padding: 40, textAlign: 'center', boxShadow: '0 0 0 1px #e6e2dc' }}>
                   <div style={{ fontSize: 32, marginBottom: 12 }}>📦</div>
@@ -332,15 +332,15 @@ export default function ClientApp({ user, clientUser }: Props) {
                       <div key={o.id} onClick={() => setSelectedOrder(selectedOrder?.id === o.id ? null : o)}
                         style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', boxShadow: '0 0 0 1px #e6e2dc', cursor: 'pointer' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: 13, color: '#d4613a' }}>{o.id}</span>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: 14, color: '#d4613a' }}>{o.id}</span>
                           <StatusBadge status={o.status} />
-                          {o.isChanged && <span style={{ fontSize: 10, background: '#fff0ea', color: '#c0532a', padding: '1px 8px', borderRadius: 20, fontWeight: 600 }}>ИЗМЕНЕНИЕ</span>}
-                          <span style={{ marginLeft: 'auto', fontSize: 12, color: '#8a847c' }}>{fmtDate(o.createdAt)}</span>
+                          {o.isChanged && <span style={{ fontSize: 12, background: '#fff0ea', color: '#c0532a', padding: '1px 8px', borderRadius: 20, fontWeight: 600 }}>ИЗМЕНЕНИЕ</span>}
+                          <span style={{ marginLeft: 'auto', fontSize: 13, color: '#5f5952' }}>{fmtDate(o.createdAt)}</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: o.positions.length > 0 ? 10 : 0 }}>
-                          <span style={{ fontSize: 13, fontWeight: 500, color: o.to ? undefined : '#a39c92' }}>→ {o.to || 'не распределено'}</span>
-                          {o.deadline && <span style={{ fontSize: 12, color: '#8a847c' }}>до {fmtDate(o.deadline)}</span>}
-                          <span style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 700, color: barColor(pct) }}>{pct}%</span>
+                          <span style={{ fontSize: 14, fontWeight: 500, color: o.to ? undefined : '#6b645b' }}>→ {o.to || 'не распределено'}</span>
+                          {o.deadline && <span style={{ fontSize: 13, color: '#5f5952' }}>до {fmtDate(o.deadline)}</span>}
+                          <span style={{ marginLeft: 'auto', fontSize: 14, fontWeight: 700, color: barColor(pct) }}>{pct}%</span>
                         </div>
                         {o.positions.length > 0 && (
                           <div style={{ height: 4, background: '#f1efec', borderRadius: 4, overflow: 'hidden' }}>
@@ -351,31 +351,31 @@ export default function ClientApp({ user, clientUser }: Props) {
                         {/* Раскрытые детали */}
                         {selectedOrder?.id === o.id && (
                           <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f1efec' }}>
-                            {o.comment && <div style={{ fontSize: 13, color: '#8a847c', marginBottom: 10 }}>Комментарий: {o.comment}</div>}
+                            {o.comment && <div style={{ fontSize: 14, color: '#5f5952', marginBottom: 10 }}>Комментарий: {o.comment}</div>}
                             {(() => {
                               const canEditCard = o.fromId === user.id && !o.isCancelled && o.status !== 'Доставлено' && o.status !== 'Архив'
                               return (
                                 <div>
                                   {o.positions.length > 0 && (
                                     <>
-                                      <div style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 8 }}>ПОЗИЦИИ</div>
+                                      <div style={{ fontSize: 13, fontWeight: 600, color: '#5f5952', marginBottom: 8 }}>ПОЗИЦИИ</div>
                                       {o.positions.map(p => {
                                         const canEdit = canEditCard && p.status !== 'Доставлено'
                                         const q = editQty[p.id]
                                         const changed = q !== undefined && q !== String(p.qty)
                                         return (
                                           <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #f1efec' }}>
-                                            <span style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}><RalDot code={extractRal(p.name1c || p.oral)} size={13} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name1c || p.oral}</span></span>
+                                            <span style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}><RalDot code={extractRal(p.name1c || p.oral)} size={13} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name1c || p.oral}</span></span>
                                             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                                               {canEdit ? (
                                                 <>
                                                   <input value={q ?? String(p.qty)} inputMode="decimal" onChange={e => setEditQty(prev => ({ ...prev, [p.id]: e.target.value.replace(/[^0-9.,]/g, '') }))}
-                                                    style={{ width: 52, padding: '4px 6px', borderRadius: 6, border: `1.5px solid ${changed ? '#d4613a' : '#e6e2dc'}`, fontSize: 12, textAlign: 'right', fontFamily: 'inherit' }} />
-                                                  <span style={{ fontSize: 12, color: '#8a847c' }}>{p.unit}</span>
-                                                  {changed && <button onClick={() => saveQty(o.id, p.id, q)} disabled={savingPos} style={{ border: 'none', background: '#d4613a', color: '#fff', borderRadius: 6, padding: '4px 8px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>✓</button>}
+                                                    style={{ width: 52, padding: '4px 6px', borderRadius: 6, border: `1.5px solid ${changed ? '#d4613a' : '#e6e2dc'}`, fontSize: 13, textAlign: 'right', fontFamily: 'inherit' }} />
+                                                  <span style={{ fontSize: 13, color: '#5f5952' }}>{p.unit}</span>
+                                                  {changed && <button onClick={() => saveQty(o.id, p.id, q)} disabled={savingPos} style={{ border: 'none', background: '#d4613a', color: '#fff', borderRadius: 6, padding: '4px 8px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>✓</button>}
                                                 </>
                                               ) : (
-                                                <span style={{ fontSize: 12, color: '#8a847c' }}>{p.qty} {p.unit}</span>
+                                                <span style={{ fontSize: 13, color: '#5f5952' }}>{p.qty} {p.unit}</span>
                                               )}
                                               <StatusBadge status={p.status} />
                                             </div>
@@ -386,7 +386,7 @@ export default function ClientApp({ user, clientUser }: Props) {
                                   )}
                                   {canEditCard && (
                                     <button onClick={e => { e.stopPropagation(); setAddCatalogFor(o.id) }}
-                                      style={{ marginTop: 10, width: '100%', padding: '10px', border: '1.5px dashed #d4613a', background: '#fff8f5', color: '#d4613a', borderRadius: 9, cursor: 'pointer', fontWeight: 700, fontSize: 13, fontFamily: 'inherit' }}>
+                                      style={{ marginTop: 10, width: '100%', padding: '10px', border: '1.5px dashed #d4613a', background: '#fff8f5', color: '#d4613a', borderRadius: 9, cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
                                       ＋ Добавить товар из каталога
                                     </button>
                                   )}
@@ -396,26 +396,26 @@ export default function ClientApp({ user, clientUser }: Props) {
                             {/* Кнопки для филиала */}
                             {user.role === 'branch' && o.screen === 'outgoing' && (
                               <div style={{ marginTop: 14, padding: '12px 14px', background: '#f8f6f3', borderRadius: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <span style={{ fontSize: 12, color: '#8a847c', fontWeight: 600 }}>ДЕЙСТВИЯ ФИЛИАЛА:</span>
+                                <span style={{ fontSize: 13, color: '#5f5952', fontWeight: 600 }}>ДЕЙСТВИЯ ФИЛИАЛА:</span>
                                 {o.status !== 'Принято филиалом' && (
                                   <button onClick={async e => {
                                     e.stopPropagation()
                                     await orderAction(o.id, 'branchAccept', { branchName: clientUser.name })
                                     load()
                                     setToast('✓ Товар принят филиалом')
-                                  }} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#d4613a', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13, fontFamily: 'inherit' }}>
+                                  }} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#d4613a', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14, fontFamily: 'inherit' }}>
                                     ✓ Принял
                                   </button>
                                 )}
                                 {o.status === 'Принято филиалом' && (
                                   <>
-                                    <span style={{ fontSize: 12, padding: '4px 10px', borderRadius: 20, background: '#e8f5ee', color: '#2e8a5e', fontWeight: 600 }}>✓ Принято</span>
+                                    <span style={{ fontSize: 13, padding: '4px 10px', borderRadius: 20, background: '#e8f5ee', color: '#2e8a5e', fontWeight: 600 }}>✓ Принято</span>
                                     <button onClick={async e => {
                                       e.stopPropagation()
                                       await orderAction(o.id, 'branchForward', { branchName: clientUser.name })
                                       load()
                                       setToast('✓ Передано логисту для доставки клиенту')
-                                    }} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#d4613a', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13, fontFamily: 'inherit' }}>
+                                    }} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#d4613a', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14, fontFamily: 'inherit' }}>
                                       К доставке →
                                     </button>
                                   </>
@@ -424,17 +424,17 @@ export default function ClientApp({ user, clientUser }: Props) {
                             )}
 
                             <div style={{ marginTop: 12 }}>
-                              <a href={o.trackingLink} target="_blank" rel="noreferrer" style={{ color: '#d4613a', fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>
+                              <a href={o.trackingLink} target="_blank" rel="noreferrer" style={{ color: '#d4613a', fontSize: 14, textDecoration: 'none', fontWeight: 500 }}>
                                 Открыть трекинг →
                               </a>
-                              <button onClick={e => { e.stopPropagation(); copy(o.trackingLink, o.id) }} style={{ marginLeft: 12, border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, color: '#8a847c', fontFamily: 'inherit' }}>
+                              <button onClick={e => { e.stopPropagation(); copy(o.trackingLink, o.id) }} style={{ marginLeft: 12, border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: '#5f5952', fontFamily: 'inherit' }}>
                                 {copied === o.id ? '✓ Скопировано' : '📋 Ссылка'}
                               </button>
                             </div>
 
                             {/* Чат по заказу */}
                             <div onClick={e => e.stopPropagation()} style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #f1efec' }}>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: '#8a847c', marginBottom: 6 }}>💬 ЧАТ ПО ЗАКАЗУ</div>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: '#5f5952', marginBottom: 6 }}>💬 ЧАТ ПО ЗАКАЗУ</div>
                               <CardChat cardId={o.id} myId={user.id} height={280} />
                             </div>
                           </div>
@@ -463,18 +463,18 @@ export default function ClientApp({ user, clientUser }: Props) {
             ) : (
               <div style={{ background: '#fff', borderRadius: 14, padding: 28, boxShadow: '0 0 0 1px #e6e2dc', maxWidth: 560 }}>
                 <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 4 }}>Новая заявка</div>
-                <div style={{ color: '#8a847c', fontSize: 13, marginBottom: 22 }}>Выберите товары из каталога или опишите словами — заявка уйдёт менеджеру</div>
+                <div style={{ color: '#5f5952', fontSize: 14, marginBottom: 22 }}>Выберите товары из каталога или опишите словами — заявка уйдёт менеджеру</div>
                 <form onSubmit={handleNewOrder} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {/* Товары из каталога — основной путь */}
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 700, color: '#8a847c', marginBottom: 8, display: 'block', letterSpacing: '.03em' }}>ТОВАРЫ ИЗ КАТАЛОГА{catalogPos.length ? ` · ${catalogPos.length}` : ''}</label>
+                    <label style={{ fontSize: 13, fontWeight: 700, color: '#5f5952', marginBottom: 8, display: 'block', letterSpacing: '.03em' }}>ТОВАРЫ ИЗ КАТАЛОГА{catalogPos.length ? ` · ${catalogPos.length}` : ''}</label>
                     {catalogPos.length > 0 && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
                         {catalogPos.map((p, i) => (
                           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8f6f3', borderRadius: 8, padding: '8px 10px' }}>
                             <RalDot code={extractRal(p.name1c || p.oral)} />
-                            <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name1c || p.oral}</span>
-                            <span style={{ fontSize: 12, color: '#8a847c', flexShrink: 0, fontWeight: 600 }}>{p.qty} {p.unit}</span>
+                            <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name1c || p.oral}</span>
+                            <span style={{ fontSize: 13, color: '#5f5952', flexShrink: 0, fontWeight: 600 }}>{p.qty} {p.unit}</span>
                             <button type="button" onClick={() => setCatalogPos(prev => prev.filter((_, j) => j !== i))} style={{ border: 'none', background: 'none', color: '#c1121c', fontSize: 18, cursor: 'pointer', lineHeight: 1, flexShrink: 0 }}>×</button>
                           </div>
                         ))}
@@ -487,12 +487,12 @@ export default function ClientApp({ user, clientUser }: Props) {
                   </div>
                   {/* Комментарий — необязательно / запасной путь «со слов» */}
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 4, display: 'block' }}>КОММЕНТАРИЙ <span style={{ fontWeight: 400 }}>(необязательно)</span></label>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: '#5f5952', marginBottom: 4, display: 'block' }}>КОММЕНТАРИЙ <span style={{ fontWeight: 400 }}>(необязательно)</span></label>
                     <textarea style={{ ...inp, minHeight: 72, resize: 'vertical' }} value={newText} onChange={e => setNewText(e.target.value)} placeholder="Уточнения, пожелания — или опишите заявку словами, если товара нет в каталоге" />
                   </div>
                   {/* Срок */}
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 4, display: 'block' }}>ЖЕЛАЕМЫЙ СРОК</label>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: '#5f5952', marginBottom: 4, display: 'block' }}>ЖЕЛАЕМЫЙ СРОК</label>
                     <input style={inp} type="date" value={newDeadline} onChange={e => setNewDeadline(e.target.value)} />
                   </div>
                   <button type="submit" disabled={newLoading} style={{ padding: '13px', background: '#d4613a', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: newLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: newLoading ? 0.6 : 1 }}>
@@ -514,7 +514,7 @@ export default function ClientApp({ user, clientUser }: Props) {
             {notifications.length === 0 ? (
               <div style={{ background: '#fff', borderRadius: 14, padding: 40, textAlign: 'center', boxShadow: '0 0 0 1px #e6e2dc' }}>
                 <div style={{ fontSize: 32, marginBottom: 8 }}>🔔</div>
-                <div style={{ color: '#8a847c' }}>Уведомлений пока нет</div>
+                <div style={{ color: '#5f5952' }}>Уведомлений пока нет</div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -522,10 +522,10 @@ export default function ClientApp({ user, clientUser }: Props) {
                   <div key={n.id} onClick={() => !n.read && handleReadNotif(n.id)}
                     style={{ background: n.read ? '#fff' : '#fff8f5', borderRadius: 10, padding: '14px 18px', boxShadow: `0 0 0 1px ${n.read ? '#e6e2dc' : '#f3c8b0'}`, cursor: n.read ? 'default' : 'pointer' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ fontSize: 13, fontWeight: n.read ? 400 : 600 }}>{n.text}</div>
+                      <div style={{ fontSize: 14, fontWeight: n.read ? 400 : 600 }}>{n.text}</div>
                       {!n.read && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#d4613a', flexShrink: 0, marginTop: 3 }} />}
                     </div>
-                    <div style={{ fontSize: 11, color: '#8a847c', marginTop: 4 }}>{fmtDateTime(n.createdAt)}</div>
+                    <div style={{ fontSize: 12, color: '#5f5952', marginTop: 4 }}>{fmtDateTime(n.createdAt)}</div>
                   </div>
                 ))}
               </div>

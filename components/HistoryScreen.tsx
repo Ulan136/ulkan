@@ -5,7 +5,7 @@ import { COLORS } from '@/lib/colors'
 // Журнал действий (как в 1С): просмотр истории с фильтрами по пользователю и датам.
 interface HistRow { id: string; cardId: string; action: string; detail: string; userName: string; createdAt: string }
 
-const INP: React.CSSProperties = { padding: '8px 12px', borderRadius: 8, fontSize: 13, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit' }
+const INP: React.CSSProperties = { padding: '8px 12px', borderRadius: 8, fontSize: 14, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit' }
 
 function fmtDateTime(s: string) {
   try {
@@ -49,7 +49,7 @@ export default function HistoryScreen({ users }: { users: { name: string }[] }) 
       {/* Шапка */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexShrink: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 20 }}>🕓 История действий</div>
-        <span style={{ fontSize: 13, color: '#8a847c' }}>{rows.length} записей</span>
+        <span style={{ fontSize: 14, color: '#5f5952' }}>{rows.length} записей</span>
       </div>
 
       {/* Фильтры */}
@@ -58,9 +58,9 @@ export default function HistoryScreen({ users }: { users: { name: string }[] }) 
           <option value="">👤 Все пользователи</option>
           {names.map(n => <option key={n} value={n}>{n}</option>)}
         </select>
-        <span style={{ fontSize: 12, color: '#8a847c' }}>с</span>
+        <span style={{ fontSize: 13, color: '#5f5952' }}>с</span>
         <input type="date" style={INP} value={from} onChange={e => setFrom(e.target.value)} />
-        <span style={{ fontSize: 12, color: '#8a847c' }}>по</span>
+        <span style={{ fontSize: 13, color: '#5f5952' }}>по</span>
         <input type="date" style={INP} value={to} onChange={e => setTo(e.target.value)} />
         {preset('Сегодня', todayStr(), todayStr())}
         {preset('Неделя', shiftStr(7), todayStr())}
@@ -74,23 +74,23 @@ export default function HistoryScreen({ users }: { users: { name: string }[] }) 
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead><tr style={{ background: '#f8f6f3' }}>
             {['ВРЕМЯ', 'ПОЛЬЗОВАТЕЛЬ', 'ДЕЙСТВИЕ', 'КАРТОЧКА', 'ДЕТАЛИ'].map(h => (
-              <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a847c', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+              <th key={h} style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
             ))}
           </tr></thead>
         </table>
         <div style={{ overflowY: 'auto', flex: 1 }}>
-          {loading ? <div style={{ padding: 30, textAlign: 'center', color: '#8a847c' }}>Загрузка...</div>
-            : rows.length === 0 ? <div style={{ padding: 30, textAlign: 'center', color: '#8a847c' }}>Нет записей по выбранным фильтрам</div>
+          {loading ? <div style={{ padding: 30, textAlign: 'center', color: '#5f5952' }}>Загрузка...</div>
+            : rows.length === 0 ? <div style={{ padding: 30, textAlign: 'center', color: '#5f5952' }}>Нет записей по выбранным фильтрам</div>
             : (
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <tbody>
                   {rows.map(r => (
                     <tr key={r.id} style={{ borderTop: '1px solid #f1efec' }}>
-                      <td style={{ padding: '9px 14px', fontSize: 12, color: '#8a847c', whiteSpace: 'nowrap' }}>{fmtDateTime(r.createdAt)}</td>
+                      <td style={{ padding: '9px 14px', fontSize: 13, color: '#5f5952', whiteSpace: 'nowrap' }}>{fmtDateTime(r.createdAt)}</td>
                       <td style={{ padding: '9px 14px', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{r.userName || '—'}</td>
                       <td style={{ padding: '9px 14px', fontSize: 12.5 }}>{r.action}</td>
-                      <td style={{ padding: '9px 14px', fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: COLORS.primary }}>{r.cardId}</td>
-                      <td style={{ padding: '9px 14px', fontSize: 12, color: '#8a847c' }}>{r.detail || ''}</td>
+                      <td style={{ padding: '9px 14px', fontSize: 13, fontFamily: "'JetBrains Mono', monospace", color: COLORS.primary }}>{r.cardId}</td>
+                      <td style={{ padding: '9px 14px', fontSize: 13, color: '#5f5952' }}>{r.detail || ''}</td>
                     </tr>
                   ))}
                 </tbody>

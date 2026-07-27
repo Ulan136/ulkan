@@ -100,7 +100,7 @@ export default function NomSearch({ value, onChange, placeholder = 'Поиск..
   }
 
   const inpStyle: React.CSSProperties = {
-    width: '100%', padding: '7px 28px 7px 10px', borderRadius: 7, fontSize: 13,
+    width: '100%', padding: '7px 28px 7px 10px', borderRadius: 7, fontSize: 14,
     border: `1.5px solid ${selected ? '#d4613a' : open ? '#d4613a' : '#e6e2dc'}`,
     background: selected ? '#fff8f5' : '#fff',
     outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', ...style,
@@ -113,24 +113,24 @@ export default function NomSearch({ value, onChange, placeholder = 'Поиск..
       <div style={{ padding: '8px 10px', borderBottom: '1px solid #f1efec', display: 'flex', gap: 6, flexWrap: 'wrap', background: '#f8f6f3', flexShrink: 0 }}>
         <button
           onMouseDown={() => handleGroupClick('')}
-          style={{ padding: '4px 10px', borderRadius: 20, border: 'none', fontSize: 11, fontWeight: selGroup === '' ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', background: selGroup === '' ? '#d4613a' : '#fff', color: selGroup === '' ? '#fff' : '#8a847c', boxShadow: '0 0 0 1px #e6e2dc' }}
+          style={{ padding: '4px 10px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: selGroup === '' ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', background: selGroup === '' ? '#d4613a' : '#fff', color: selGroup === '' ? '#fff' : '#5f5952', boxShadow: '0 0 0 1px #e6e2dc' }}
         >Все</button>
         {GROUPS.map(g => (
           <button key={g}
             onMouseDown={() => handleGroupClick(g)}
-            style={{ padding: '4px 10px', borderRadius: 20, border: 'none', fontSize: 11, fontWeight: selGroup === g ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', background: selGroup === g ? '#d4613a' : '#fff', color: selGroup === g ? '#fff' : '#8a847c', boxShadow: '0 0 0 1px #e6e2dc' }}
+            style={{ padding: '4px 10px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: selGroup === g ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', background: selGroup === g ? '#d4613a' : '#fff', color: selGroup === g ? '#fff' : '#5f5952', boxShadow: '0 0 0 1px #e6e2dc' }}
           >{g}</button>
         ))}
       </div>
 
       {/* Результаты */}
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-        {loading && <div style={{ padding: '14px', fontSize: 13, color: '#8a847c', textAlign: 'center' }}>Поиск...</div>}
+        {loading && <div style={{ padding: '14px', fontSize: 14, color: '#5f5952', textAlign: 'center' }}>Поиск...</div>}
         {!loading && !query && !selGroup && (
-          <div style={{ padding: '14px', fontSize: 13, color: '#8a847c', textAlign: 'center' }}>Выберите группу или начните вводить</div>
+          <div style={{ padding: '14px', fontSize: 14, color: '#5f5952', textAlign: 'center' }}>Выберите группу или начните вводить</div>
         )}
         {!loading && results.length === 0 && (query || selGroup) && (
-          <div style={{ padding: '14px', fontSize: 13, color: '#8a847c', textAlign: 'center' }}>Не найдено — введите своё название</div>
+          <div style={{ padding: '14px', fontSize: 14, color: '#5f5952', textAlign: 'center' }}>Не найдено — введите своё название</div>
         )}
         {results.map((item, i) => (
           <div key={item.id}
@@ -140,16 +140,16 @@ export default function NomSearch({ value, onChange, placeholder = 'Поиск..
             onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: 14, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {highlightMatch(item.name, query)}
               </div>
               {(item.group || item.cat) && (
-                <div style={{ fontSize: 10, color: '#8a847c', marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: '#5f5952', marginTop: 2 }}>
                   {[item.group, item.cat, item.subgroup].filter(Boolean).join(' › ')}
                 </div>
               )}
             </div>
-            <span style={{ fontSize: 11, color: '#8a847c', background: '#f1efec', padding: '2px 8px', borderRadius: 20, flexShrink: 0 }}>{item.unit}</span>
+            <span style={{ fontSize: 12, color: '#5f5952', background: '#f1efec', padding: '2px 8px', borderRadius: 20, flexShrink: 0 }}>{item.unit}</span>
           </div>
         ))}
       </div>
@@ -166,7 +166,7 @@ export default function NomSearch({ value, onChange, placeholder = 'Поиск..
           placeholder={placeholder}
           disabled={disabled} autoComplete="off" />
         <span onClick={selected ? handleClear : () => { calcPos(); setOpen(true) }}
-          style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: selected ? '#d4613a' : '#b8b1a6', cursor: 'pointer' }}>
+          style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: selected ? '#d4613a' : '#837c72', cursor: 'pointer' }}>
           {loading ? '⟳' : selected ? '✓' : '🔍'}
         </span>
       </div>

@@ -36,15 +36,15 @@ export default function RegisterPage() {
       <div style={{ width: 480, background: '#fff', borderRadius: 16, padding: 32, boxShadow: '0 2px 16px rgba(0,0,0,0.08)', textAlign: 'center' }}>
         <div style={{ width: 56, height: 56, background: '#e8f5ee', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 24 }}>✓</div>
         <div style={{ fontWeight: 700, fontSize: 20, color: '#2e8a5e', marginBottom: 8 }}>Аккаунт создан!</div>
-        <p style={{ color: '#8a847c', fontSize: 13, marginBottom: 20 }}>Войдите по ссылке вашего кабинета</p>
+        <p style={{ color: '#5f5952', fontSize: 14, marginBottom: 20 }}>Войдите по ссылке вашего кабинета</p>
         <div style={{ background: '#f1efec', borderRadius: 8, padding: 14, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ flex: 1, fontSize: 13, wordBreak: 'break-all' }}>{result.clientUrl}</span>
+          <span style={{ flex: 1, fontSize: 14, wordBreak: 'break-all' }}>{result.clientUrl}</span>
           <button onClick={() => { navigator.clipboard.writeText(result.clientUrl); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
-            style={{ padding: '6px 10px', border: 'none', background: '#fff', borderRadius: 6, cursor: 'pointer', fontSize: 13, boxShadow: '0 0 0 1px #e6e2dc' }}>
+            style={{ padding: '6px 10px', border: 'none', background: '#fff', borderRadius: 6, cursor: 'pointer', fontSize: 14, boxShadow: '0 0 0 1px #e6e2dc' }}>
             {copied ? '✓' : '📋'}
           </button>
         </div>
-        <div style={{ color: '#8a847c', fontSize: 12, marginBottom: 20 }}>Войти по телефону: {phone}</div>
+        <div style={{ color: '#5f5952', fontSize: 13, marginBottom: 20 }}>Войти по телефону: {phone}</div>
         <a href={result.clientUrl} style={{ display: 'block', padding: '12px', background: '#d4613a', color: '#fff', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: 15 }}>
           Войти в кабинет →
         </a>
@@ -60,26 +60,26 @@ export default function RegisterPage() {
           <img src="/icons/icon-192.png" alt="UKan" style={{ width: 52, height: 52, borderRadius: 12, display: 'block' }} />
           <div>
             <div style={{ fontWeight: 800, fontSize: 18, lineHeight: 1 }}>U2B ERP</div>
-            <div style={{ fontSize: 11, color: '#8a847c', fontWeight: 700, marginTop: 4 }}>автоматизация бизнеса</div>
+            <div style={{ fontSize: 12, color: '#5f5952', fontWeight: 700, marginTop: 4 }}>автоматизация бизнеса</div>
           </div>
         </div>
 
         <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 4 }}>Регистрация в U-Kan</div>
-        <div style={{ color: '#8a847c', fontSize: 13, marginBottom: 24 }}>Заполните форму — создадим ваш личный кабинет</div>
+        <div style={{ color: '#5f5952', fontSize: 14, marginBottom: 24 }}>Заполните форму — создадим ваш личный кабинет</div>
 
-        {error && <div style={{ background: '#faeaea', color: '#b03020', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>{error}</div>}
+        {error && <div style={{ background: '#faeaea', color: '#b03020', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 14 }}>{error}</div>}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 4, display: 'block' }}>ФИО / НАЗВАНИЕ КОМПАНИИ *</label>
+            <label style={{ fontSize: 13, fontWeight: 600, color: '#5f5952', marginBottom: 4, display: 'block' }}>ФИО / НАЗВАНИЕ КОМПАНИИ *</label>
             <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} placeholder="Нипа Алматы" required />
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 4, display: 'block' }}>ТЕЛЕФОН * — он же пароль для входа</label>
+            <label style={{ fontSize: 13, fontWeight: 600, color: '#5f5952', marginBottom: 4, display: 'block' }}>ТЕЛЕФОН * — он же пароль для входа</label>
             <input style={inputStyle} value={phone} onChange={e => setPhone(e.target.value)} placeholder="+7 700 000 00 00" required />
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#8a847c', marginBottom: 4, display: 'block' }}>EMAIL (необязательно)</label>
+            <label style={{ fontSize: 13, fontWeight: 600, color: '#5f5952', marginBottom: 4, display: 'block' }}>EMAIL (необязательно)</label>
             <input style={inputStyle} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="mail@example.com" />
           </div>
           <button type="submit" disabled={loading} style={{
@@ -91,7 +91,7 @@ export default function RegisterPage() {
         </form>
 
         <div style={{ textAlign: 'center', marginTop: 16 }}>
-          <a href="/login" style={{ color: '#8a847c', fontSize: 13 }}>Уже есть аккаунт? Войти →</a>
+          <a href="/login" style={{ color: '#5f5952', fontSize: 14 }}>Уже есть аккаунт? Войти →</a>
         </div>
       </div>
     </div>

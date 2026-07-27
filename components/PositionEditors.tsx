@@ -6,8 +6,8 @@ import NomSearch from '@/components/NomSearch'
 import NomPicker, { type PickedPos } from '@/components/NomPicker'
 
 const PRIMARY = '#d4613a'
-const editInp: CSSProperties = { padding: '6px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }
-export const editBtn = (primary: boolean): CSSProperties => ({ padding: '6px 12px', borderRadius: 6, border: primary ? 'none' : '1.5px solid #e6e2dc', background: primary ? PRIMARY : '#fff', color: primary ? '#fff' : '#8a847c', cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'inherit', flexShrink: 0 })
+const editInp: CSSProperties = { padding: '6px 8px', borderRadius: 6, border: '1.5px solid #e6e2dc', fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }
+export const editBtn = (primary: boolean): CSSProperties => ({ padding: '6px 12px', borderRadius: 6, border: primary ? 'none' : '1.5px solid #e6e2dc', background: primary ? PRIMARY : '#fff', color: primary ? '#fff' : '#5f5952', cursor: 'pointer', fontWeight: 600, fontSize: 13, fontFamily: 'inherit', flexShrink: 0 })
 
 // Редактор состава позиции: поиск по номенклатуре + количество + ед. (без цен).
 // Модуль-компонент с локальным state — ввод не дёргает родителя.
@@ -35,7 +35,7 @@ export function PositionEditor({ pos, orderId, onEditing, onSaved, onCancel }: {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
-      <NomSearch value={name} placeholder="Поиск по номенклатуре..." onChange={(n, u) => { setName(n); if (u) setUnit(u); onEditing(true) }} style={{ fontSize: 13 }} />
+      <NomSearch value={name} placeholder="Поиск по номенклатуре..." onChange={(n, u) => { setName(n); if (u) setUnit(u); onEditing(true) }} style={{ fontSize: 14 }} />
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
         <input type="number" inputMode="decimal" value={qty} placeholder="Кол-во" onFocus={() => onEditing(true)} onChange={e => setQty(e.target.value)} style={{ ...editInp, width: 80, textAlign: 'right' }} />
         <input value={unit} placeholder="ед." onFocus={() => onEditing(true)} onChange={e => setUnit(e.target.value)} style={{ ...editInp, width: 56 }} />
@@ -93,11 +93,11 @@ export function AddPositionForm({ orderId, resp, supplierName, supplierOptions, 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', background: '#f8f6f3', borderRadius: 8, padding: 10, marginTop: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#8a847c' }}>НОВАЯ ПОЗИЦИЯ</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#5f5952' }}>НОВАЯ ПОЗИЦИЯ</div>
         <button type="button" onClick={() => { onEditing(true); setShowCatalog(true) }} style={{ ...editBtn(false), marginLeft: 'auto', padding: '4px 10px' }}>📖 Каталог</button>
       </div>
       {showCatalog && <NomPicker onPick={addFromCatalog} onClose={() => setShowCatalog(false)} />}
-      <NomSearch value={name} placeholder="Поиск по номенклатуре..." onChange={(n, u) => { setName(n); if (u) setUnit(u); onEditing(true) }} style={{ fontSize: 13 }} />
+      <NomSearch value={name} placeholder="Поиск по номенклатуре..." onChange={(n, u) => { setName(n); if (u) setUnit(u); onEditing(true) }} style={{ fontSize: 14 }} />
       {useSelect && (
         <select value={supplier} onFocus={() => onEditing(true)} onChange={e => { setSupplier(e.target.value); onEditing(true) }} style={{ ...editInp, width: '100%' }}>
           <option value="">— поставщик —</option>

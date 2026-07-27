@@ -36,7 +36,7 @@ export default function DateFilter({ period, day, onChange }: {
   const opts: [Period, string][] = [['all', 'Всё'], ['today', 'Сегодня'], ['week', 'Неделя'], ['month', 'Месяц']]
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
-      <span style={{ fontSize: 12, color: '#8a847c', fontWeight: 600, marginRight: 2 }}>📅</span>
+      <span style={{ fontSize: 13, color: '#5f5952', fontWeight: 600, marginRight: 2 }}>📅</span>
       {opts.map(([p, label]) => (
         <button key={p} onClick={() => onChange(p, '')} style={chipStyle(!day && period === p)}>{label}</button>
       ))}

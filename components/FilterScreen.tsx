@@ -49,7 +49,7 @@ function StatusDot({ status }: { status: string }) {
     'Готово к отгрузке': '#8a6f00', 'В пути': '#8a6f00',
     'Доставлено': '#2e8a5e', 'К учёту': '#2e8a5e',
   }
-  return <span style={{ width: 7, height: 7, borderRadius: '50%', background: map[status] || '#b8b1a6', display: 'inline-block', flexShrink: 0 }} />
+  return <span style={{ width: 7, height: 7, borderRadius: '50%', background: map[status] || '#837c72', display: 'inline-block', flexShrink: 0 }} />
 }
 
 // ─── Дропдаун с поиском и секциями ───────────────────────────────────────────
@@ -92,7 +92,7 @@ function SectionDropdown({
       <div style={{ padding: '10px 12px', borderBottom: '1px solid #f1efec' }}>
         <input
           ref={inputRef}
-          style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1.5px solid #e6e2dc', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+          style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1.5px solid #e6e2dc', fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
           placeholder={placeholder}
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -102,10 +102,10 @@ function SectionDropdown({
       {/* Секции */}
       <div style={{ maxHeight: 320, overflowY: 'auto' }}>
         {filtered.length === 0
-          ? <div style={{ padding: '14px', fontSize: 13, color: '#8a847c', textAlign: 'center' }}>Ничего не найдено</div>
+          ? <div style={{ padding: '14px', fontSize: 14, color: '#5f5952', textAlign: 'center' }}>Ничего не найдено</div>
           : filtered.map(sec => (
             <div key={sec.label}>
-              <div style={{ padding: '8px 14px 4px', fontSize: 10, fontWeight: 700, color: '#8a847c', letterSpacing: '.06em', textTransform: 'uppercase' }}>{sec.label}</div>
+              <div style={{ padding: '8px 14px 4px', fontSize: 12, fontWeight: 700, color: '#5f5952', letterSpacing: '.06em', textTransform: 'uppercase' }}>{sec.label}</div>
               {sec.options.map(opt => {
                 const active = selected.includes(opt.id)
                 return (
@@ -115,10 +115,10 @@ function SectionDropdown({
                     style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', cursor: 'pointer', background: active ? '#fff8f5' : 'transparent' }}
                   >
                     <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${active ? COLORS.primary : '#d8d3cc'}`, background: active ? COLORS.primary : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .15s' }}>
-                      {active && <span style={{ color: '#fff', fontSize: 10, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+                      {active && <span style={{ color: '#fff', fontSize: 12, fontWeight: 700, lineHeight: 1 }}>✓</span>}
                     </div>
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: active ? 600 : 400 }}>{opt.name}</span>
-                    <span style={{ fontSize: 11, color: '#8a847c', flexShrink: 0 }}>{opt.count}</span>
+                    <span style={{ flex: 1, fontSize: 14, fontWeight: active ? 600 : 400 }}>{opt.name}</span>
+                    <span style={{ fontSize: 12, color: '#5f5952', flexShrink: 0 }}>{opt.count}</span>
                   </div>
                 )
               })}
@@ -134,12 +134,12 @@ function SectionDropdown({
             const opt = sections.flatMap(s => s.options).find(o => o.id === id)
             if (!opt) return null
             return (
-              <span key={id} onClick={() => onToggle(id)} style={{ fontSize: 11, background: '#fff0ea', color: COLORS.primary, padding: '2px 8px', borderRadius: 20, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span key={id} onClick={() => onToggle(id)} style={{ fontSize: 12, background: '#fff0ea', color: COLORS.primary, padding: '2px 8px', borderRadius: 20, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
                 {opt.name} <span style={{ opacity: .6 }}>✕</span>
               </span>
             )
           })}
-          <button onClick={() => selected.forEach(id => onToggle(id))} style={{ fontSize: 11, color: '#8a847c', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', marginLeft: 2 }}>Сбросить</button>
+          <button onClick={() => selected.forEach(id => onToggle(id))} style={{ fontSize: 12, color: '#5f5952', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', marginLeft: 2 }}>Сбросить</button>
         </div>
       )}
     </div>
@@ -163,11 +163,11 @@ function DropBtn({
       <button
         onClick={() => hasAny && setOpen(p => !p)}
         style={{
-          padding: '6px 12px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 12,
+          padding: '6px 12px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 13,
           cursor: hasAny ? 'pointer' : 'default', fontFamily: 'inherit',
           display: 'flex', alignItems: 'center', gap: 6,
           background: selected.length > 0 ? COLORS.primary : '#fff',
-          color: selected.length > 0 ? '#fff' : '#8a847c',
+          color: selected.length > 0 ? '#fff' : '#5f5952',
           boxShadow: '0 0 0 1.5px #e6e2dc',
           opacity: hasAny ? 1 : .5,
         }}
@@ -175,11 +175,11 @@ function DropBtn({
         <span>{icon}</span>
         <span>{label}</span>
         {selected.length > 0 && (
-          <span style={{ background: 'rgba(255,255,255,.28)', color: '#fff', fontSize: 10, padding: '0 5px', borderRadius: 10, fontWeight: 700 }}>
+          <span style={{ background: 'rgba(255,255,255,.28)', color: '#fff', fontSize: 12, padding: '0 5px', borderRadius: 10, fontWeight: 700 }}>
             {selected.length}
           </span>
         )}
-        {hasAny && <span style={{ fontSize: 9, opacity: .6 }}>{open ? '▲' : '▼'}</span>}
+        {hasAny && <span style={{ fontSize: 11, opacity: .6 }}>{open ? '▲' : '▼'}</span>}
       </button>
       {open && (
         <SectionDropdown
@@ -208,20 +208,20 @@ function KanbanCard({ order, onOpen, isDragging = false }: { order: Order; onOpe
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: COLORS.primary }}>{order.id}</span>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, color: COLORS.primary }}>{order.id}</span>
         <StatusDot status={order.status} />
-        {order.isChanged && <span style={{ fontSize: 9, background: '#fff0ea', color: '#c0532a', padding: '1px 5px', borderRadius: 10, fontWeight: 700 }}>⚡</span>}
-        {order.postponed && <span style={{ fontSize: 9, background: '#eef2ff', color: '#4a5aaa', padding: '1px 5px', borderRadius: 10, fontWeight: 700 }}>откл.</span>}
-        <span style={{ marginLeft: 'auto', fontSize: 10, color: '#8a847c' }}>{fmtDate(order.createdAt)}</span>
+        {order.isChanged && <span style={{ fontSize: 11, background: '#fff0ea', color: '#c0532a', padding: '1px 5px', borderRadius: 10, fontWeight: 700 }}>⚡</span>}
+        {order.postponed && <span style={{ fontSize: 11, background: '#eef2ff', color: '#4a5aaa', padding: '1px 5px', borderRadius: 10, fontWeight: 700 }}>откл.</span>}
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: '#5f5952' }}>{fmtDate(order.createdAt)}</span>
       </div>
-      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {order.from}{order.to ? ` → ${order.to}` : ''}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <div style={{ flex: 1 }}><ProgressBar pct={pct} /></div>
-        <span style={{ fontSize: 10, fontWeight: 700, color: barColor(pct), flexShrink: 0 }}>{pct}%</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: barColor(pct), flexShrink: 0 }}>{pct}%</span>
       </div>
-      {order.deadline && <div style={{ fontSize: 10, color: '#8a847c', marginTop: 4 }}>срок {fmtDate(order.deadline)}</div>}
+      {order.deadline && <div style={{ fontSize: 12, color: '#5f5952', marginTop: 4 }}>срок {fmtDate(order.deadline)}</div>}
     </div>
   )
 }
@@ -270,29 +270,29 @@ function SortableColumn({ column, onOpen, onHide }: {
         style={{ padding: '10px 12px', background: typeColors[column.type], borderRadius: '10px 10px 0 0', cursor: 'grab', display: 'flex', alignItems: 'center', gap: 8, userSelect: 'none' }}
       >
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{column.title}</div>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,.45)', marginTop: 1 }}>{typeBadge[column.type]}</div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{column.title}</div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,.45)', marginTop: 1 }}>{typeBadge[column.type]}</div>
         </div>
-        <span style={{ background: COLORS.primary, color: '#fff', fontSize: 11, padding: '1px 7px', borderRadius: 20, fontWeight: 700, flexShrink: 0 }}>{column.orders.length}</span>
+        <span style={{ background: COLORS.primary, color: '#fff', fontSize: 12, padding: '1px 7px', borderRadius: 20, fontWeight: 700, flexShrink: 0 }}>{column.orders.length}</span>
         <button
           onClick={e => { e.stopPropagation(); onHide() }}
-          style={{ background: 'rgba(255,255,255,.15)', border: 'none', borderRadius: 6, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 13, flexShrink: 0 }}
+          style={{ background: 'rgba(255,255,255,.15)', border: 'none', borderRadius: 6, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 14, flexShrink: 0 }}
         >✕</button>
       </div>
 
       {/* Блок сметы для СпецПроектов */}
       {column.type === 'specproject' && column.specItems && column.specItems.length > 0 && (
         <div style={{ background: '#faf8f6', border: '1px solid #e6e2dc', borderTop: 'none', padding: '10px 12px' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#8a847c', marginBottom: 6, letterSpacing: '.04em' }}>СМЕТА vs СОБРАНО</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#5f5952', marginBottom: 6, letterSpacing: '.04em' }}>СМЕТА vs СОБРАНО</div>
           {column.specItems.map((item, i) => (
             <div key={i} style={{ marginBottom: 7 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                <span style={{ fontSize: 11, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>{item.name}</span>
-                <span style={{ fontSize: 10, color: '#8a847c', flexShrink: 0, marginLeft: 4 }}>{item.collected}/{item.needed} {item.unit}</span>
+                <span style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>{item.name}</span>
+                <span style={{ fontSize: 12, color: '#5f5952', flexShrink: 0, marginLeft: 4 }}>{item.collected}/{item.needed} {item.unit}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <div style={{ flex: 1 }}><ProgressBar pct={item.pct} height={3} /></div>
-                <span style={{ fontSize: 10, fontWeight: 700, color: barColor(item.pct), width: 28, textAlign: 'right', flexShrink: 0 }}>{item.pct}%</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: barColor(item.pct), width: 28, textAlign: 'right', flexShrink: 0 }}>{item.pct}%</span>
               </div>
             </div>
           ))}
@@ -303,8 +303,8 @@ function SortableColumn({ column, onOpen, onHide }: {
             return (
               <div style={{ paddingTop: 6, borderTop: '1px solid #e6e2dc' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                  <span style={{ fontSize: 10, color: '#8a847c', fontWeight: 600 }}>Итого</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: barColor(totalPct) }}>{totalPct}%</span>
+                  <span style={{ fontSize: 12, color: '#5f5952', fontWeight: 600 }}>Итого</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: barColor(totalPct) }}>{totalPct}%</span>
                 </div>
                 <ProgressBar pct={totalPct} height={5} />
               </div>
@@ -317,7 +317,7 @@ function SortableColumn({ column, onOpen, onHide }: {
       <div style={{ flex: 1, overflowY: 'auto', background: '#f8f6f3', border: '1px solid #e6e2dc', borderTop: 'none', borderRadius: '0 0 10px 10px', padding: '10px 8px', minHeight: 80 }}>
         <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
           {column.orders.length === 0
-            ? <div style={{ textAlign: 'center', padding: '20px 0', color: '#b8b1a6', fontSize: 12 }}>Пусто</div>
+            ? <div style={{ textAlign: 'center', padding: '20px 0', color: '#837c72', fontSize: 13 }}>Пусто</div>
             : column.orders.map(o => <SortableCard key={o.id} order={o} onOpen={() => onOpen(o)} />)
           }
         </SortableContext>
@@ -497,10 +497,10 @@ export default function FilterScreen({ orders, settings, onOpen }: Props) {
   }, [columns])
 
   const pilBtn = (active: boolean): React.CSSProperties => ({
-    padding: '5px 12px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 12,
+    padding: '5px 12px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 13,
     cursor: 'pointer', fontFamily: 'inherit',
     background: active ? COLORS.primary : '#fff',
-    color: active ? '#fff' : '#8a847c',
+    color: active ? '#fff' : '#5f5952',
     boxShadow: '0 0 0 1.5px #e6e2dc',
   })
 
@@ -543,25 +543,25 @@ export default function FilterScreen({ orders, settings, onOpen }: Props) {
 
           <div style={{ width: 1, height: 20, background: '#e6e2dc' }} />
 
-          <span style={{ fontSize: 12, color: '#8a847c', fontWeight: 600 }}>Статус:</span>
+          <span style={{ fontSize: 13, color: '#5f5952', fontWeight: 600 }}>Статус:</span>
           {([['inwork', 'В работе'], ['delivered', 'Доставлено'], ['all', 'Все']] as const).map(([k, l]) => (
             <button key={k} onClick={() => setStatusFilter(k)} style={pilBtn(statusFilter === k)}>{l}</button>
           ))}
 
           <div style={{ width: 1, height: 20, background: '#e6e2dc' }} />
-          <span style={{ fontSize: 12, color: '#8a847c', fontWeight: 600 }}>Даты:</span>
+          <span style={{ fontSize: 13, color: '#5f5952', fontWeight: 600 }}>Даты:</span>
           <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-            style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #e6e2dc', fontSize: 12, fontFamily: 'inherit', outline: 'none' }} />
-          <span style={{ fontSize: 12, color: '#8a847c' }}>—</span>
+            style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #e6e2dc', fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
+          <span style={{ fontSize: 13, color: '#5f5952' }}>—</span>
           <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-            style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #e6e2dc', fontSize: 12, fontFamily: 'inherit', outline: 'none' }} />
+            style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #e6e2dc', fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
           {(dateFrom || dateTo) && (
-            <button onClick={() => { setDateFrom(''); setDateTo('') }} style={{ padding: '4px 8px', borderRadius: 7, border: 'none', background: '#faeaea', color: '#b03020', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>✕ Даты</button>
+            <button onClick={() => { setDateFrom(''); setDateTo('') }} style={{ padding: '4px 8px', borderRadius: 7, border: 'none', background: '#faeaea', color: '#b03020', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>✕ Даты</button>
           )}
 
           {/* Восстановить скрытые */}
           {hiddenIds.length > 0 && (
-            <button onClick={() => setHiddenIds([])} style={{ padding: '5px 12px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: '#fdf8e1', color: '#8a6f00', boxShadow: '0 0 0 1.5px #f0dfa0' }}>
+            <button onClick={() => setHiddenIds([])} style={{ padding: '5px 12px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', background: '#fdf8e1', color: '#8a6f00', boxShadow: '0 0 0 1.5px #f0dfa0' }}>
               ↺ Показать скрытые ({hiddenIds.length})
             </button>
           )}
@@ -569,10 +569,10 @@ export default function FilterScreen({ orders, settings, onOpen }: Props) {
           {/* Счётчик справа */}
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
             {totalSelected === 0 && (
-              <span style={{ fontSize: 12, color: '#b8b1a6', fontStyle: 'italic' }}>← Выберите колонки для отображения</span>
+              <span style={{ fontSize: 13, color: '#837c72', fontStyle: 'italic' }}>← Выберите колонки для отображения</span>
             )}
             {totalSelected > 0 && (
-              <span style={{ fontSize: 12, color: '#8a847c' }}>{totalCards} карточек · {columns.length} колонок</span>
+              <span style={{ fontSize: 13, color: '#5f5952' }}>{totalCards} карточек · {columns.length} колонок</span>
             )}
           </div>
         </div>
@@ -583,7 +583,7 @@ export default function FilterScreen({ orders, settings, onOpen }: Props) {
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
           <div style={{ fontSize: 48 }}>🗂</div>
           <div style={{ fontWeight: 700, fontSize: 18, color: '#26231f' }}>Выберите что показать</div>
-          <div style={{ fontSize: 14, color: '#8a847c', textAlign: 'center', maxWidth: 400 }}>
+          <div style={{ fontSize: 14, color: '#5f5952', textAlign: 'center', maxWidth: 400 }}>
             Нажмите на кнопки выше и выберите заказчиков, поставщиков, проекты или спецпроекты — они появятся как колонки
           </div>
         </div>
@@ -608,7 +608,7 @@ export default function FilterScreen({ orders, settings, onOpen }: Props) {
             {activeType === 'card' && activeOrder && <KanbanCard order={activeOrder} onOpen={() => {}} isDragging />}
             {activeType === 'column' && activeId && (() => {
               const col = columns.find(c => c.id === activeId)
-              return col ? <div style={{ width: 288, background: COLORS.sidebar.bg, borderRadius: 10, padding: '10px 12px' }}><span style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{col.title}</span></div> : null
+              return col ? <div style={{ width: 288, background: COLORS.sidebar.bg, borderRadius: 10, padding: '10px 12px' }}><span style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>{col.title}</span></div> : null
             })()}
           </DragOverlay>
         </DndContext>
