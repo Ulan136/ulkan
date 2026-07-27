@@ -473,6 +473,15 @@ export default function AdminApp({ user }: Props) {
 
   // Подэкраны
   const [incTab, setIncTab] = useState<IncTab>('new')
+  // Входящие: раскрытые «шторки» позиций (просмотр без открытия карточки)
+  const [incExpanded, setIncExpanded] = useState<Set<string>>(new Set())
+  function toggleIncExpanded(id: string) {
+    setIncExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
   const [archiveTab, setArchiveTab] = useState<ArchiveTab>('cards')
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('users')
   const [bookTab, setBookTab] = useState<BookkeepingTab>('cards')
@@ -977,7 +986,31 @@ export default function AdminApp({ user }: Props) {
                         {o.positions.length > 0 && (
                           <div style={{ marginBottom: 8 }}>
                             <ProgressBar pct={pct} />
-                            <div style={{ fontSize: 11, color: '#8a847c', marginTop: 3 }}>{o.positions.length} позиций · {fmtMoney(cardSum(o))}</div>
+                            {/* Шторка позиций: раскрытие прямо в списке, без открытия карточки */}
+                            <button
+                              onClick={() => toggleIncExpanded(o.id)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0 0', fontSize: 11, color: '#8a847c', fontWeight: 600 }}
+                            >
+                              <span style={{ display: 'inline-block', transition: 'transform .15s', transform: incExpanded.has(o.id) ? 'rotate(90deg)' : 'none' }}>▸</span>
+                              {o.positions.length} позиций · {fmtMoney(cardSum(o))}
+                            </button>
+                            {incExpanded.has(o.id) && (
+                              <div style={{ marginTop: 6, border: '1px solid #f1efec', borderRadius: 8, overflow: 'hidden' }}>
+                                {o.positions.map((p, pi) => (
+                                  <div key={p.id || pi} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', fontSize: 12, background: pi % 2 ? '#faf9f7' : '#fff', borderTop: pi ? '1px solid #f1efec' : 'none' }}>
+                                    <span style={{ flex: 1, fontWeight: 600 }}>
+                                      <RalDot code={extractRal(p.name1c || p.oral)} size={12} />
+                                      {p.oral || p.name1c || '—'}
+                                    </span>
+                                    <span style={{ color: '#8a847c', whiteSpace: 'nowrap' }}>{p.qty} {p.unit}</span>
+                                    <span style={{ whiteSpace: 'nowrap', color: p.price > 0 ? '#211f1c' : '#c0a', minWidth: 66, textAlign: 'right' }}>
+                                      {p.price > 0 ? fmtMoney(p.price) : 'нет цены'}
+                                    </span>
+                                    <span style={{ whiteSpace: 'nowrap', fontWeight: 700, minWidth: 74, textAlign: 'right' }}>{fmtMoney((p.price || 0) * (p.qty || 0))}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                         {/* Кнопки по вкладке */}
