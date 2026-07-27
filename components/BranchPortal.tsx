@@ -8,6 +8,7 @@ import { PositionEditor, AddPositionForm, editBtn } from '@/components/PositionE
 import CardChat from '@/components/CardChat'
 import ChatWidget from '@/components/ChatWidget'
 import { RalDot, extractRal } from '@/lib/ral'
+import NomPicker, { type PickedPos } from '@/components/NomPicker'
 import DateFilter, { inPeriod, type Period } from '@/components/DateFilter'
 import FinanceView from '@/components/FinanceView'
 import { POS_STATUS } from '@/lib/orderStatus'
@@ -78,6 +79,8 @@ export default function BranchPortal({ user, branchUser }: Props) {
   const [newText, setNewText] = useState('')
   const [newLoading, setNewLoading] = useState(false)
   const [newDone, setNewDone] = useState<Order | null>(null)
+  const [catalogPos, setCatalogPos] = useState<PickedPos[]>([]) // позиции из NomPicker
+  const [showCatalog, setShowCatalog] = useState(false)
 
   function showMsg(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
@@ -163,16 +166,18 @@ export default function BranchPortal({ user, branchUser }: Props) {
 
   async function handleNewOrder(e: React.FormEvent) {
     e.preventDefault()
+    if (!newText.trim() && catalogPos.length === 0) { showMsg('Выберите товары из каталога или опишите заявку'); return }
     setNewLoading(true)
     try {
+      // Позиции из каталога уходят готовыми; текстовое поле — запасной путь «со слов».
       const res = await fetch('/api/client/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: newTo, text: newText }),
+        body: JSON.stringify({ to: newTo, text: newText, positions: catalogPos }),
       })
       const data = await res.json()
       setNewDone(data.order)
-      setNewTo(''); setNewText('')
+      setNewTo(''); setNewText(''); setCatalogPos([])
       load()
     } catch (e: any) { showMsg(e.message) }
     finally { setNewLoading(false) }
@@ -451,15 +456,36 @@ export default function BranchPortal({ user, branchUser }: Props) {
                   <label style={{ fontSize: 12, fontWeight: 700, color: '#5f5952', display: 'block', marginBottom: 4 }}>КОМУ / КУДА</label>
                   <input style={INP} value={newTo} onChange={e => setNewTo(e.target.value)} placeholder="Получатель..." />
                 </div>
-                <div style={{ marginBottom: 20 }}>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: '#5f5952', display: 'block', marginBottom: 4 }}>ОПИСАНИЕ *</label>
-                  <textarea style={{ ...INP, minHeight: 100, resize: 'vertical' } as any} value={newText} onChange={e => setNewText(e.target.value)} placeholder="Что нужно заказать..." required />
+                {/* Товары из каталога — основной путь (как в кабинете клиента) */}
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#5f5952', display: 'block', marginBottom: 8, letterSpacing: '.03em' }}>ТОВАРЫ ИЗ КАТАЛОГА{catalogPos.length ? ` · ${catalogPos.length}` : ''}</label>
+                  {catalogPos.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+                      {catalogPos.map((p, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8f6f3', borderRadius: 8, padding: '8px 10px' }}>
+                          <RalDot code={extractRal(p.name1c || p.oral)} />
+                          <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name1c || p.oral}</span>
+                          <span style={{ fontSize: 13, color: '#5f5952', flexShrink: 0, fontWeight: 600 }}>{p.qty} {p.unit}</span>
+                          <button type="button" onClick={() => setCatalogPos(prev => prev.filter((_, j) => j !== i))} style={{ border: 'none', background: 'none', color: '#c1121c', fontSize: 18, cursor: 'pointer', lineHeight: 1, flexShrink: 0 }}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button type="button" onClick={() => setShowCatalog(true)}
+                    style={{ width: '100%', padding: '13px', border: `1.5px ${catalogPos.length ? 'solid' : 'dashed'} ${PRIMARY}`, background: catalogPos.length ? '#fff' : '#fff8f5', color: PRIMARY, borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: 'inherit' }}>
+                    📖 {catalogPos.length ? 'Добавить ещё товар' : 'Выбрать товары из каталога'}
+                  </button>
                 </div>
-                <button type="submit" disabled={newLoading} style={{ width: '100%', padding: '12px', background: PRIMARY, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  {newLoading ? 'Отправка...' : 'ОТПРАВИТЬ ЗАЯВКУ →'}
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#5f5952', display: 'block', marginBottom: 4 }}>КОММЕНТАРИЙ <span style={{ fontWeight: 400 }}>(необязательно)</span></label>
+                  <textarea style={{ ...INP, minHeight: 90, resize: 'vertical' } as any} value={newText} onChange={e => setNewText(e.target.value)} placeholder="Уточнения — или опишите заявку словами, если товара нет в каталоге" />
+                </div>
+                <button type="submit" disabled={newLoading} style={{ width: '100%', padding: '12px', background: PRIMARY, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit', opacity: newLoading ? 0.6 : 1 }}>
+                  {newLoading ? 'Отправка...' : catalogPos.length ? `ОТПРАВИТЬ ЗАЯВКУ · ${catalogPos.length} поз. →` : 'ОТПРАВИТЬ ЗАЯВКУ →'}
                 </button>
               </form>
             )}
+            {showCatalog && <NomPicker onPick={items => setCatalogPos(prev => [...prev, ...items])} onClose={() => setShowCatalog(false)} />}
           </div>
         )}
       </div>
