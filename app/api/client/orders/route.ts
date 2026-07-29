@@ -4,6 +4,7 @@ import { requireSession } from '@/lib/auth'
 import { generateCardId, generateTrackingLink, generatePosId } from '@/lib/ids'
 import { notifyAdmins } from '@/lib/notifications'
 import { pushSignal } from '@/lib/pusherServer'
+import { CENTER_SKLAD } from '@/lib/procurement'
 
 export async function GET(req: NextRequest) {
   const auth = await requireSession(req)
@@ -41,8 +42,9 @@ export async function POST(req: NextRequest) {
 
   const { to, deadline, text, comment, positions } = await req.json()
 
-  const count = await prisma.order.count()
-  const cardId = generateCardId(count)
+  // Заявки из кабинета — всегда продажа (ПР). Счётчик продаж.
+  const count = await prisma.order.count({ where: { NOT: { to: CENTER_SKLAD } } })
+  const cardId = generateCardId(count, 'sale')
   const trackingLink = generateTrackingLink(cardId)
 
   // Позиции из каталога (NomPicker): готовые Наименование+Кол-во. Текстовое

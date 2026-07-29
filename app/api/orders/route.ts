@@ -6,6 +6,7 @@ import { notifyAdmins } from '@/lib/notifications'
 import { orderInclude } from '@/lib/orderMetrics'
 import { branchNameSet } from '@/services/legDetection'
 import { reserveCenterSkladPositions } from '@/services/stockOps'
+import { CENTER_SKLAD } from '@/lib/procurement'
 import { applyAutoPrices } from '@/services/pricing'
 import { pushSignal } from '@/lib/pusherServer'
 
@@ -38,8 +39,11 @@ export async function POST(req: NextRequest) {
     // - иначе incoming (для карточек из кабинета/трекинга)
     const screen = isDraft ? 'incoming' : (bodyScreen || 'incoming')
 
-    const count = await prisma.order.count()
-    const id = generateCardId(count)
+    // Тип по получателю: Центр-Склад = закуп (ЗП), иначе продажа (ПР).
+    // Счётчики раздельные — считаем существующие карточки своего типа.
+    const purchase = (to || '').trim() === CENTER_SKLAD
+    const count = await prisma.order.count({ where: purchase ? { to: CENTER_SKLAD } : { NOT: { to: CENTER_SKLAD } } })
+    const id = generateCardId(count, purchase ? 'purchase' : 'sale')
     const trackingLink = generateTrackingLink(id)
 
     let posData: any[] = []

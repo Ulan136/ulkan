@@ -8,9 +8,15 @@ function dateStr(): string {
   return `${dd}${mm}${yy}`
 }
 
-export function generateCardId(count: number = 0): string {
-  const seq = String(count + 1).padStart(3, '0')
-  return `C-${seq}-${dateStr()}`
+// Номер карточки: ЗП (закуп) / ПР (продажа) + 4-значный номер + дата.
+// Счётчики РАЗДЕЛЬНЫЕ (count передаётся уже по своему типу). До 9999, дальше
+// круг с меткой [1], [2]…: ЗП-0001-290726 [1]. Старые карточки (C-…) не трогаем.
+export function generateCardId(count: number = 0, kind: 'purchase' | 'sale' = 'sale'): string {
+  const prefix = kind === 'purchase' ? 'ЗП' : 'ПР'
+  const cycle = Math.floor(count / 9999)
+  const pos = (count % 9999) + 1
+  const seq = String(pos).padStart(4, '0')
+  return `${prefix}-${seq}-${dateStr()}${cycle > 0 ? ` [${cycle}]` : ''}`
 }
 
 export function generateProjectId(count: number = 0): string {
@@ -29,7 +35,7 @@ export function generatePosId(cardId: string, n: number): string {
 
 export function generateTrackingLink(cardId: string): string {
   const base = process.env.NEXTAUTH_URL || 'https://ulkan.vercel.app'
-  return `${base}/track?id=${cardId}`
+  return `${base}/track?id=${encodeURIComponent(cardId)}`
 }
 
 export function generateSlug(name: string): string {
