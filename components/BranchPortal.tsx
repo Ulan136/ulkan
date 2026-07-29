@@ -375,7 +375,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
   return (
     <div style={{ minHeight: '100vh', background: BG, fontFamily: "'Golos Text', system-ui, sans-serif", maxWidth: 480, margin: '0 auto' }}>
       {toast && (
-        <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', background: '#211f1c', color: '#fff', padding: '10px 22px', borderRadius: 10, fontSize: 14, fontWeight: 500, zIndex: 9999, whiteSpace: 'nowrap' }}>
+        <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: '#211f1c', color: '#fff', padding: '10px 22px', borderRadius: 10, fontSize: 14, fontWeight: 500, zIndex: 9999, whiteSpace: 'nowrap' }}>
           {toast}
         </div>
       )}
@@ -397,7 +397,7 @@ export default function BranchPortal({ user, branchUser }: Props) {
       </div>
 
       {/* Контент */}
-      <div style={{ padding: '16px 12px 80px' }}>
+      <div style={{ padding: '16px 62px 40px 12px' }}>
         {loading && orders.length === 0 && (
           <div style={{ textAlign: 'center', padding: 40, color: '#5f5952' }}>Загрузка...</div>
         )}
@@ -491,25 +491,33 @@ export default function BranchPortal({ user, branchUser }: Props) {
       </div>
 
       {/* Плавающий чат-виджет (поднят над нижним меню) */}
-      <ChatWidget myId={user.id} bottomOffset={80} />
+      <ChatWidget myId={user.id} bottomOffset={16} />
 
-      {/* Нижнее меню */}
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, background: '#211f1c', borderTop: '1px solid #333', display: 'flex' }}>
+      {/* ── Плавающие круглые вкладки справа ── */}
+      <div style={{ position: 'fixed', right: 10, top: '50%', transform: 'translateY(-50%)', zIndex: 100, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {([
           { key: 'in' as Tab, icon: '📥', label: 'Входящие', badge: incoming.filter(o => myActivePos(o.positions, me).length > 0).length },
           { key: 'out' as Tab, icon: '📤', label: 'Исходящие', badge: outgoing.length },
           { key: 'finance' as Tab, icon: '💰', label: 'Финансы', badge: 0 },
           { key: 'new' as Tab, icon: '➕', label: 'Новый', badge: 0 },
-        ]).map(({ key, icon, label, badge }) => (
-          <button key={key} onClick={() => setTab(key)} style={{ flex: 1, padding: '10px 4px 8px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, position: 'relative', fontFamily: 'inherit' }}>
-            <span style={{ fontSize: 20 }}>{icon}</span>
-            <span style={{ fontSize: 12, fontWeight: tab === key ? 700 : 400, color: tab === key ? PRIMARY : '#8c857a' }}>{label}</span>
-            {badge > 0 && (
-              <span style={{ position: 'absolute', top: 6, right: '50%', transform: 'translateX(8px)', background: PRIMARY, color: '#fff', fontSize: 11, fontWeight: 700, padding: '1px 5px', borderRadius: 10, minWidth: 16, textAlign: 'center' }}>{badge}</span>
-            )}
-            {tab === key && <div style={{ position: 'absolute', bottom: 0, left: '20%', right: '20%', height: 2, background: PRIMARY, borderRadius: 1 }} />}
-          </button>
-        ))}
+        ]).map(({ key, icon, label, badge }) => {
+          const active = tab === key
+          return (
+            <button key={key} onClick={() => setTab(key)} title={label} aria-label={label}
+              style={{
+                position: 'relative', width: 48, height: 48, borderRadius: '50%', cursor: 'pointer',
+                border: active ? 'none' : '1.5px solid #ece7e0',
+                background: active ? PRIMARY : 'rgba(255,255,255,.92)',
+                boxShadow: active ? '0 4px 14px rgba(212,97,58,.4)' : '0 2px 8px rgba(0,0,0,.12)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 22, transition: 'transform .12s, background .12s', transform: active ? 'scale(1.08)' : 'none',
+                backdropFilter: 'blur(4px)', fontFamily: 'inherit',
+              }}>
+              <span>{icon}</span>
+              {badge > 0 && <span style={{ position: 'absolute', top: -3, right: -3, background: active ? '#fff' : PRIMARY, color: active ? PRIMARY : '#fff', fontSize: 11, fontWeight: 800, padding: '1px 5px', borderRadius: 10, minWidth: 16, textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }}>{badge}</span>}
+            </button>
+          )
+        })}
       </div>
     </div>
   )
