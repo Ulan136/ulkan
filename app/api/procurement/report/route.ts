@@ -26,10 +26,10 @@ export async function GET(req: NextRequest) {
 
   // Имена заказчиков (to) исходных заявок-продаж.
   const saleIds = Array.from(new Set(links.map(l => l.saleCardId)))
-  const saleMap: Record<string, string> = {}
+  const saleMap: Record<string, { client: string; comment: string }> = {}
   if (saleIds.length) {
-    const sales = await prisma.order.findMany({ where: { id: { in: saleIds } }, select: { id: true, to: true, from: true } })
-    for (const s of sales) saleMap[s.id] = s.to || s.from || '—'
+    const sales = await prisma.order.findMany({ where: { id: { in: saleIds } }, select: { id: true, to: true, from: true, comment: true } })
+    for (const s of sales) saleMap[s.id] = { client: s.to || s.from || '—', comment: s.comment || '' }
   }
 
   const report = purchases.map(p => {
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
           unit: pos.unit,
           supplier: pos.supplier || '—',
           status: pos.status,
-          breakdown: posLinks.map(l => ({ client: saleMap[l.saleCardId] || l.saleCardId, saleCardId: l.saleCardId, qty: l.qty })),
+          breakdown: posLinks.map(l => ({ client: saleMap[l.saleCardId]?.client || l.saleCardId, comment: saleMap[l.saleCardId]?.comment || '', saleCardId: l.saleCardId, qty: l.qty })),
         }
       }),
     }

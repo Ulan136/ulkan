@@ -534,6 +534,7 @@ export default function AdminApp({ user }: Props) {
   const [recProcLinks, setRecProcLinks] = useState<Array<{ saleCardId: string; product: string; qty: number }>>([])  // связь закупа с заявками
   const [autoOpen, setAutoOpen] = useState(true)          // блок «Автозакуп» раскрыт
   const [autoSel, setAutoSel] = useState<Set<string>>(new Set())  // выбранные товары для закупа
+  const [procuredPairs, setProcuredPairs] = useState<Set<string>>(new Set())  // (заявка|товар) уже в закупе → убрать из сводки
   const [recTo, setRecTo] = useState('')
   const [recProject, setRecProject] = useState('')
   const [recSpec, setRecSpec] = useState('')
@@ -740,6 +741,17 @@ export default function AdminApp({ user }: Props) {
   // Настройки (пользователи/проекты/спецпроекты/поставщики) — канал 'settings':
   // загрузка при монтировании + при мутациях справочников/пользователей.
   useLiveData('settings', loadSettings, [])
+
+  // Уже-закупленные пары (заявка|товар) — чтобы убрать их из «Автозакупа».
+  const loadProcured = useCallback(async () => {
+    try {
+      const r = await fetch('/api/procurement/links')
+      if (!r.ok) return
+      const arr = await r.json()
+      setProcuredPairs(new Set((Array.isArray(arr) ? arr : []).map((l: any) => `${l.saleCardId}|${(l.product || '').trim().toLowerCase()}`)))
+    } catch { /* нет связей — сводка полная */ }
+  }, [])
+  useLiveData('orders', loadProcured, [])
 
   // Номенклатура в настройках — грузим по требованию при открытии вкладки.
   useEffect(() => {
@@ -1374,6 +1386,8 @@ export default function AdminApp({ user }: Props) {
                 for (const p of o.positions) {
                   const nm = (p.name1c || p.oral || '').trim()
                   if (!nm || !(p.qty > 0)) continue
+                  // Уже в закупе (заявка+товар) — не показываем повторно.
+                  if (procuredPairs.has(`${o.id}|${nm.toLowerCase()}`)) continue
                   const key = nm.toLowerCase()
                   if (!agg[key]) agg[key] = { name: nm, unit: p.unit || 'шт', total: 0, rows: [] }
                   agg[key].total += p.qty
