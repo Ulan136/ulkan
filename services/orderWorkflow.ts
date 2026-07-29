@@ -62,6 +62,35 @@ async function postCardChange(prismaClient: any, cardId: string, session: any, t
   } catch { /* чат не критичен */ }
 }
 
+// Автооткрытие продаж при приходе закупа на Центр-Склад. Когда закуп полностью
+// доставлен (товар на складе), связанные заявки-продажи (ProcurementLink):
+//  1) их позиции по этому товару получают поставщика Центр-Склад (тянут со склада),
+//  2) в чат заявки и админам летит сигнал «товар закуплен — можно отгружать».
+// Безопасно, если таблицы связей ещё нет. Возвращает число «открытых» заявок.
+async function openLinkedSales(prismaClient: any, purchaseOrder: { id: string; to: string }): Promise<number> {
+  if ((purchaseOrder.to || '').trim() !== CENTER_SKLAD) return 0
+  let links: any[] = []
+  try { links = await prismaClient.procurementLink.findMany({ where: { purchaseCardId: purchaseOrder.id } }) } catch { return 0 }
+  if (!links.length) return 0
+  const saleIds: string[] = Array.from(new Set(links.map((l: any) => l.saleCardId)))
+  let opened = 0
+  for (const saleId of saleIds) {
+    const sale = await prismaClient.order.findUnique({ where: { id: saleId }, select: { id: true, isCancelled: true } })
+    if (!sale || sale.isCancelled) continue
+    const saleLinks = links.filter((l: any) => l.saleCardId === saleId)
+    const positions = await prismaClient.position.findMany({ where: { cardId: saleId } })
+    for (const sl of saleLinks) {
+      const pos = positions.find((p: any) =>
+        (p.name1c || p.oral || '').trim().toLowerCase() === (sl.product || '').trim().toLowerCase() && !(p.supplier || '').trim())
+      if (pos) await prismaClient.position.update({ where: { id: pos.id }, data: { supplier: CENTER_SKLAD } })
+    }
+    await postCardChange(prismaClient, saleId, { name: 'Система', role: 'system' }, `🟢 Товар закуплен и на Центр-Складе (закуп ${purchaseOrder.id}) — можно отгружать`)
+    try { await notifyAdmins(`🟢 Товар для заявки ${saleId} закуплен — можно отгружать`, saleId) } catch { /* не критично */ }
+    opened++
+  }
+  return opened
+}
+
 // Порядок статусов позиции для определения движения назад (revert).
 const STATUS_ORDER = [POS_STATUS.working, POS_STATUS.readyToShip, POS_STATUS.inTransit, POS_STATUS.delivered]
 const statusRank = (s: string): number => { const i = STATUS_ORDER.indexOf(s as any); return i === -1 ? 0 : i }
@@ -242,6 +271,8 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
         if (order.contactId) await notify(order.contactId, `✅ Заказ ${order.id} полностью доставлен!`, order.id)
         await notifyAdmins(`Заказ ${order.id} полностью доставлен`, order.id)
         scratch.incomed = await incomeOnDeliveryToCenter(order, updatedPositions)
+        // Закуп пришёл на склад → открываем связанные продажи.
+        scratch.opened = await openLinkedSales(prisma, order)
       }
 
       // 3b: карточка была автопереведена в Доставлено, а теперь не все доставлены —
@@ -290,6 +321,8 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
       if (order.contactId) await notify(order.contactId, `Заказ ${order.id} доставлен!`, order.id)
       await notifyAdmins(`Заказ ${order.id} полностью доставлен`, order.id) // fix #3: как updatePos
       scratch.incomed = await incomeOnDeliveryToCenter(order, before)
+      // Закуп пришёл на склад → открываем связанные продажи.
+      scratch.opened = await openLinkedSales(prisma, order)
     },
     patch: () => ({ screen: SCREENS.incoming, status: CARD_STATUS.delivered, toacc: true, delivered: new Date() }),
     history: (ctx) => ctx.scratch.incomed != null
