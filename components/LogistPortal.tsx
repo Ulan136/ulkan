@@ -443,12 +443,12 @@ export default function LogistPortal({ user, logistUser }: Props) {
       </div>
 
       {/* Контент */}
-      <div style={{ maxWidth: 432, margin: '0 auto', padding: '16px 14px 90px' }}>
+      <div style={{ maxWidth: 432, margin: '0 auto', padding: '16px 66px 40px 14px' }}>
 
         {/* ── 📥 ВХОДЯЩИЕ ── */}
         {tab === 'in' && (
           <div>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>📥 Входящие · ко мне</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>💰 Продажа · ко мне</div>
             <DateFilter period={period} day={day} onChange={(p, d) => { setPeriod(p); setDay(d) }} />
             {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#5f5952' }}>Загрузка...</div>
               : posIn.length === 0
@@ -475,7 +475,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
         {/* ── 📤 ИСХОДЯЩИЕ ── */}
         {tab === 'out' && (
           <div>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>📤 Исходящие · доставлено мной</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>✅ Выполнено · доставлено мной</div>
             <DateFilter period={period} day={day} onChange={(p, d) => { setPeriod(p); setDay(d) }} />
             {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#5f5952' }}>Загрузка...</div>
               : posOut.length === 0
@@ -715,29 +715,37 @@ export default function LogistPortal({ user, logistUser }: Props) {
         </div>
       )}
 
-      {/* Плавающий чат-виджет (поднят над нижним меню) */}
-      <ChatWidget myId={user.id} bottomOffset={84} />
+      {/* Плавающий чат-виджет */}
+      <ChatWidget myId={user.id} bottomOffset={16} />
 
-      {/* ── Нижнее меню ── */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: DARK, padding: '10px 0 16px', zIndex: 100 }}>
-        <div style={{ maxWidth: 432, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)' }}>
-          {[
-            { key: 'in'      as Tab, icon: '📥', label: 'Входящие',  badge: posIn.length, blink: false },
-            { key: 'buy'     as Tab, icon: '🛒', label: 'Закупки',   badge: posBuy.length, blink: false },
-            { key: 'out'     as Tab, icon: '📤', label: 'Исходящие', badge: posOut.length, blink: false },
-            { key: 'changes' as Tab, icon: '⚡', label: 'Изменения', badge: changedCount, blink: changedCount > 0 },
-            { key: 'new'     as Tab, icon: '➕', label: 'Новый',     badge: 0, blink: false },
-            { key: 'shift'   as Tab, icon: '📊', label: 'Смена',     badge: shiftRows.filter(r => r.name).length, blink: false },
-          ].map(({ key, icon, label, badge, blink }) => (
-            <button key={key} onClick={() => setTab(key)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, position: 'relative' }}>
-              <div className={blink ? 'uk-blink' : undefined} style={{ position: 'relative', display: 'inline-flex' }}>
-                <span style={{ fontSize: 22 }}>{icon}</span>
-                {badge > 0 && <span style={{ position: 'absolute', top: -4, right: -8, background: blink ? '#c1121c' : PRIMARY, color: '#fff', fontSize: 11, fontWeight: 700, padding: '1px 4px', borderRadius: 10, minWidth: 14, textAlign: 'center' }}>{badge}</span>}
-              </div>
-              <span style={{ fontSize: 12, fontWeight: tab === key ? 700 : 400, color: tab === key ? PRIMARY : '#8c857a' }}>{label}</span>
+      {/* ── Плавающие круглые вкладки справа (вместо нижнего меню) ── */}
+      <div style={{ position: 'fixed', right: 10, top: '50%', transform: 'translateY(-50%)', zIndex: 100, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {[
+          { key: 'in'      as Tab, icon: '💰', label: 'Продажа',   badge: posIn.length, blink: false },
+          { key: 'buy'     as Tab, icon: '🛒', label: 'Закупки',   badge: posBuy.length, blink: false },
+          { key: 'out'     as Tab, icon: '✅', label: 'Выполнено', badge: posOut.length, blink: false },
+          { key: 'changes' as Tab, icon: '⚡', label: 'Изменения', badge: changedCount, blink: changedCount > 0 },
+          { key: 'new'     as Tab, icon: '➕', label: 'Новый',     badge: 0, blink: false },
+          { key: 'shift'   as Tab, icon: '📊', label: 'Смена',     badge: shiftRows.filter(r => r.name).length, blink: false },
+        ].map(({ key, icon, label, badge, blink }) => {
+          const active = tab === key
+          return (
+            <button key={key} onClick={() => setTab(key)} title={label} aria-label={label}
+              className={blink ? 'uk-blink' : undefined}
+              style={{
+                position: 'relative', width: 48, height: 48, borderRadius: '50%', cursor: 'pointer',
+                border: active ? 'none' : '1.5px solid #ece7e0',
+                background: active ? PRIMARY : 'rgba(255,255,255,.92)',
+                boxShadow: active ? '0 4px 14px rgba(212,97,58,.4)' : '0 2px 8px rgba(0,0,0,.12)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 22, transition: 'transform .12s, background .12s', transform: active ? 'scale(1.08)' : 'none',
+                backdropFilter: 'blur(4px)',
+              }}>
+              <span style={{ filter: active ? 'grayscale(0)' : 'none' }}>{icon}</span>
+              {badge > 0 && <span style={{ position: 'absolute', top: -3, right: -3, background: blink ? '#c1121c' : (active ? '#fff' : PRIMARY), color: blink ? '#fff' : (active ? PRIMARY : '#fff'), fontSize: 11, fontWeight: 800, padding: '1px 5px', borderRadius: 10, minWidth: 16, textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }}>{badge}</span>}
             </button>
-          ))}
-        </div>
+          )
+        })}
       </div>
 
       <InstallPrompt />
