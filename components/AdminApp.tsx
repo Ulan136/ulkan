@@ -25,6 +25,7 @@ import CardChat from '@/components/CardChat'
 import ChatWidget from '@/components/ChatWidget'
 import NomPicker, { type PickedPos } from '@/components/NomPicker'
 import { RalDot, extractRal } from '@/lib/ral'
+import { CATALOG_CATEGORIES } from '@/lib/nomCatalog'
 
 // ─── Утилиты v2.2 ───────────────────────────────────────────────────────────
 
@@ -516,10 +517,10 @@ export default function AdminApp({ user }: Props) {
   const [recSpec, setRecSpec] = useState('')
   const [recContact, setRecContact] = useState('')
   const [recPhone, setRecPhone] = useState('')
-  const [recDeadline, setRecDeadline] = useState('')  // дефолт ставится сегодня при ОТКРЫТИИ формы
+  const [recDeadline, setRecDeadline] = useState(todayLocal())  // срок приёмки — всегда сегодня по умолчанию
   const [recComment, setRecComment] = useState('')
   const [recPositions, setRecPositions] = useState([
-    { name1c: '', oral: '', qty: '', unit: 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: '', payment: '' }
+    { name1c: '', oral: '', qty: '', unit: 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: todayLocal(), payment: '' }
   ])
   const [recShowPayment, setRecShowPayment] = useState<number[]>([])
   const [editingPositions, setEditingPositions] = useState<Record<string, any>>({})
@@ -535,7 +536,7 @@ export default function AdminApp({ user }: Props) {
     const type = recTo ? priceTypeFor(recTo) : 'retail'
     const added = await Promise.all(items.map(async it => {
       const price = recTo ? await fetchPosPrice(it.name1c || it.oral, type) : 0 // подтянуть цену, если Кому выбран
-      return { name1c: it.name1c, oral: it.oral, qty: String(it.qty), unit: it.unit || 'шт', price: price > 0 ? String(price) : '', resp: '', supplierId: '', supplier: '', deadline: '', payment: '' }
+      return { name1c: it.name1c, oral: it.oral, qty: String(it.qty), unit: it.unit || 'шт', price: price > 0 ? String(price) : '', resp: '', supplierId: '', supplier: '', deadline: todayLocal(), payment: '' }
     }))
     setRecPositions(prev => [...prev.filter(x => x.name1c || x.oral), ...added])
   }
@@ -628,7 +629,7 @@ export default function AdminApp({ user }: Props) {
       setRecFormOpen(false)
       setRecTo(''); setRecProject(''); setRecSpec('')
       setRecContact(''); setRecPhone(''); setRecDeadline(''); setRecComment('')
-      setRecPositions([{ name1c: '', oral: '', qty: '', unit: 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: '', payment: '' }])
+      setRecPositions([{ name1c: '', oral: '', qty: '', unit: 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: todayLocal(), payment: '' }])
       setRecShowPayment([])
       loadOrders()
       showToast(isDraft ? 'Черновик сохранён' : 'Заказ создан и отправлен в исходящие')
@@ -659,6 +660,22 @@ export default function AdminApp({ user }: Props) {
   const loadSettings = useCallback(async () => {
     try { setSettings(await fetchSettings() as SettingsData) } catch {}
   }, [])
+
+  // Сохранить правило автоподстановки (группа → поставщик/логист)
+  async function saveCatRule(category: string, patch: { supplierName?: string; supplierId?: string; logistName?: string }) {
+    const cur = settings?.categoryRules?.find(r => r.category === category)
+    const body = {
+      category,
+      supplierName: patch.supplierName ?? cur?.supplierName ?? '',
+      supplierId: patch.supplierId ?? cur?.supplierId ?? '',
+      logistName: patch.logistName ?? cur?.logistName ?? '',
+    }
+    try {
+      const r = await fetch('/api/settings/category-rules', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      if (!r.ok) { const e = await r.json().catch(() => ({})); showToast(e.error || 'Ошибка сохранения'); return }
+      loadSettings(); showToast('✓ Сохранено')
+    } catch (e: any) { showToast(e.message || 'Ошибка') }
+  }
 
   const loadNotifs = useCallback(async () => {
     try { setNotifications(await fetchNotifications() as Notification[]) } catch {}
@@ -1931,7 +1948,7 @@ export default function AdminApp({ user }: Props) {
         return <HistoryScreen users={settings?.users || []} />
 
             case 'settings': {
-        const stabs: Array<[SettingsTab, string]> = [['users', `Пользователи`], ['projects', 'Проекты'], ['specprojects', 'СпецПроекты'], ['nomenclature', 'Номенклатура'], ['payment', 'Оплата']]
+        const stabs: Array<[SettingsTab, string]> = [['users', `Пользователи`], ['projects', 'Проекты'], ['specprojects', 'СпецПроекты'], ['nomenclature', 'Номенклатура'], ['payment', 'Оплата'], ['catrules', 'Автоподстановка']]
         const roleColors: Record<string, { bg: string; color: string }> = {
           super_admin: { bg: '#eef2ff', color: '#4a5aaa' }, bookkeeper: { bg: '#e8f5ee', color: '#2e8a5e' },
           logist: { bg: '#fff0ea', color: '#c0532a' }, supplier_client: { bg: '#f3eeff', color: '#7a3aaa' }, client: { bg: '#eef8ff', color: '#2a7aaa' }, branch: { bg: '#e8f5ee', color: '#2e8a5e' },
@@ -2090,6 +2107,37 @@ export default function AdminApp({ user }: Props) {
                       </tr>
                     ))}</tbody>
                   </table>
+                )}
+                {settingsTab === 'catrules' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 640 }}>
+                    <div style={{ fontSize: 13, color: '#5f5952', lineHeight: 1.5, background: '#fff', borderRadius: 10, padding: '12px 14px', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
+                      Постоянные поставщик и логист для каждой группы. При «Взять в обработку» на столе приёмки позиции этой группы автоматически получат их (пустые поля — ручной выбор не затирается), а срок встанет сегодняшним днём.
+                    </div>
+                    {CATALOG_CATEGORIES.map(cc => {
+                      const rule = settings.categoryRules?.find(r => r.category === cc.key)
+                      return (
+                        <div key={cc.key} style={{ background: '#fff', borderRadius: 12, padding: '14px 16px', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
+                          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>{cc.label}</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                            <div>
+                              <label style={{ fontSize: 12, fontWeight: 700, color: '#5f5952', display: 'block', marginBottom: 4 }}>ПОСТАВЩИК</label>
+                              <UnifiedSelect value={rule?.supplierName || ''} placeholder="— поставщик —" settings={settings}
+                                onChange={v => {
+                                  const u = settings.users.find(x => x.name === v)
+                                  const sup = settings.suppliers.find(s => s.name === v)
+                                  saveCatRule(cc.key, { supplierName: v, supplierId: (u as any)?.id || sup?.id || '' })
+                                }} />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: 12, fontWeight: 700, color: '#5f5952', display: 'block', marginBottom: 4 }}>ЛОГИСТ</label>
+                              <UnifiedSelect value={rule?.logistName || ''} placeholder="— логист —" settings={settings} roles={['logist']}
+                                onChange={v => saveCatRule(cc.key, { logistName: v })} />
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 )}
               </>
             )}

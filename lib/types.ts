@@ -227,6 +227,14 @@ export interface SettingsData {
   suppliers: Supplier[]
   nomenclature: Nomenclature[]
   paymentStatuses: Array<{ id: string; name: string; active: boolean }>
+  categoryRules?: CategoryRule[]
+}
+
+export interface CategoryRule {
+  category: string          // vodostok | materialy | eurobrus | komplekt
+  supplierName: string
+  supplierId: string
+  logistName: string
 }
 
 export interface TrackData {
@@ -255,5 +263,5 @@ export type IncTab = 'new' | 'changed' | 'toacc' | 'drafts' | 'cancelled'
 export type FilterGroup = 'clients' | 'suppliers' | 'projects' | 'specprojects'
 export type FilterStatus = 'inwork' | 'delivered' | 'all'
 export type ArchiveTab = 'cards' | 'projects' | 'specprojects'
-export type SettingsTab = 'users' | 'projects' | 'specprojects' | 'nomenclature' | 'payment'
+export type SettingsTab = 'users' | 'projects' | 'specprojects' | 'nomenclature' | 'payment' | 'catrules'
 export type BookkeepingTab = 'cards' | 'reports' | 'shifts'

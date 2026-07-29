@@ -25,5 +25,11 @@ export async function GET(req: NextRequest) {
     prisma.paymentStatus.findMany({ orderBy: { name: 'asc' } }),
   ])
 
-  return NextResponse.json({ users, projects, specProjects, suppliers, nomenclature: [], paymentStatuses })
+  // Правила автоподстановки — только админам; безопасно, если таблицы ещё нет.
+  let categoryRules: any[] = []
+  if (isAdmin) {
+    try { categoryRules = await (prisma as any).categoryRule.findMany() } catch { categoryRules = [] }
+  }
+
+  return NextResponse.json({ users, projects, specProjects, suppliers, nomenclature: [], paymentStatuses, categoryRules })
 }

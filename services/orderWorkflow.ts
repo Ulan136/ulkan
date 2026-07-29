@@ -10,6 +10,41 @@ import { clientPriceType, resolvePrice } from '@/services/pricing'
 import { POS_STATUS, CARD_STATUS, SCREENS } from '@/lib/orderStatus'
 import { almatyDay } from '@/lib/reportDay'
 import { isHandedOff, isInDelivery, eqName } from '@/lib/positionState'
+import { matchCategoryKey } from '@/lib/nomCatalog'
+
+// Автоподстановка на столе приёмки: по группе каждой позиции ставим поставщика
+// и логиста из правил (CategoryRule) + срок = сегодня. Только для ПУСТЫХ полей —
+// ручной выбор не затираем. Безопасно, если таблицы правил ещё нет в БД.
+async function applyReceptionDefaults(prismaClient: any, cardId: string) {
+  let rules: any[] = []
+  try { rules = await prismaClient.categoryRule.findMany() } catch { rules = [] }
+  const ruleByKey: Record<string, any> = {}
+  for (const r of rules) ruleByKey[r.category] = r
+
+  const positions = await prismaClient.position.findMany({ where: { cardId } })
+  const today = new Date()
+  for (const p of positions) {
+    const data: any = {}
+    // Срок = сегодня, если не задан
+    if (!p.deadline) data.deadline = today
+    // Поставщик/логист по группе — только если правила есть и поля пустые
+    const needSupplier = !(p.supplier || '').trim()
+    const needResp = !(p.resp || '').trim()
+    if (rules.length && (needSupplier || needResp)) {
+      const name = p.name1c || p.oral
+      if (name) {
+        const nom = await prismaClient.nomenclature.findFirst({ where: { name }, select: { group: true, cat: true } })
+        const key = nom ? matchCategoryKey(nom.group, nom.cat) : null
+        const rule = key ? ruleByKey[key] : null
+        if (rule) {
+          if (needSupplier && rule.supplierName) { data.supplier = rule.supplierName; data.supplierId = rule.supplierId || null }
+          if (needResp && rule.logistName) data.resp = rule.logistName
+        }
+      }
+    }
+    if (Object.keys(data).length) await prismaClient.position.update({ where: { id: p.id }, data })
+  }
+}
 
 // Системное сообщение в чат карточки об изменении (кто/что) — чтобы логист и все
 // участники сразу видели правку. Ошибка чата не должна ломать действие.
@@ -83,6 +118,8 @@ export const TRANSITIONS: Record<string, TransitionDef> = {
           })
         }
       }
+      // Автоподстановка поставщика/логиста по группе + срок = сегодня
+      await applyReceptionDefaults(prisma, order.id)
     },
     history: () => 'Взят в обработку',
   },

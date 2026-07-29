@@ -47,3 +47,24 @@ export const CATALOG_CATEGORIES: CatalogCat[] = [
   { key: 'eurobrus', label: 'Евробрус', group: 'Товары', cat: 'Евро брус' },
   { key: 'komplekt', label: 'Комплектующие', group: 'Товары', cat: 'Комплектующие' },
 ]
+
+// Нормализация полей 1С для сравнения (регистр, ё→е, пробелы).
+const normCat = (s: string) => (s || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim()
+
+// Определить категорию каталога по полям group/cat номенклатуры. Устойчиво к
+// перепутанным полям 1С (group↔cat). Возвращает key (vodostok|...) или null.
+export function matchCategoryKey(group: string, cat: string): string | null {
+  const g = normCat(group), c = normCat(cat)
+  if (!g && !c) return null
+  for (const cc of CATALOG_CATEGORIES) {
+    const cg = normCat(cc.group), ck = normCat(cc.cat)
+    if (cc.cat) {
+      // Евробрус/Комплектующие — пара group+cat в любой ориентации
+      if ((g === cg && c === ck) || (g === ck && c === cg)) return cc.key
+    } else {
+      // Водосток/Материалы — совпадение по любому из полей
+      if (g === cg || c === cg) return cc.key
+    }
+  }
+  return null
+}

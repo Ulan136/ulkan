@@ -234,6 +234,17 @@ model PaymentStatus {
   active Boolean @default(true)
 }
 
+// Автоподстановка поставщика/логиста по группе каталога. 4 строки —
+// по одной на категорию (vodostok|materialy|eurobrus|komplekt). На столе
+// приёмки («Взять в обработку») позиции получают поставщика+логиста по группе.
+model CategoryRule {
+  category     String   @id                 // ключ категории каталога
+  supplierName String   @default("")        // имя поставщика (пользователь)
+  supplierId   String   @default("")        // id из Supplier, если найден
+  logistName   String   @default("")        // имя логиста (resp)
+  updatedAt    DateTime @updatedAt @default(now())
+}
+
 // Чат по карточке заказа (участники обсуждают конкретную карту).
 model CardMessage {
   id        String   @id @default(cuid())
