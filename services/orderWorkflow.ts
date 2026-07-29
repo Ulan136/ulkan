@@ -37,7 +37,13 @@ async function applyReceptionDefaults(prismaClient: any, cardId: string) {
         const key = nom ? matchCategoryKey(nom.group, nom.cat) : null
         const rule = key ? ruleByKey[key] : null
         if (rule) {
-          if (needSupplier && rule.supplierName) { data.supplier = rule.supplierName; data.supplierId = rule.supplierId || null }
+          if (needSupplier && rule.supplierName) {
+            data.supplier = rule.supplierName
+            // supplierId — строго FK на Supplier: резолвим по имени, иначе null
+            // (поставщик-пользователь хранится только именем).
+            const sup = await prismaClient.supplier.findFirst({ where: { name: rule.supplierName }, select: { id: true } })
+            data.supplierId = sup?.id || null
+          }
           if (needResp && rule.logistName) data.resp = rule.logistName
         }
       }

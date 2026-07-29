@@ -2123,9 +2123,10 @@ export default function AdminApp({ user }: Props) {
                               <label style={{ fontSize: 12, fontWeight: 700, color: '#5f5952', display: 'block', marginBottom: 4 }}>ПОСТАВЩИК</label>
                               <UnifiedSelect value={rule?.supplierName || ''} placeholder="— поставщик —" settings={settings}
                                 onChange={v => {
-                                  const u = settings.users.find(x => x.name === v)
+                                  // supplierId — только если имя совпадает с записью Supplier (FK).
+                                  // Поставщик-пользователь хранится именем, supplierId остаётся пустым.
                                   const sup = settings.suppliers.find(s => s.name === v)
-                                  saveCatRule(cc.key, { supplierName: v, supplierId: (u as any)?.id || sup?.id || '' })
+                                  saveCatRule(cc.key, { supplierName: v, supplierId: sup?.id || '' })
                                 }} />
                             </div>
                             <div>
