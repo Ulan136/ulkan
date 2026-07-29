@@ -235,6 +235,18 @@ export default function LogistPortal({ user, logistUser }: Props) {
   // НЕТ автосборки и автосейва: строки блока наполняются событиями на сервере
   // (доставка → updatePos, ручная кнопка, откат). Вкладка Смена только показывает.
 
+  // ── Смена поставщика позиции (поставщик может меняться в процессе) ──
+  const [supEditPos, setSupEditPos] = useState<string | null>(null)
+  async function saveSupplier(cardId: string, posId: string, name: string) {
+    try {
+      // supplierId=null: логист выбирает по имени; имя-поставщик хранится без FK.
+      await orderAction(cardId, 'updatePosDetail', { posId, supplier: name, supplierId: null })
+      showMsg('✓ Поставщик изменён')
+      setSupEditPos(null)
+      await load()
+    } catch (e: any) { showMsg(e.message) }
+  }
+
   // ── Смена статуса позиции ──
   async function handleStatus(cardId: string, posId: string, status: string, _posName: string, _fromWho: string, _toWho: string, _qty: number) {
     setUpdating(posId)
@@ -350,7 +362,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
     // Редактировать/добавлять можно только СВОИ позиции (resp==я), ещё не доставленные
     const editable = eqName(pos.resp, myName) && pos.status !== 'Доставлено'
     return (
-      <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 12, boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+      <div style={{ background: isPurchase(order) ? '#faf7fd' : '#fff', borderRadius: 14, padding: 16, marginBottom: 12, borderLeft: `4px solid ${isPurchase(order) ? '#7a3aaa' : '#2e8a5e'}`, boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
         {editPosId === pos.id ? (
           <PositionEditor pos={pos} orderId={order.id}
             onEditing={e => { editingRef.current = e }}
@@ -363,6 +375,21 @@ export default function LogistPortal({ user, logistUser }: Props) {
               <span style={{ fontWeight: 700, fontSize: 18, color: PRIMARY, marginLeft: 10 }}>{pos.qty} {pos.unit}</span>
             </div>
             <div style={{ fontSize: 14, color: '#5f5952', marginBottom: 4 }}>{order.from} → {order.to || '—'}</div>
+            {/* Поставщик — редактируемый (может меняться в процессе) */}
+            {editable && (supEditPos === pos.id ? (
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                <select autoFocus value={pos.supplier || ''} onChange={e => saveSupplier(order.id, pos.id, e.target.value)}
+                  style={{ flex: 1, padding: '7px 8px', borderRadius: 8, border: '1.5px solid #e6e2dc', fontSize: 13, fontFamily: 'inherit', background: '#fff' }}>
+                  <option value="">— поставщик —</option>
+                  {suppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <button onClick={() => setSupEditPos(null)} style={{ padding: '6px 10px', borderRadius: 8, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 14 }}>×</button>
+              </div>
+            ) : (
+              <div onClick={() => setSupEditPos(pos.id)} style={{ fontSize: 13, color: '#5f5952', marginBottom: 6, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }} title="Изменить поставщика">
+                🏭 {pos.supplier || <span style={{ color: '#b8b1a6' }}>поставщик не указан</span>} <span style={{ color: PRIMARY, fontWeight: 700 }}>✎</span>
+              </div>
+            ))}
             {order.comment && <div style={{ fontSize: 13, background: '#f8f6f3', borderRadius: 6, padding: '6px 10px', marginBottom: 6 }}>{order.comment.slice(0, 80)}</div>}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: PRIMARY, fontWeight: 600 }}>{order.id}</span>

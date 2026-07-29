@@ -119,6 +119,13 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
   const [msgCount, setMsgCount] = useState(0)
   const [editPos, setEditPos] = useState<string | null>(null)
   const [priceEdit, setPriceEdit] = useState<{ qty: string; price: string }>({ qty: '', price: '' })
+  // Смена поставщика позиции (может меняться в процессе). Реюз updatePosDetail.
+  const [supEditId, setSupEditId] = useState<string | null>(null)
+  async function saveSupplier(posId: string, name: string) {
+    const sup = suppliers.find(s => s.name === name)
+    await onAction(order.id, 'updatePosDetail', { posId, supplier: name, supplierId: sup?.id || null })
+    setSupEditId(null)
+  }
   // Правка цены/кол-ва позиций на экранах К учёту (accounting) и Бухгалтерии
   // (bookkeeping). Реюз действия updatePosDetail. Гейт только по экрану:
   // AdminApp — админская оболочка (super_admin/bookkeeper), порталы branch/
@@ -160,7 +167,7 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div onClick={e => e.stopPropagation()} className="anim-pop" style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 620, maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Шапка */}
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1efec', display: 'flex', alignItems: 'center', gap: 10, position: 'sticky', top: 0, background: '#fff', zIndex: 10 }}>
+        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${isPurchase(order) ? '#eaddf5' : '#f1efec'}`, borderLeft: `5px solid ${isPurchase(order) ? '#7a3aaa' : '#2e8a5e'}`, display: 'flex', alignItems: 'center', gap: 10, position: 'sticky', top: 0, background: isPurchase(order) ? '#faf7fd' : '#fff', zIndex: 10 }}>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 15, color: COLORS.primary }}>{order.id}</span>
           <KindBadge order={order} />
           <StatusBadge status={order.status} />
@@ -307,7 +314,17 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
                           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#6b645b' }}>{p.id}</div>
                           {p.oral && p.name1c && <div style={{ fontSize: 12, color: '#5f5952' }}>{p.oral}</div>}
                           {p.resp && <div style={{ fontSize: 12, color: '#5f5952' }}>Логист: {p.resp}</div>}
-                          {p.supplier && <div style={{ fontSize: 12, color: '#5f5952' }}>Поставщик: {p.supplier}</div>}
+                          {/* Поставщик — редактируемый (может меняться в процессе) */}
+                          {supEditId === p.id ? (
+                            <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 3 }} onClick={e => e.stopPropagation()}>
+                              <UnifiedSelect value={p.supplier || ''} onChange={v => saveSupplier(p.id, v)} placeholder="— поставщик —" settings={settings} style={{ fontSize: 12, padding: '3px 6px', width: 180 }} />
+                              <button onClick={() => setSupEditId(null)} style={{ padding: '3px 7px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 13 }}>×</button>
+                            </div>
+                          ) : (
+                            <div onClick={() => setSupEditId(p.id)} style={{ fontSize: 12, color: '#5f5952', marginTop: 2, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }} title="Изменить поставщика">
+                              Поставщик: {p.supplier || <span style={{ color: '#b8b1a6' }}>—</span>} <span style={{ color: COLORS.primary }}>✎</span>
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: '8px 10px', fontSize: 14, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }}>
                           {editing
@@ -447,8 +464,9 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
 
 function OrderCard({ order, onClick }: { order: Order; onClick: () => void }) {
   const pct = cardProgress(order)
+  const purchase = isPurchase(order)
   return (
-    <div onClick={onClick} className="anim-fade" style={{ background: order.cold ? 'rgba(250,248,246,.6)' : '#fff', borderRadius: 12, padding: '14px 16px', boxShadow: '0 0 0 1.5px #e6e2dc', cursor: 'pointer', opacity: order.cold ? .6 : 1, marginBottom: 8 }}>
+    <div onClick={onClick} className="anim-fade" style={{ background: order.cold ? 'rgba(250,248,246,.6)' : (purchase ? '#faf7fd' : '#fff'), borderRadius: 12, padding: '14px 16px', borderLeft: `4px solid ${purchase ? '#7a3aaa' : '#2e8a5e'}`, boxShadow: `0 0 0 1.5px ${purchase ? '#e3d4f0' : '#e6e2dc'}`, cursor: 'pointer', opacity: order.cold ? .6 : 1, marginBottom: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: COLORS.primary }}>{order.id}</span>
         {order.cold && <span>❄️</span>}
@@ -1040,8 +1058,9 @@ export default function AdminApp({ user }: Props) {
                   </div>
                 : filterOrders(incTabMap[incTab]).map(o => {
                     const pct = cardProgress(o)
+                    const purchase = isPurchase(o)
                     return (
-                      <div key={o.id} style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
+                      <div key={o.id} style={{ background: purchase ? '#faf7fd' : '#fff', borderRadius: 12, padding: '16px 18px', borderLeft: `4px solid ${purchase ? '#7a3aaa' : '#2e8a5e'}`, boxShadow: `0 0 0 1.5px ${purchase ? '#e3d4f0' : '#e6e2dc'}` }}>
                         {/* Строка 1: мета */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: COLORS.primary }}>{o.id}</span>
