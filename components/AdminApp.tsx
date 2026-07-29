@@ -26,6 +26,7 @@ import ChatWidget from '@/components/ChatWidget'
 import NomPicker, { type PickedPos } from '@/components/NomPicker'
 import { RalDot, extractRal } from '@/lib/ral'
 import { CATALOG_CATEGORIES } from '@/lib/nomCatalog'
+import { CENTER_SKLAD, isPurchase } from '@/lib/procurement'
 
 // ─── Утилиты v2.2 ───────────────────────────────────────────────────────────
 
@@ -40,6 +41,17 @@ function StatusBadge({ status }: { status: string }) {
 
 function SourceBadge({ source }: { source: string }) {
   return <span style={sourceStyle(source)}>{sourceLabel(source)}</span>
+}
+
+// Бейдж типа карточки: Закуп (фиолетовый) / Продажа (зелёный). Тип выводится из
+// получателя (Центр-Склад → закуп), отдельной колонки в БД нет.
+function KindBadge({ order }: { order: { to?: string | null } }) {
+  const purchase = isPurchase(order)
+  return (
+    <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: purchase ? '#f3eeff' : '#e8f5ee', color: purchase ? '#7a3aaa' : '#2e8a5e' }}>
+      {purchase ? '🛒 ЗАКУП' : 'ПРОДАЖА'}
+    </span>
+  )
 }
 
 function ProgressBar({ pct, height = 5 }: { pct: number; height?: number }) {
@@ -149,6 +161,7 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
         {/* Шапка */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1efec', display: 'flex', alignItems: 'center', gap: 10, position: 'sticky', top: 0, background: '#fff', zIndex: 10 }}>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 15, color: COLORS.primary }}>{order.id}</span>
+          <KindBadge order={order} />
           <StatusBadge status={order.status} />
           <SourceBadge source={order.source} />
           <span style={{ fontSize: 12, color: '#5f5952', marginLeft: 4 }}>{fmtDate(order.createdAt)}</span>
@@ -438,6 +451,7 @@ function OrderCard({ order, onClick }: { order: Order; onClick: () => void }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: COLORS.primary }}>{order.id}</span>
         {order.cold && <span>❄️</span>}
+        <KindBadge order={order} />
         <StatusBadge status={order.status} />
         <SourceBadge source={order.source} />
         {order.isChanged && <span style={{ fontSize: 12, background: '#fff0ea', color: '#c0532a', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>⚡</span>}
@@ -515,6 +529,10 @@ export default function AdminApp({ user }: Props) {
 
   // ── Приёмка: стейт формы создания ──
   const [recFormOpen, setRecFormOpen] = useState(false)
+  const [recKind, setRecKind] = useState<'sale' | 'purchase'>('sale')  // заказ (продажа) | закуп
+  const [recProcLinks, setRecProcLinks] = useState<Array<{ saleCardId: string; product: string; qty: number }>>([])  // связь закупа с заявками
+  const [autoOpen, setAutoOpen] = useState(true)          // блок «Автозакуп» раскрыт
+  const [autoSel, setAutoSel] = useState<Set<string>>(new Set())  // выбранные товары для закупа
   const [recTo, setRecTo] = useState('')
   const [recProject, setRecProject] = useState('')
   const [recSpec, setRecSpec] = useState('')
@@ -608,35 +626,55 @@ export default function AdminApp({ user }: Props) {
         supplierId: p.supplierId || undefined, status: 'В работе',
         deadline: p.deadline || undefined, payment: p.payment,
       }))
+      // Закуп: получатель всегда Центр-Склад, «К кому» не спрашиваем.
+      const purchase = recKind === 'purchase'
+      const toName = purchase ? CENTER_SKLAD : recTo
       // Отправка сразу в «Исходящие» (не черновик) требует комплектности:
       // получатель назначен и логист у каждой позиции. Черновик — без ограничений.
       if (!isDraft) {
-        if (!recTo || !recTo.trim()) { showToast('Укажите получателя (Кому)'); return }
+        if (!purchase && (!recTo || !recTo.trim())) { showToast('Укажите получателя (Кому)'); return }
+        if (positions.length === 0) { showToast('Добавьте хотя бы одну позицию'); return }
         if (positions.some(p => !(p.resp || '').trim())) { showToast('Назначьте логиста всем позициям'); return }
       }
       // «От кого» не спрашиваем: источник = создатель (админ). Клиент, для которого
       // собирается заказ, берётся из «К кому»: если это пользователь-клиент — его id
       // идёт в fromId (привязка к кабинету) и contactId (уведомления). Явно выбранный
       // контакт (суб-пользователь) переопределяет contactId.
-      const toUser = settings?.users.find(u => u.name === recTo)
+      const toUser = purchase ? undefined : settings?.users.find(u => u.name === recTo)
       const clientId = toUser && ['client', 'supplier_client', 'branch'].includes(toUser.role) ? toUser.id : undefined
       await createOrder({
         from: user.name, fromId: clientId,
-        to: recTo, phone: recPhone, deadline: recDeadline || undefined,
+        to: toName, phone: recPhone, deadline: recDeadline || undefined,
         comment: recComment, projectId: recProject || undefined,
         specProjectId: recSpec || undefined, contactId: recContact || clientId || undefined,
         source: 'admin_manual', isDraft,
         screen: isDraft ? 'incoming' : 'outgoing',
         positions,
+        procLinks: purchase && recProcLinks.length ? recProcLinks : undefined,
       })
-      setRecFormOpen(false)
+      setRecFormOpen(false); setRecKind('sale'); setRecProcLinks([])
       setRecTo(''); setRecProject(''); setRecSpec('')
       setRecContact(''); setRecPhone(''); setRecDeadline(''); setRecComment('')
       setRecPositions([{ name1c: '', oral: '', qty: '', unit: 'шт', price: '', resp: '', supplierId: '', supplier: '', deadline: todayLocal(), payment: '' }])
       setRecShowPayment([])
       loadOrders()
-      showToast(isDraft ? 'Черновик сохранён' : 'Заказ создан и отправлен в исходящие')
+      showToast(isDraft ? 'Черновик сохранён' : purchase ? 'Закуп создан и отправлен логисту' : 'Заказ создан и отправлен в исходящие')
     } catch (e: any) { showToast(e.message) }
+  }
+
+  // Открыть форму приёмки в нужном режиме (заказ/закуп) с дефолтами.
+  function openRecForm(kind: 'sale' | 'purchase', prefill?: { positions?: any[]; procLinks?: any[] }) {
+    const t = todayLocal()
+    setRecDeadline(d => d || t)
+    setRecKind(kind)
+    setRecProcLinks(prefill?.procLinks || [])
+    if (prefill?.positions?.length) {
+      setRecPositions(prefill.positions.map(p => ({ ...p, deadline: p.deadline || t })))
+    } else {
+      setRecPositions(ps => ps.map(p => ({ ...p, deadline: p.deadline || t })))
+    }
+    if (kind === 'purchase') { setRecTo(CENTER_SKLAD); setRecContact('') }
+    setRecFormOpen(true)
   }
 
   // Форма создания пользователя
@@ -988,6 +1026,7 @@ export default function AdminApp({ user }: Props) {
                         {/* Строка 1: мета */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: COLORS.primary }}>{o.id}</span>
+                          <KindBadge order={o} />
                           <StatusBadge status={o.status} />
                           <SourceBadge source={o.source} />
                           {o.isChanged && <span style={{ fontSize: 12, background: '#fff0ea', color: '#c0532a', padding: '1px 7px', borderRadius: 20, fontWeight: 600 }}>⚡ ИЗМЕНЕНО</span>}
@@ -1130,21 +1169,24 @@ export default function AdminApp({ user }: Props) {
 
             {/* ── Блок 1: Форма создания ── */}
             <div style={{ background: '#fff', borderRadius: 14, marginBottom: 20, boxShadow: '0 0 0 1.5px #e6e2dc', overflow: 'hidden' }}>
-              <div
-                onClick={() => {
-                  // Дефолт «Срок» = сегодня в момент ОТКРЫТИЯ формы (не при монтировании),
-                  // только для пустых полей — введённое пользователем не трогаем.
-                  if (!recFormOpen) {
-                    const t = todayLocal()
-                    setRecDeadline(d => d || t)
-                    setRecPositions(ps => ps.map(p => ({ ...p, deadline: p.deadline || t })))
-                  }
-                  setRecFormOpen(p => !p)
-                }}
-                style={{ padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: recFormOpen ? '1px solid #f1efec' : 'none' }}
-              >
-                <span style={{ fontWeight: 700, fontSize: 15 }}>＋ Создать новый заказ</span>
-                <span style={{ fontSize: 18, color: '#5f5952', transform: recFormOpen ? 'rotate(45deg)' : 'none', transition: 'transform .2s' }}>＋</span>
+              <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', borderBottom: recFormOpen ? '1px solid #f1efec' : 'none' }}>
+                {(['sale', 'purchase'] as const).map(k => {
+                  const activeMode = recFormOpen && recKind === k
+                  const isP = k === 'purchase'
+                  return (
+                    <button key={k}
+                      onClick={() => { if (activeMode) { setRecFormOpen(false) } else { openRecForm(k) } }}
+                      style={{
+                        padding: '9px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 14,
+                        background: activeMode ? (isP ? '#7a3aaa' : COLORS.primary) : '#f6f3f0',
+                        color: activeMode ? '#fff' : (isP ? '#7a3aaa' : COLORS.primary),
+                        boxShadow: activeMode ? 'none' : `inset 0 0 0 1.5px ${isP ? '#e3d4f0' : '#f0d9cd'}`,
+                      }}>
+                      ＋ {isP ? 'Создать закуп' : 'Создать заказ'}
+                    </button>
+                  )
+                })}
+                {recFormOpen && <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: recKind === 'purchase' ? '#7a3aaa' : COLORS.primary }}>{recKind === 'purchase' ? 'ЗАКУП · получатель Центр-Склад' : 'ПРОДАЖА'}</span>}
               </div>
 
               {recFormOpen && (
@@ -1152,8 +1194,10 @@ export default function AdminApp({ user }: Props) {
                   {/* Основные поля */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
                     <div>
-                      <label style={LBL}>К КОМУ (КЛИЕНТ) *</label>
-                      <UnifiedSelect value={recTo} onChange={v => { setRecTo(v); setRecContact(''); autofillPricesFor(v) }} placeholder="— выберите клиента —" settings={settings} />
+                      <label style={LBL}>{recKind === 'purchase' ? 'ПОЛУЧАТЕЛЬ' : 'К КОМУ (КЛИЕНТ) *'}</label>
+                      {recKind === 'purchase'
+                        ? <input style={{ ...INP, background: '#f6f3f0', color: '#7a3aaa', fontWeight: 700 }} value={`🏬 ${CENTER_SKLAD}`} disabled />
+                        : <UnifiedSelect value={recTo} onChange={v => { setRecTo(v); setRecContact(''); autofillPricesFor(v) }} placeholder="— выберите клиента —" settings={settings} />}
                     </div>
                     {subUsers.length > 0 && (
                       <div>
@@ -1299,12 +1343,88 @@ export default function AdminApp({ user }: Props) {
                   {/* Кнопки формы */}
                   <div style={{ display: 'flex', gap: 10, paddingTop: 12, borderTop: '1px solid #f1efec' }}>
                     <Btn onClick={() => handleRecSubmit(true)}>Сохранить черновик</Btn>
-                    <Btn variant="primary" onClick={() => handleRecSubmit(false)}>ОТПРАВИТЬ ЗАКАЗ →</Btn>
+                    <Btn variant="primary" onClick={() => handleRecSubmit(false)}>{recKind === 'purchase' ? 'ОТПРАВИТЬ ЗАКУП →' : 'ОТПРАВИТЬ ЗАКАЗ →'}</Btn>
                     <Btn variant="ghost" onClick={() => setRecFormOpen(false)} style={{ marginLeft: 'auto', color: '#5f5952' }}>Отмена</Btn>
                   </div>
                 </div>
               )}
             </div>
+
+            {/* ── Блок «Автозакуп»: сводка потребности по товарам из новых входящих ── */}
+            {(() => {
+              const need = orders.filter(o => o.screen === 'incoming' && !o.isDraft && !o.isCancelled && !o.toacc && !isPurchase(o))
+              const agg: Record<string, { name: string; unit: string; total: number; rows: Array<{ cardId: string; client: string; qty: number }> }> = {}
+              for (const o of need) {
+                for (const p of o.positions) {
+                  const nm = (p.name1c || p.oral || '').trim()
+                  if (!nm || !(p.qty > 0)) continue
+                  const key = nm.toLowerCase()
+                  if (!agg[key]) agg[key] = { name: nm, unit: p.unit || 'шт', total: 0, rows: [] }
+                  agg[key].total += p.qty
+                  agg[key].rows.push({ cardId: o.id, client: o.to || o.from || '—', qty: p.qty })
+                }
+              }
+              const products = Object.entries(agg).map(([key, v]) => ({ key, ...v })).sort((a, b) => b.total - a.total)
+              const selected = products.filter(p => autoSel.has(p.key))
+              function createPurchaseFromSelection() {
+                const src = selected.length ? selected : products
+                if (!src.length) { showToast('Нет товаров для закупа'); return }
+                const positions = src.map(p => ({ name1c: p.name, oral: p.name, qty: String(p.total), unit: p.unit, price: '', resp: '', supplierId: '', supplier: '', deadline: todayLocal(), payment: '' }))
+                const procLinks = src.flatMap(p => p.rows.map(r => ({ saleCardId: r.cardId, product: p.name, qty: r.qty })))
+                openRecForm('purchase', { positions, procLinks })
+                setAutoSel(new Set())
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }
+              return (
+                <div style={{ background: '#fff', borderRadius: 14, marginBottom: 20, boxShadow: '0 0 0 1.5px #e3d4f0', overflow: 'hidden' }}>
+                  <div onClick={() => setAutoOpen(v => !v)} style={{ padding: '13px 18px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, background: '#faf7fd', borderBottom: autoOpen ? '1px solid #f0eaf6' : 'none' }}>
+                    <span style={{ fontSize: 16 }}>🛒</span>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: '#7a3aaa' }}>Автозакуп</span>
+                    <span style={{ fontSize: 12, background: '#f3eeff', color: '#7a3aaa', padding: '2px 9px', borderRadius: 20, fontWeight: 700 }}>{products.length} товаров · из {need.length} заявок</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 16, color: '#7a3aaa', transform: autoOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }}>▸</span>
+                  </div>
+                  {autoOpen && (
+                    <div style={{ padding: 16 }}>
+                      {products.length === 0
+                        ? <div style={{ textAlign: 'center', padding: 20, color: '#5f5952', fontSize: 14 }}>Нет новых заявок для закупа</div>
+                        : (
+                          <>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+                              {products.map(p => {
+                                const on = autoSel.has(p.key)
+                                return (
+                                  <div key={p.key} style={{ border: `1.5px solid ${on ? '#7a3aaa' : '#f0eaf6'}`, borderRadius: 10, padding: '10px 12px', background: on ? '#faf7fd' : '#fff' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                      <input type="checkbox" checked={on} onChange={() => setAutoSel(s => { const n = new Set(s); n.has(p.key) ? n.delete(p.key) : n.add(p.key); return n })} style={{ width: 17, height: 17, cursor: 'pointer', accentColor: '#7a3aaa' }} />
+                                      <RalDot code={extractRal(p.name)} size={13} />
+                                      <span style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>{p.name}</span>
+                                      <span style={{ fontWeight: 800, fontSize: 15, color: '#7a3aaa', whiteSpace: 'nowrap' }}>{p.total} {p.unit}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, paddingLeft: 44 }}>
+                                      {p.rows.map((r, ri) => (
+                                        <span key={ri} style={{ fontSize: 12, background: '#f6f3f0', color: '#5f5952', padding: '2px 9px', borderRadius: 20 }}>
+                                          {r.client}: <b style={{ color: '#211f1c' }}>{r.qty} {p.unit}</b>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                              <button onClick={createPurchaseFromSelection} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: '#7a3aaa', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                🛒 Создать закуп {selected.length ? `(${selected.length})` : 'по всем'} →
+                              </button>
+                              {selected.length > 0 && <button onClick={() => setAutoSel(new Set())} style={{ padding: '10px 14px', borderRadius: 9, border: '1.5px solid #e6e2dc', background: '#fff', color: '#5f5952', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Сбросить</button>}
+                              <span style={{ fontSize: 12, color: '#837c72' }}>Получатель закупа — Центр-Склад. Поставщика и логиста назначишь в форме.</span>
+                            </div>
+                          </>
+                        )}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
             {/* ── Блок 2: Стол приёмки (block=processing) ── */}
             {processing.length > 0 && (

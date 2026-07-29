@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
       source, isDraft, positions,
       screen: bodyScreen,  // ← принимаем screen из body!
       fromId,
+      procLinks,  // [{ saleCardId, product, qty }] — связь закуп→исходные заявки (опц.)
     } = body
 
     // Определяем screen:
@@ -93,6 +94,17 @@ export async function POST(req: NextRequest) {
 
     // Резервируем склад для позиций с Центр Склад
     await reserveCenterSkladPositions(order.positions)
+
+    // Связь закуп→продажи (для отчёта-цепочки). Безопасно, если таблицы ещё нет.
+    if (Array.isArray(procLinks) && procLinks.length > 0) {
+      try {
+        await (prisma as any).procurementLink.createMany({
+          data: procLinks
+            .filter((l: any) => l && l.saleCardId)
+            .map((l: any) => ({ purchaseCardId: id, saleCardId: l.saleCardId, product: l.product || '', qty: Number(l.qty) || 0 })),
+        })
+      } catch { /* таблицы ещё нет — не критично для создания карточки */ }
+    }
 
     await notifyAdmins(`Новая карточка ${id} от ${from}`, id)
     await pushSignal('orders')

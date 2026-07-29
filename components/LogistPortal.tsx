@@ -8,6 +8,7 @@ import ChatWidget from '@/components/ChatWidget'
 import InstallPrompt from '@/components/InstallPrompt'
 import { RalDot, extractRal } from '@/lib/ral'
 import DateFilter, { inPeriod, type Period } from '@/components/DateFilter'
+import { isPurchase } from '@/lib/procurement'
 import { Order, SessionUser, Notification } from '@/lib/types'
 
 const PRIMARY = '#d4613a'
@@ -60,7 +61,7 @@ interface ShiftRow {
 }
 
 interface Props { user: SessionUser; logistUser: { name: string; slug: string } }
-type Tab = 'in' | 'out' | 'changes' | 'new' | 'shift'
+type Tab = 'in' | 'buy' | 'out' | 'changes' | 'new' | 'shift'
 
 // ─── Главный компонент ────────────────────────────────────────────────────────
 export default function LogistPortal({ user, logistUser }: Props) {
@@ -154,11 +155,15 @@ export default function LogistPortal({ user, logistUser }: Props) {
   const visOrders = orders.filter(o => inPeriod(o.createdAt, period, day))
 
   // ── Позиции КО МНЕ (resp = моё имя, leg=2 — второе плечо, статус не Доставлено) ──
-  const posIn = visOrders.flatMap(o =>
+  // Закуп (получатель Центр-Склад) выносим в отдельную вкладку «Закупки»,
+  // Входящие оставляем только для продаж.
+  const posInAll = visOrders.flatMap(o =>
     o.positions
       .filter(p => eqName(p.resp, myName) && p.leg === 2 && p.status !== 'Доставлено')
       .map(p => ({ pos: p, order: o }))
   )
+  const posIn = posInAll.filter(x => !isPurchase(x.order))   // продажи
+  const posBuy = posInAll.filter(x => isPurchase(x.order))   // закупы
 
   // ── Исходящие · от меня = мои ДОСТАВЛЕННЫЕ позиции (история того, что я отправил).
   // Входящие (активные, ещё не доставлены) → сюда переходят после «Доставлено».
@@ -361,6 +366,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
             {order.comment && <div style={{ fontSize: 13, background: '#f8f6f3', borderRadius: 6, padding: '6px 10px', marginBottom: 6 }}>{order.comment.slice(0, 80)}</div>}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: PRIMARY, fontWeight: 600 }}>{order.id}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: isPurchase(order) ? '#f3eeff' : '#e8f5ee', color: isPurchase(order) ? '#7a3aaa' : '#2e8a5e' }}>{isPurchase(order) ? '🛒 ЗАКУП' : 'ПРОДАЖА'}</span>
               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#6b645b' }}>{pos.id}</span>
               {pos.late && <span style={{ fontSize: 12, background: '#faeaea', color: '#b03020', padding: '1px 6px', borderRadius: 20, fontWeight: 600 }}>ПРОСРОЧ.</span>}
               <span style={{ fontSize: 12, background: pos.status === 'Доставлено' ? '#e8f5ee' : '#fff0ea', color: pos.status === 'Доставлено' ? '#2e8a5e' : '#c0532a', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{pos.status}</span>
@@ -448,6 +454,20 @@ export default function LogistPortal({ user, logistUser }: Props) {
               : posIn.length === 0
               ? <div style={{ background: '#fff', borderRadius: 14, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 10 }}>✅</div><div style={{ color: '#5f5952' }}>Нет входящих позиций</div></div>
               : posIn.map(({ pos, order }) => <PosCard key={pos.id} pos={pos} order={order} />)
+            }
+          </div>
+        )}
+
+        {/* ── 🛒 ЗАКУПКИ ── */}
+        {tab === 'buy' && (
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4, color: '#7a3aaa' }}>🛒 Закупки · на Центр-Склад</div>
+            <div style={{ fontSize: 13, color: '#5f5952', marginBottom: 14 }}>Закупи товар и отметь позиции доставленными — товар придёт на Центр-Склад.</div>
+            <DateFilter period={period} day={day} onChange={(p, d) => { setPeriod(p); setDay(d) }} />
+            {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#5f5952' }}>Загрузка...</div>
+              : posBuy.length === 0
+              ? <div style={{ background: '#fff', borderRadius: 14, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 10 }}>✅</div><div style={{ color: '#5f5952' }}>Нет активных закупов</div></div>
+              : posBuy.map(({ pos, order }) => <PosCard key={`buy-${pos.id}`} pos={pos} order={order} />)
             }
           </div>
         )}
@@ -703,6 +723,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
         <div style={{ maxWidth: 432, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)' }}>
           {[
             { key: 'in'      as Tab, icon: '📥', label: 'Входящие',  badge: posIn.length, blink: false },
+            { key: 'buy'     as Tab, icon: '🛒', label: 'Закупки',   badge: posBuy.length, blink: false },
             { key: 'out'     as Tab, icon: '📤', label: 'Исходящие', badge: posOut.length, blink: false },
             { key: 'changes' as Tab, icon: '⚡', label: 'Изменения', badge: changedCount, blink: changedCount > 0 },
             { key: 'new'     as Tab, icon: '➕', label: 'Новый',     badge: 0, blink: false },

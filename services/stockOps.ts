@@ -1,12 +1,13 @@
 import prisma from '@/lib/prisma'
 import { reserveStock, releaseStock, incomeStock } from '@/lib/stock'
+import { CENTER_SKLAD } from '@/lib/procurement'
 
 // Складские операции, привязанные к центральному складу «Центр Склад».
 // Позиции с этим поставщиком/получателем автоматически резервируются,
 // списываются и приходуются на складе.
 
-// Имя центрального склада в справочнике поставщиков.
-export const CENTER_SKLAD = 'Центр Склад'
+// Имя центрального склада — единый источник в lib/procurement (клиент-безопасно).
+export { CENTER_SKLAD }
 
 type ReservePos = { id: string; supplier: string; qty: number; name1c: string; oral: string }
 

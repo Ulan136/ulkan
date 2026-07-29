@@ -245,6 +245,21 @@ model CategoryRule {
   updatedAt    DateTime @updatedAt @default(now())
 }
 
+// Связь закуп→продажа (цепочка для отчёта). Фиксируется в момент создания
+// закупа из сводки «Автозакуп»: какая исходная заявка (продажа) дала сколько
+// товара в этот закуп. Отдельная таблица — читается защищённо (try/catch).
+model ProcurementLink {
+  id             String   @id @default(cuid())
+  purchaseCardId String                 // карточка закупа
+  saleCardId     String                 // исходная заявка (продажа)
+  product        String   @default("")  // наименование (name1c/oral)
+  qty            Float    @default(0)
+  createdAt      DateTime @default(now())
+
+  @@index([purchaseCardId])
+  @@index([saleCardId])
+}
+
 // Чат по карточке заказа (участники обсуждают конкретную карту).
 model CardMessage {
   id        String   @id @default(cuid())
