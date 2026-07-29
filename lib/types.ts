@@ -257,7 +257,7 @@ export interface TrackData {
 export type AdminScreen =
   | 'dashboard' | 'reception' | 'incoming' | 'outgoing'
   | 'filter' | 'accounting' | 'warehouse' | 'bookkeeping'
-  | 'archive' | 'nomenclature' | 'settings' | 'history'
+  | 'archive' | 'nomenclature' | 'settings' | 'history' | 'procurement'
 
 export type IncTab = 'new' | 'changed' | 'toacc' | 'drafts' | 'cancelled'
 export type FilterGroup = 'clients' | 'suppliers' | 'projects' | 'specprojects'

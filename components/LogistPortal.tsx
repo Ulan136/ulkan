@@ -235,6 +235,21 @@ export default function LogistPortal({ user, logistUser }: Props) {
   // НЕТ автосборки и автосейва: строки блока наполняются событиями на сервере
   // (доставка → updatePos, ручная кнопка, откат). Вкладка Смена только показывает.
 
+  // ── Принять весь закуп: все позиции карточки → Доставлено (товар на Центр-Склад) ──
+  const [acceptingCard, setAcceptingCard] = useState<string | null>(null)
+  async function acceptWholePurchase(cardId: string, positions: any[]) {
+    const pending = positions.filter(p => p.status !== 'Доставлено')
+    if (pending.length === 0) return
+    setAcceptingCard(cardId)
+    try {
+      for (const p of pending) await orderAction(cardId, 'updatePos', { posId: p.id, status: 'Доставлено' })
+      showMsg(`✓ Закуп принят (${pending.length})`)
+      await load()
+      if (!editingDate) await loadDraft(null)
+    } catch (e: any) { showMsg(e.message) }
+    finally { setAcceptingCard(null) }
+  }
+
   // ── Смена статуса позиции ──
   async function handleStatus(cardId: string, posId: string, status: string, _posName: string, _fromWho: string, _toWho: string, _qty: number) {
     setUpdating(posId)
@@ -467,7 +482,27 @@ export default function LogistPortal({ user, logistUser }: Props) {
             {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#5f5952' }}>Загрузка...</div>
               : posBuy.length === 0
               ? <div style={{ background: '#fff', borderRadius: 14, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 10 }}>✅</div><div style={{ color: '#5f5952' }}>Нет активных закупов</div></div>
-              : posBuy.map(({ pos, order }) => <PosCard key={`buy-${pos.id}`} pos={pos} order={order} />)
+              : Array.from(new Set(posBuy.map(x => x.order.id))).map(cardId => {
+                  const items = posBuy.filter(x => x.order.id === cardId)
+                  const order = items[0].order
+                  const cardPositions = order.positions.filter(p => eqName(p.resp, myName) && p.leg === 2)
+                  const pending = cardPositions.filter(p => p.status !== 'Доставлено').length
+                  return (
+                    <div key={cardId} style={{ marginBottom: 16, border: '1.5px solid #e3d4f0', borderRadius: 14, padding: 12, background: '#faf7fd' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: '#7a3aaa' }}>{order.id}</span>
+                        <span style={{ fontSize: 13, color: '#5f5952' }}>{items.length} поз.</span>
+                        {pending > 0 && (
+                          <button onClick={() => acceptWholePurchase(cardId, cardPositions)} disabled={acceptingCard === cardId}
+                            style={{ marginLeft: 'auto', padding: '8px 14px', borderRadius: 9, border: 'none', background: '#7a3aaa', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', opacity: acceptingCard === cardId ? 0.6 : 1 }}>
+                            {acceptingCard === cardId ? 'Принимаю…' : `✅ Закуп принял (${pending})`}
+                          </button>
+                        )}
+                      </div>
+                      {items.map(({ pos, order }) => <PosCard key={`buy-${pos.id}`} pos={pos} order={order} />)}
+                    </div>
+                  )
+                })
             }
           </div>
         )}

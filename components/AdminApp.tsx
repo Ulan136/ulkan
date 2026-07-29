@@ -21,6 +21,7 @@ import WarehouseScreen from '@/components/WarehouseScreen'
 import NomSearch from '@/components/NomSearch'
 import NomenclatureScreen from '@/components/NomenclatureScreen'
 import HistoryScreen from '@/components/HistoryScreen'
+import ProcurementReport from '@/components/ProcurementReport'
 import CardChat from '@/components/CardChat'
 import ChatWidget from '@/components/ChatWidget'
 import NomPicker, { type PickedPos } from '@/components/NomPicker'
@@ -564,6 +565,10 @@ export default function AdminApp({ user }: Props) {
   function recUpdatePos(i: number, field: string, val: string) {
     setRecPositions(p => p.map((x, idx) => idx === i ? { ...x, [field]: val } : x))
   }
+  // Назначить поле сразу всем позициям формы (логист/поставщик «ко всем»).
+  function recAssignAll(patch: Record<string, string>) {
+    setRecPositions(p => p.map(x => ({ ...x, ...patch })))
+  }
   // Стол приёмки: подтянуть цены всех позиций карточки по типу цены её получателя.
   async function pullPricesForCard(order: any) {
     const type = priceTypeFor(order.to || '')
@@ -850,6 +855,7 @@ export default function AdminApp({ user }: Props) {
     archive: archived.length,
     nomenclature: 0,
     settings: 0,
+    procurement: orders.filter(o => isPurchase(o) && !o.isCancelled).length,
   }
 
   // ─── Навигация ────────────────────────────────────────────────────────────
@@ -860,6 +866,7 @@ export default function AdminApp({ user }: Props) {
     { key: 'incoming', label: 'Входящие', icon: '📥' },
     { key: 'reception', label: 'Приёмка', icon: '🔄' },
     { key: 'outgoing', label: 'Исходящие', icon: '📤' },
+    { key: 'procurement', label: 'Закуп-отчёт', icon: '🛒' },
     { key: 'filter', label: 'Фильтр', icon: '🔍' },
     { key: 'accounting', label: 'К учёту', icon: '📋' },
     { key: 'warehouse', label: 'Склад', icon: '🏭' },
@@ -1244,7 +1251,16 @@ export default function AdminApp({ user }: Props) {
 
                   {/* Таблица позиций */}
                   <div style={{ marginBottom: 12 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#5f5952', marginBottom: 8, letterSpacing: '.04em' }}>ПОЗИЦИИ</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#5f5952', letterSpacing: '.04em' }}>ПОЗИЦИИ</div>
+                      {recPositions.length > 1 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto', flexWrap: 'wrap', background: '#f8f6f3', borderRadius: 8, padding: '5px 8px' }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#5f5952' }}>КО ВСЕМ:</span>
+                          <UnifiedSelect value="" onChange={v => { if (v) { recAssignAll({ resp: v }); showToast('Логист назначен всем') } }} placeholder="Логист →" style={{ ...selSm, width: 150 }} settings={settings} roles={['logist']} />
+                          <UnifiedSelect value="" onChange={v => { if (v) { const sup = suppliersList.find(s => s.name === v); recAssignAll({ supplier: v, supplierId: sup?.id || '' }); showToast('Поставщик назначен всем') } }} placeholder="Поставщик →" style={{ ...selSm, width: 150 }} settings={settings} />
+                        </div>
+                      )}
+                    </div>
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
                         <thead>
@@ -1366,14 +1382,24 @@ export default function AdminApp({ user }: Props) {
               }
               const products = Object.entries(agg).map(([key, v]) => ({ key, ...v })).sort((a, b) => b.total - a.total)
               const selected = products.filter(p => autoSel.has(p.key))
-              function createPurchaseFromSelection() {
+              async function createPurchaseFromSelection() {
                 const src = selected.length ? selected : products
                 if (!src.length) { showToast('Нет товаров для закупа'); return }
-                const positions = src.map(p => ({ name1c: p.name, oral: p.name, qty: String(p.total), unit: p.unit, price: '', resp: '', supplierId: '', supplier: '', deadline: todayLocal(), payment: '' }))
+                // Автоназначение поставщика/логиста по группе (правила CategoryRule).
+                let fills: Record<string, { supplier: string; supplierId: string; resp: string }> = {}
+                try {
+                  const r = await fetch('/api/procurement/autofill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ products: src.map(p => ({ name: p.name })) }) })
+                  if (r.ok) { const arr = await r.json(); for (const f of arr) fills[(f.name || '').toLowerCase()] = f }
+                } catch { /* без автоназначения — заполнит вручную */ }
+                const positions = src.map(p => {
+                  const f = fills[p.name.toLowerCase()] || { supplier: '', supplierId: '', resp: '' }
+                  return { name1c: p.name, oral: p.name, qty: String(p.total), unit: p.unit, price: '', resp: f.resp || '', supplierId: f.supplierId || '', supplier: f.supplier || '', deadline: todayLocal(), payment: '' }
+                })
                 const procLinks = src.flatMap(p => p.rows.map(r => ({ saleCardId: r.cardId, product: p.name, qty: r.qty })))
                 openRecForm('purchase', { positions, procLinks })
                 setAutoSel(new Set())
                 window.scrollTo({ top: 0, behavior: 'smooth' })
+                showToast('Закуп собран — проверьте поставщика/логиста')
               }
               return (
                 <div style={{ background: '#fff', borderRadius: 14, marginBottom: 20, boxShadow: '0 0 0 1.5px #e3d4f0', overflow: 'hidden' }}>
@@ -2081,6 +2107,9 @@ export default function AdminApp({ user }: Props) {
       // ─── ИСТОРИЯ (журнал действий) ───────────────────────────────────────
       case 'history':
         return <HistoryScreen users={settings?.users || []} />
+
+      case 'procurement':
+        return <ProcurementReport />
 
             case 'settings': {
         const stabs: Array<[SettingsTab, string]> = [['users', `Пользователи`], ['projects', 'Проекты'], ['specprojects', 'СпецПроекты'], ['nomenclature', 'Номенклатура'], ['payment', 'Оплата'], ['catrules', 'Автоподстановка']]
