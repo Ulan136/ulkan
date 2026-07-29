@@ -64,7 +64,9 @@ async function postCardChange(prismaClient: any, cardId: string, session: any, t
 
 // Автооткрытие продаж при приходе закупа на Центр-Склад. Когда закуп полностью
 // доставлен (товар на складе), связанные заявки-продажи (ProcurementLink):
-//  1) их позиции по этому товару получают поставщика Центр-Склад (тянут со склада),
+//  1) их позиции по этому товару получают НАЧАЛЬНОГО поставщика из закупа
+//     (напр. Метал Профиль) — склад это транзит, а не поставщик, в отчёте
+//     должен фигурировать реальный поставщик, а не посредник-склад.
 //  2) в чат заявки и админам летит сигнал «товар закуплен — можно отгружать».
 // Безопасно, если таблицы связей ещё нет. Возвращает число «открытых» заявок.
 async function openLinkedSales(prismaClient: any, purchaseOrder: { id: string; to: string }): Promise<number> {
@@ -72,6 +74,15 @@ async function openLinkedSales(prismaClient: any, purchaseOrder: { id: string; t
   let links: any[] = []
   try { links = await prismaClient.procurementLink.findMany({ where: { purchaseCardId: purchaseOrder.id } }) } catch { return 0 }
   if (!links.length) return 0
+
+  // Начальный поставщик по товару — из позиций закупа (Метал Профиль и т.п.).
+  const purchasePositions = await prismaClient.position.findMany({ where: { cardId: purchaseOrder.id } })
+  const supByProduct: Record<string, { supplier: string; supplierId: string | null }> = {}
+  for (const pp of purchasePositions) {
+    const nm = (pp.name1c || pp.oral || '').trim().toLowerCase()
+    if (nm && (pp.supplier || '').trim()) supByProduct[nm] = { supplier: pp.supplier, supplierId: pp.supplierId ?? null }
+  }
+
   const saleIds: string[] = Array.from(new Set(links.map((l: any) => l.saleCardId)))
   let opened = 0
   for (const saleId of saleIds) {
@@ -80,11 +91,14 @@ async function openLinkedSales(prismaClient: any, purchaseOrder: { id: string; t
     const saleLinks = links.filter((l: any) => l.saleCardId === saleId)
     const positions = await prismaClient.position.findMany({ where: { cardId: saleId } })
     for (const sl of saleLinks) {
+      const orig = supByProduct[(sl.product || '').trim().toLowerCase()]
+      if (!orig) continue
       const pos = positions.find((p: any) =>
         (p.name1c || p.oral || '').trim().toLowerCase() === (sl.product || '').trim().toLowerCase() && !(p.supplier || '').trim())
-      if (pos) await prismaClient.position.update({ where: { id: pos.id }, data: { supplier: CENTER_SKLAD } })
+      // Продажа берёт начального поставщика закупа (не «Центр-Склад»).
+      if (pos) await prismaClient.position.update({ where: { id: pos.id }, data: { supplier: orig.supplier, supplierId: orig.supplierId } })
     }
-    await postCardChange(prismaClient, saleId, { name: 'Система', role: 'system' }, `🟢 Товар закуплен и на Центр-Складе (закуп ${purchaseOrder.id}) — можно отгружать`)
+    await postCardChange(prismaClient, saleId, { name: 'Система', role: 'system' }, `🟢 Товар закуплен (закуп ${purchaseOrder.id}) и на Центр-Складе — можно отгружать`)
     try { await notifyAdmins(`🟢 Товар для заявки ${saleId} закуплен — можно отгружать`, saleId) } catch { /* не критично */ }
     opened++
   }
