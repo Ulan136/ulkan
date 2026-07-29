@@ -676,6 +676,14 @@ export default function AdminApp({ user }: Props) {
         positions,
         procLinks: purchase && recProcLinks.length ? recProcLinks : undefined,
       })
+      // Оптимистично прячем закупленные пары из «Автозакупа» сразу (не ждём Pusher).
+      if (purchase && recProcLinks.length) {
+        setProcuredPairs(prev => {
+          const n = new Set(prev)
+          recProcLinks.forEach(l => n.add(`${l.saleCardId}|${(l.product || '').trim().toLowerCase()}`))
+          return n
+        })
+      }
       setRecFormOpen(false); setRecKind('sale'); setRecProcLinks([])
       setRecTo(''); setRecProject(''); setRecSpec('')
       setRecContact(''); setRecPhone(''); setRecDeadline(''); setRecComment('')
