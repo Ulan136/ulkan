@@ -485,6 +485,9 @@ export default function AdminApp({ user }: Props) {
   }
   const [archiveTab, setArchiveTab] = useState<ArchiveTab>('cards')
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('users')
+  // Номенклатура в настройках грузится по требованию (в settings-пейлоад её не кладём — большой список)
+  const [settingsNom, setSettingsNom] = useState<any[]>([])
+  const [settingsNomLoading, setSettingsNomLoading] = useState(false)
   const [bookTab, setBookTab] = useState<BookkeepingTab>('cards')
   const [outgoingTab, setOutgoingTab] = useState<'inwork' | 'ready' | 'all'>('inwork')
   const [sideOpen, setSideOpen] = useState(false)
@@ -694,6 +697,18 @@ export default function AdminApp({ user }: Props) {
   // Настройки (пользователи/проекты/спецпроекты/поставщики) — канал 'settings':
   // загрузка при монтировании + при мутациях справочников/пользователей.
   useLiveData('settings', loadSettings, [])
+
+  // Номенклатура в настройках — грузим по требованию при открытии вкладки.
+  useEffect(() => {
+    if (screen === 'settings' && settingsTab === 'nomenclature' && settingsNom.length === 0 && !settingsNomLoading) {
+      setSettingsNomLoading(true)
+      fetch('/api/nomenclature?all=1')
+        .then(r => r.ok ? r.json() : [])
+        .then(d => setSettingsNom(Array.isArray(d) ? d : []))
+        .catch(() => {})
+        .finally(() => setSettingsNomLoading(false))
+    }
+  }, [screen, settingsTab, settingsNom.length, settingsNomLoading])
 
   // Realtime 'reports' — только когда открыт экран бухгалтерии
   const screenRef = useRef(screen)
@@ -2078,20 +2093,34 @@ export default function AdminApp({ user }: Props) {
                   </div>
                 )}
 
-                {/* Номенклатура */}
+                {/* Номенклатура — полноценное управление на экране «Номенклатура»; здесь список только для просмотра */}
                 {settingsTab === 'nomenclature' && (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
-                    <thead><tr style={{ background: '#f1efec' }}>
-                      {['НАИМЕНОВАНИЕ 1С', 'ЕД.', 'КАТЕГОРИЯ'].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left' }}>{h}</th>)}
-                    </tr></thead>
-                    <tbody>{settings.nomenclature.map((n, i) => (
-                      <tr key={n.id} style={{ borderTop: i > 0 ? '1px solid #f1efec' : 'none' }}>
-                        <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 500 }}>{n.name}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 13, color: '#5f5952' }}>{n.unit}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 13, color: '#5f5952' }}>{n.cat}</td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ fontSize: 13, color: '#5f5952' }}>Всего позиций: {settingsNom.length}{settingsNomLoading ? ' · загрузка…' : ''}</div>
+                      <Btn size="sm" onClick={() => setScreen('nomenclature')}>Открыть управление номенклатурой →</Btn>
+                    </div>
+                    {settingsNomLoading && settingsNom.length === 0
+                      ? <div style={{ textAlign: 'center', padding: 30, color: '#5f5952' }}>Загрузка…</div>
+                      : settingsNom.length === 0
+                        ? <div style={{ textAlign: 'center', padding: 30, color: '#5f5952' }}>Номенклатура пуста</div>
+                        : (
+                        <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 0 0 1.5px #e6e2dc' }}>
+                          <thead><tr style={{ background: '#f1efec' }}>
+                            {['НАИМЕНОВАНИЕ 1С', 'ЕД.', 'ГРУППА', 'КАТЕГОРИЯ'].map(h => <th key={h} style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left' }}>{h}</th>)}
+                          </tr></thead>
+                          <tbody>{settingsNom.slice(0, 500).map((n: any, i: number) => (
+                            <tr key={n.id || i} style={{ borderTop: i > 0 ? '1px solid #f1efec' : 'none' }}>
+                              <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 500 }}>{n.name}</td>
+                              <td style={{ padding: '10px 14px', fontSize: 13, color: '#5f5952' }}>{n.unit}</td>
+                              <td style={{ padding: '10px 14px', fontSize: 13, color: '#5f5952' }}>{n.group}</td>
+                              <td style={{ padding: '10px 14px', fontSize: 13, color: '#5f5952' }}>{n.cat}</td>
+                            </tr>
+                          ))}</tbody>
+                        </table>
+                      )}
+                    {settingsNom.length > 500 && <div style={{ fontSize: 12, color: '#837c72', marginTop: 8 }}>Показаны первые 500 из {settingsNom.length}. Полное управление — на экране «Номенклатура».</div>}
+                  </div>
                 )}
 
                 {/* Оплата */}
