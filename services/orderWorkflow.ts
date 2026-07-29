@@ -141,6 +141,19 @@ export interface TransitionDef {
 }
 
 export const TRANSITIONS: Record<string, TransitionDef> = {
+  // ── Закуп: оформить черновик-накопитель → отправить логисту ──
+  finalizePurchase: {
+    guard: ({ order }) => {
+      if (!order.isDraft || (order.to || '').trim() !== CENTER_SKLAD) return 'Это не черновик закупа'
+      if (order.positions.length === 0) return 'Добавьте позиции в закуп'
+      if (order.positions.some(p => !(p.resp || '').trim())) return 'Назначьте логиста всем позициям'
+      if (order.positions.some(p => !(p.supplier || '').trim())) return 'Назначьте поставщика всем позициям'
+      return null
+    },
+    patch: () => ({ isDraft: false, screen: SCREENS.outgoing, status: CARD_STATUS.working, block: '' }),
+    history: () => 'Закуп оформлен и отправлен логисту',
+  },
+
   // ── Приёмка: принять → ожидание ──
   accept: {
     guard: ({ order }) => order.screen === SCREENS.incoming ? null : 'Карточка не во Входящих',

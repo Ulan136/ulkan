@@ -1039,7 +1039,7 @@ export default function AdminApp({ user }: Props) {
         const incActive = orders.filter(o => o.screen === 'incoming' && !o.isDraft && !o.isCancelled && !o.toacc)
         const incChanged = orders.filter(o => o.screen === 'incoming' && o.isChanged && !o.isCancelled)
         const incToacc = orders.filter(o => o.screen === 'incoming' && o.toacc && !o.isCancelled)
-        const incDrafts = orders.filter(o => o.screen === 'incoming' && o.isDraft)
+        const incDrafts = orders.filter(o => o.screen === 'incoming' && o.isDraft && !isPurchase(o))  // черновики закупа — в своём блоке приёмки
         const incCancelled = orders.filter(o => o.screen === 'incoming' && o.isCancelled)
         const incTabMap: Record<IncTab, Order[]> = { new: incActive, changed: incChanged, toacc: incToacc, drafts: incDrafts, cancelled: incCancelled }
         const incTabLabels: Record<IncTab, string> = {
@@ -1423,24 +1423,27 @@ export default function AdminApp({ user }: Props) {
               }
               const products = Object.entries(agg).map(([key, v]) => ({ key, ...v })).sort((a, b) => b.total - a.total)
               const selected = products.filter(p => autoSel.has(p.key))
+              // «В закуп» — складываем выбранное в черновик-накопитель (карточка
+              // оформляется позже кнопкой «Оформить»). Позиции сразу уходят из сводки.
               async function createPurchaseFromSelection() {
                 const src = selected.length ? selected : products
                 if (!src.length) { showToast('Нет товаров для закупа'); return }
-                // Автоназначение поставщика/логиста по группе (правила CategoryRule).
-                let fills: Record<string, { supplier: string; supplierId: string; resp: string }> = {}
                 try {
-                  const r = await fetch('/api/procurement/autofill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ products: src.map(p => ({ name: p.name })) }) })
-                  if (r.ok) { const arr = await r.json(); for (const f of arr) fills[(f.name || '').toLowerCase()] = f }
-                } catch { /* без автоназначения — заполнит вручную */ }
-                const positions = src.map(p => {
-                  const f = fills[p.name.toLowerCase()] || { supplier: '', supplierId: '', resp: '' }
-                  return { name1c: p.name, oral: p.name, qty: String(p.total), unit: p.unit, price: '', resp: f.resp || '', supplierId: f.supplierId || '', supplier: f.supplier || '', deadline: todayLocal(), payment: '' }
-                })
-                const procLinks = src.flatMap(p => p.rows.map(r => ({ saleCardId: r.cardId, product: p.name, qty: r.qty })))
-                openRecForm('purchase', { positions, procLinks })
-                setAutoSel(new Set())
-                window.scrollTo({ top: 0, behavior: 'smooth' })
-                showToast('Закуп собран — проверьте поставщика/логиста')
+                  const r = await fetch('/api/procurement/stage', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: src.map(p => ({ name: p.name, unit: p.unit, total: p.total, rows: p.rows.map(x => ({ cardId: x.cardId, qty: x.qty })) })) }),
+                  })
+                  if (!r.ok) { const e = await r.json().catch(() => ({})); showToast(e.error || 'Ошибка'); return }
+                  // Оптимистично прячем из сводки сразу.
+                  setProcuredPairs(prev => {
+                    const n = new Set(prev)
+                    src.forEach(p => p.rows.forEach(x => n.add(`${x.cardId}|${p.name.trim().toLowerCase()}`)))
+                    return n
+                  })
+                  setAutoSel(new Set())
+                  loadOrders(); loadProcured()
+                  showToast(`В закуп добавлено: ${src.length}`)
+                } catch (e: any) { showToast(e.message || 'Ошибка') }
               }
               return (
                 <div style={{ background: '#fff', borderRadius: 14, marginBottom: 20, boxShadow: '0 0 0 1.5px #e3d4f0', overflow: 'hidden' }}>
@@ -1480,15 +1483,66 @@ export default function AdminApp({ user }: Props) {
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                               <button onClick={createPurchaseFromSelection} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: '#7a3aaa', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
-                                🛒 Создать закуп {selected.length ? `(${selected.length})` : 'по всем'} →
+                                🛒 В закуп {selected.length ? `(${selected.length})` : 'по всем'} →
                               </button>
                               {selected.length > 0 && <button onClick={() => setAutoSel(new Set())} style={{ padding: '10px 14px', borderRadius: 9, border: '1.5px solid #e6e2dc', background: '#fff', color: '#5f5952', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Сбросить</button>}
-                              <span style={{ fontSize: 12, color: '#837c72' }}>Получатель закупа — Центр-Склад. Поставщика и логиста назначишь в форме.</span>
+                              <span style={{ fontSize: 12, color: '#837c72' }}>Товары уйдут в черновик закупа ниже. Оформишь его одной кнопкой.</span>
                             </div>
                           </>
                         )}
                     </div>
                   )}
+                </div>
+              )
+            })()}
+
+            {/* ── Блок «Черновик закупа» (накопитель): назначить логиста/поставщика → Оформить ── */}
+            {(() => {
+              const drafts = orders.filter(o => o.isDraft && isPurchase(o) && !o.isCancelled)
+              if (!drafts.length) return null
+              return (
+                <div style={{ marginBottom: 20 }}>
+                  {drafts.map(draft => {
+                    const ready = draft.positions.length > 0 && draft.positions.every(p => (p.resp || '').trim() && (p.supplier || '').trim())
+                    return (
+                      <div key={draft.id} style={{ background: '#fff', borderRadius: 14, boxShadow: '0 0 0 1.5px #e3d4f0', borderLeft: '4px solid #7a3aaa', overflow: 'hidden', marginBottom: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: '#faf7fd', flexWrap: 'wrap' }}>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: '#7a3aaa' }}>{draft.id}</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, background: '#f3eeff', color: '#7a3aaa', padding: '2px 9px', borderRadius: 20 }}>🛒 ЧЕРНОВИК ЗАКУПА · {draft.positions.length} поз.</span>
+                          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <UnifiedSelect value="" onChange={v => { if (v) draft.positions.forEach(p => handleAction(draft.id, 'updatePosDetail', { posId: p.id, resp: v })) }} placeholder="Логист → всем" style={{ ...selSm, width: 140 }} settings={settings} roles={['logist']} />
+                            <UnifiedSelect value="" onChange={v => { if (v) { const sup = suppliersList.find(s => s.name === v); draft.positions.forEach(p => handleAction(draft.id, 'updatePosDetail', { posId: p.id, supplier: v, supplierId: sup?.id || '' })) } }} placeholder="Поставщик → всем" style={{ ...selSm, width: 150 }} settings={settings} />
+                            <Btn variant="primary" size="sm" disabled={!ready} onClick={() => handleAction(draft.id, 'finalizePurchase')}>✓ Оформить закуп →</Btn>
+                          </div>
+                        </div>
+                        <div style={{ padding: 12, overflowX: 'auto' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
+                            <thead><tr style={{ background: '#f1efec' }}>
+                              {['НАИМЕНОВАНИЕ', 'КОЛ-ВО', 'ЛОГИСТ', 'ПОСТАВЩИК'].map(h => <th key={h} style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>)}
+                            </tr></thead>
+                            <tbody>
+                              {draft.positions.map(pos => (
+                                <tr key={pos.id} style={{ borderBottom: '1px solid #f1efec' }}>
+                                  <td style={{ padding: '6px 8px', fontSize: 13, fontWeight: 500 }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><RalDot code={extractRal(pos.name1c || pos.oral)} size={12} />{pos.name1c || pos.oral}</span></td>
+                                  <td style={{ padding: '6px 8px', width: 90 }}>
+                                    <input key={`${pos.id}-${pos.qty}`} type="number" inputMode="decimal" defaultValue={pos.qty} style={{ ...inpSm, width: 78, textAlign: 'right' }}
+                                      onBlur={e => { const q = Number(e.target.value) || 0; if (q !== pos.qty) handleAction(draft.id, 'updatePosDetail', { posId: pos.id, qty: q }) }} /> <span style={{ fontSize: 12, color: '#837c72' }}>{pos.unit}</span>
+                                  </td>
+                                  <td style={{ padding: '6px 8px', width: 150 }}>
+                                    <UnifiedSelect value={pos.resp || ''} onChange={v => handleAction(draft.id, 'updatePosDetail', { posId: pos.id, resp: v })} placeholder="—" style={selSm} settings={settings} roles={['logist']} />
+                                  </td>
+                                  <td style={{ padding: '6px 8px', width: 150 }}>
+                                    <UnifiedSelect value={pos.supplier || ''} onChange={v => { const sup = suppliersList.find(s => s.name === v); handleAction(draft.id, 'updatePosDetail', { posId: pos.id, supplier: v, supplierId: sup?.id || '' }) }} placeholder="—" style={selSm} settings={settings} />
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {!ready && <div style={{ fontSize: 12, color: '#8a6f00', marginTop: 8 }}>Назначь логиста и поставщика всем позициям — тогда откроется «Оформить».</div>}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )
             })()}
