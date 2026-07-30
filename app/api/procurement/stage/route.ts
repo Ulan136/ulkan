@@ -4,6 +4,7 @@ import { requireSession } from '@/lib/auth'
 import { generateCardId, generateTrackingLink, generatePosId } from '@/lib/ids'
 import { CENTER_SKLAD } from '@/lib/procurement'
 import { matchCategoryKey } from '@/lib/nomCatalog'
+import { resolvePriceIn } from '@/services/pricing'
 import { pushSignal } from '@/lib/pusherServer'
 
 // Складываем выбранные товары в ЧЕРНОВИК-НАКОПИТЕЛЬ закупа (isDraft, получатель
@@ -52,6 +53,12 @@ export async function POST(req: NextRequest) {
     }
   })
   if (newPos.length) await prisma.position.createMany({ data: newPos })
+
+  // Приходная цена (priceIn) тянется автоматически, редактируется в черновике.
+  for (const np of newPos) {
+    const pin = await resolvePriceIn(np.name1c)
+    if (pin != null) await prisma.position.update({ where: { id: np.id }, data: { price: pin } })
+  }
 
   // Автоназначение поставщика/логиста по группе (правила CategoryRule).
   try {

@@ -40,6 +40,19 @@ export async function resolvePrice(name1c: string, priceType: PriceType): Promis
   } catch { return null }
 }
 
+// Приходная цена (priceIn) из номенклатуры по имени — для закупа.
+// null → не нашли / колонки нет. Устойчиво к отсутствию колонки priceIn.
+export async function resolvePriceIn(name1c: string): Promise<number | null> {
+  const nm = (name1c || '').trim()
+  if (!nm) return null
+  try {
+    let nom = await prisma.nomenclature.findFirst({ where: { name: { equals: nm, mode: 'insensitive' } }, select: { priceIn: true } })
+    if (!nom) nom = await prisma.nomenclature.findFirst({ where: { name: { contains: nm, mode: 'insensitive' } }, select: { priceIn: true } })
+    if (!nom) return null
+    return (nom as any).priceIn > 0 ? (nom as any).priceIn : null
+  } catch { return null }
+}
+
 // Проставить цены набору позиций по имени и типу цены клиента (in-place по map).
 // Не трогаем позиции, где цена уже задана вручную (>0).
 export async function applyAutoPrices<T extends { name1c?: string; price?: number }>(

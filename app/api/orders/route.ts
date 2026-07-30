@@ -7,7 +7,7 @@ import { orderInclude } from '@/lib/orderMetrics'
 import { branchNameSet } from '@/services/legDetection'
 import { reserveCenterSkladPositions } from '@/services/stockOps'
 import { CENTER_SKLAD } from '@/lib/procurement'
-import { applyAutoPrices } from '@/services/pricing'
+import { applyAutoPrices, resolvePriceIn } from '@/services/pricing'
 import { pushSignal } from '@/lib/pusherServer'
 
 export async function GET(req: NextRequest) {
@@ -64,8 +64,17 @@ export async function POST(req: NextRequest) {
         deadline: p.deadline ? new Date(p.deadline) : null,
         payment: p.payment || '',
       }))
-      // Автоподтягивание цены по типу цены получателя (устойчиво к отсутствию колонок).
-      await applyAutoPrices(posData, to, fromId)
+      if (purchase) {
+        // Закуп → приходная цена (priceIn), только для пустых.
+        for (const p of posData) {
+          if ((p.price || 0) > 0) continue
+          const pin = await resolvePriceIn(p.name1c || '')
+          if (pin != null) p.price = pin
+        }
+      } else {
+        // Продажа → цена по типу цены получателя (устойчиво к отсутствию колонок).
+        await applyAutoPrices(posData, to, fromId)
+      }
     }
 
     // Комплектность при создании сразу в «Исходящие» (не черновик): получатель

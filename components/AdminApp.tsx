@@ -1526,15 +1526,22 @@ export default function AdminApp({ user }: Props) {
                         <div style={{ padding: 12, overflowX: 'auto' }}>
                           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
                             <thead><tr style={{ background: '#f1efec' }}>
-                              {['НАИМЕНОВАНИЕ', 'КОЛ-ВО', 'ЗАКУПЩИК', 'ПОСТАВЩИК'].map(h => <th key={h} style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>)}
+                              {['НАИМЕНОВАНИЕ', 'КОЛ-ВО', 'ЦЕНА (ПРИХОД)', 'СУММА', 'ЗАКУПЩИК', 'ПОСТАВЩИК'].map(h => <th key={h} style={{ padding: '7px 10px', fontSize: 12, fontWeight: 700, color: '#5f5952', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>)}
                             </tr></thead>
                             <tbody>
                               {draft.positions.map(pos => (
                                 <tr key={pos.id} style={{ borderBottom: '1px solid #f1efec' }}>
                                   <td style={{ padding: '6px 8px', fontSize: 13, fontWeight: 500 }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><RalDot code={extractRal(pos.name1c || pos.oral)} size={12} />{pos.name1c || pos.oral}</span></td>
                                   <td style={{ padding: '6px 8px', width: 90 }}>
-                                    <input key={`${pos.id}-${pos.qty}`} type="number" inputMode="decimal" defaultValue={pos.qty} style={{ ...inpSm, width: 78, textAlign: 'right' }}
+                                    <input key={`${pos.id}-q-${pos.qty}`} type="number" inputMode="decimal" defaultValue={pos.qty} style={{ ...inpSm, width: 78, textAlign: 'right' }}
                                       onBlur={e => { const q = Number(e.target.value) || 0; if (q !== pos.qty) handleAction(draft.id, 'updatePosDetail', { posId: pos.id, qty: q }) }} /> <span style={{ fontSize: 12, color: '#837c72' }}>{pos.unit}</span>
+                                  </td>
+                                  <td style={{ padding: '6px 8px', width: 110 }}>
+                                    <input key={`${pos.id}-p-${pos.price}`} type="number" inputMode="decimal" defaultValue={pos.price || ''} placeholder="0" style={{ ...inpSm, width: 96, textAlign: 'right', fontWeight: 600 }}
+                                      onBlur={e => { const pr = Number(e.target.value) || 0; if (pr !== pos.price) handleAction(draft.id, 'updatePosDetail', { posId: pos.id, price: pr }) }} />
+                                  </td>
+                                  <td style={{ padding: '6px 8px', width: 100, fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', color: '#7a3aaa' }}>
+                                    {pos.price > 0 ? fmtMoney((pos.price || 0) * (pos.qty || 0)) : '—'}
                                   </td>
                                   <td style={{ padding: '6px 8px', width: 150 }}>
                                     <UnifiedSelect value={pos.resp || ''} onChange={v => handleAction(draft.id, 'updatePosDetail', { posId: pos.id, resp: v })} placeholder="—" style={selSm} settings={settings} roles={['logist']} />
@@ -1546,6 +1553,10 @@ export default function AdminApp({ user }: Props) {
                               ))}
                             </tbody>
                           </table>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8, fontSize: 13 }}>
+                            <span style={{ color: '#5f5952' }}>Итого приход:&nbsp;</span>
+                            <span style={{ fontWeight: 800, color: '#7a3aaa' }}>{fmtMoney(draft.positions.reduce((s, p) => s + (p.price || 0) * (p.qty || 0), 0))}</span>
+                          </div>
                           {!ready && <div style={{ fontSize: 12, color: '#8a6f00', marginTop: 8 }}>Назначь логиста и поставщика всем позициям — тогда откроется «Оформить».</div>}
                         </div>
                       </div>
