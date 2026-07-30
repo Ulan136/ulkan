@@ -228,6 +228,7 @@ export interface SettingsData {
   nomenclature: Nomenclature[]
   paymentStatuses: Array<{ id: string; name: string; active: boolean }>
   categoryRules?: CategoryRule[]
+  supplierUsers?: string[]
 }
 
 export interface CategoryRule {

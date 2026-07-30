@@ -28,8 +28,16 @@ export async function GET(req: NextRequest) {
   const saleIds = Array.from(new Set(links.map(l => l.saleCardId)))
   const saleMap: Record<string, { client: string; comment: string }> = {}
   if (saleIds.length) {
-    const sales = await prisma.order.findMany({ where: { id: { in: saleIds } }, select: { id: true, to: true, from: true, comment: true } })
-    for (const s of sales) saleMap[s.id] = { client: s.to || s.from || '—', comment: s.comment || '' }
+    const sales = await prisma.order.findMany({ where: { id: { in: saleIds } }, select: { id: true, from: true, fromId: true, comment: true } })
+    // Заказчик = клиент, создавший заявку (fromId → имя, иначе from). Поле `to`
+    // НЕ используем — туда мог попасть поставщик (получатель/направление).
+    const fromIds = Array.from(new Set(sales.map(s => s.fromId).filter(Boolean))) as string[]
+    const uName: Record<string, string> = {}
+    if (fromIds.length) {
+      const us = await prisma.user.findMany({ where: { id: { in: fromIds } }, select: { id: true, name: true } })
+      for (const u of us) uName[u.id] = u.name
+    }
+    for (const s of sales) saleMap[s.id] = { client: (s.fromId && uName[s.fromId]) || s.from || '—', comment: s.comment || '' }
   }
 
   const report = purchases.map(p => {

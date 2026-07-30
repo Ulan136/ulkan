@@ -31,5 +31,13 @@ export async function GET(req: NextRequest) {
     try { categoryRules = await (prisma as any).categoryRule.findMany() } catch { categoryRules = [] }
   }
 
-  return NextResponse.json({ users, projects, specProjects, suppliers, nomenclature: [], paymentStatuses, categoryRules })
+  // Поставщик может быть пользователем (клиент/заказчик-поставщик/филиал).
+  // Отдаём ИМЕНА таких пользователей всем (нужно логисту для выбора поставщика).
+  const supUsers = await prisma.user.findMany({
+    where: { role: { in: ['supplier_client', 'client', 'branch'] }, active: true },
+    select: { name: true }, orderBy: { name: 'asc' },
+  })
+  const supplierUsers = supUsers.map(u => u.name).filter(Boolean)
+
+  return NextResponse.json({ users, projects, specProjects, suppliers, nomenclature: [], paymentStatuses, categoryRules, supplierUsers })
 }

@@ -63,8 +63,8 @@ function ProgressBar({ pct, height = 5 }: { pct: number; height?: number }) {
   )
 }
 
-function UnifiedSelect({ value, onChange, placeholder = '— выберите —', style: st, settings: s, roles }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; style?: React.CSSProperties; settings: any; roles?: string[]
+function UnifiedSelect({ value, onChange, placeholder = '— выберите —', style: st, settings: s, roles, includeSuppliers }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; style?: React.CSSProperties; settings: any; roles?: string[]; includeSuppliers?: boolean
 }) {
   const allUsers = s?.users || []
   const show = (r: string) => !roles || roles.includes(r)  // roles задан → показываем только эти роли
@@ -72,6 +72,9 @@ function UnifiedSelect({ value, onChange, placeholder = '— выберите �
   const sp = show('supplier_client') ? allUsers.filter((u: any) => u.role === 'supplier_client' && u.active !== false) : []
   const cl = show('client') ? allUsers.filter((u: any) => u.role === 'client' && u.active !== false) : []
   const br = show('branch') ? allUsers.filter((u: any) => u.role === 'branch' && u.active !== false) : []
+  // Supplier-сущности (внешние поставщики), не пересекающиеся по имени с юзерами.
+  const userNames = new Set(allUsers.map((u: any) => u.name))
+  const ent = includeSuppliers ? ((s?.suppliers || []).filter((x: any) => x.name && !userNames.has(x.name))) : []
   const INP2: React.CSSProperties = { padding: '9px 12px', borderRadius: 8, fontSize: 14, border: '1.5px solid #e6e2dc', background: '#fff', outline: 'none', fontFamily: 'inherit', width: '100%' }
   return (
     <select style={{ ...INP2, ...st }} value={value} onChange={e => onChange(e.target.value)}>
@@ -80,6 +83,9 @@ function UnifiedSelect({ value, onChange, placeholder = '— выберите �
       {sp.length > 0 && <optgroup label="Поставщики/заказчики">{sp.map((s2: any) => <option key={s2.id} value={s2.name}>{s2.name}</option>)}</optgroup>}
       {cl.length > 0 && <optgroup label="Клиенты">{cl.map((c: any) => <option key={c.id} value={c.name}>{c.name}</option>)}</optgroup>}
       {br.length > 0 && <optgroup label="Филиалы">{br.map((b: any) => <option key={b.id} value={b.name}>{b.name}</option>)}</optgroup>}
+      {ent.length > 0 && <optgroup label="Внешние поставщики">{ent.map((e2: any) => <option key={e2.id} value={e2.name}>{e2.name}</option>)}</optgroup>}
+      {/* Текущее значение вне списков — показать, чтобы не терялось */}
+      {value && !userNames.has(value) && !ent.some((e2: any) => e2.name === value) && <option value={value}>{value}</option>}
     </select>
   )
 }
@@ -317,7 +323,7 @@ function CardDetailModal({ order, onClose, onAction, suppliers, toast, settings,
                           {/* Поставщик — редактируемый (может меняться в процессе) */}
                           {supEditId === p.id ? (
                             <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 3 }} onClick={e => e.stopPropagation()}>
-                              <UnifiedSelect value={p.supplier || ''} onChange={v => saveSupplier(p.id, v)} placeholder="— поставщик —" settings={settings} style={{ fontSize: 12, padding: '3px 6px', width: 180 }} />
+                              <UnifiedSelect value={p.supplier || ''} onChange={v => saveSupplier(p.id, v)} placeholder="— поставщик —" settings={settings} roles={['supplier_client', 'client', 'branch']} includeSuppliers style={{ fontSize: 12, padding: '3px 6px', width: 180 }} />
                               <button onClick={() => setSupEditId(null)} style={{ padding: '3px 7px', borderRadius: 6, border: '1.5px solid #e6e2dc', background: '#fff', cursor: 'pointer', fontSize: 13 }}>×</button>
                             </div>
                           ) : (
@@ -1296,7 +1302,7 @@ export default function AdminApp({ user }: Props) {
                         <span style={{ fontSize: 11, fontWeight: 700, color: '#5f5952' }}>КО ВСЕМ:</span>
                         <UnifiedSelect value="" onChange={v => { if (v) { recAssignAll({ resp: v }); showToast('Логист назначен всем') } }} placeholder="Логист →" style={{ ...selSm, width: 150 }} settings={settings} roles={['logist']} />
                         {recKind === 'purchase' && (
-                          <UnifiedSelect value="" onChange={v => { if (v) { const sup = suppliersList.find(s => s.name === v); recAssignAll({ supplier: v, supplierId: sup?.id || '' }); showToast('Поставщик назначен всем') } }} placeholder="Поставщик →" style={{ ...selSm, width: 150 }} settings={settings} />
+                          <UnifiedSelect value="" onChange={v => { if (v) { const sup = suppliersList.find(s => s.name === v); recAssignAll({ supplier: v, supplierId: sup?.id || '' }); showToast('Поставщик назначен всем') } }} placeholder="Поставщик →" style={{ ...selSm, width: 150 }} settings={settings} roles={['supplier_client', 'client', 'branch']} includeSuppliers />
                         )}
                       </div>
                     </div>
@@ -1358,7 +1364,7 @@ export default function AdminApp({ user }: Props) {
                                     const sup2 = suppliersList.find(s => s.name === v)
                                     recUpdatePos(i, 'supplier', v)
                                     recUpdatePos(i, 'supplierId', sup2?.id || '')
-                                  }} placeholder="—" style={selSm} settings={settings} />
+                                  }} placeholder="—" style={selSm} settings={settings} roles={['supplier_client', 'client', 'branch']} includeSuppliers />
                                 </td>
                               )}
                               <td style={{ padding: '6px 4px', width: 110 }}>
@@ -1513,7 +1519,7 @@ export default function AdminApp({ user }: Props) {
                           <span style={{ fontSize: 12, fontWeight: 700, background: '#f3eeff', color: '#7a3aaa', padding: '2px 9px', borderRadius: 20 }}>🛒 ЧЕРНОВИК ЗАКУПА · {draft.positions.length} поз.</span>
                           <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                             <UnifiedSelect value="" onChange={v => { if (v) draft.positions.forEach(p => handleAction(draft.id, 'updatePosDetail', { posId: p.id, resp: v })) }} placeholder="Закупщик → всем" style={{ ...selSm, width: 150 }} settings={settings} roles={['logist']} />
-                            <UnifiedSelect value="" onChange={v => { if (v) { const sup = suppliersList.find(s => s.name === v); draft.positions.forEach(p => handleAction(draft.id, 'updatePosDetail', { posId: p.id, supplier: v, supplierId: sup?.id || '' })) } }} placeholder="Поставщик → всем" style={{ ...selSm, width: 150 }} settings={settings} />
+                            <UnifiedSelect value="" onChange={v => { if (v) { const sup = suppliersList.find(s => s.name === v); draft.positions.forEach(p => handleAction(draft.id, 'updatePosDetail', { posId: p.id, supplier: v, supplierId: sup?.id || '' })) } }} placeholder="Поставщик → всем" style={{ ...selSm, width: 150 }} settings={settings} roles={['supplier_client', 'client', 'branch']} includeSuppliers />
                             <Btn variant="primary" size="sm" disabled={!ready} onClick={() => handleAction(draft.id, 'finalizePurchase')}>✓ Оформить закуп →</Btn>
                           </div>
                         </div>
@@ -1534,7 +1540,7 @@ export default function AdminApp({ user }: Props) {
                                     <UnifiedSelect value={pos.resp || ''} onChange={v => handleAction(draft.id, 'updatePosDetail', { posId: pos.id, resp: v })} placeholder="—" style={selSm} settings={settings} roles={['logist']} />
                                   </td>
                                   <td style={{ padding: '6px 8px', width: 150 }}>
-                                    <UnifiedSelect value={pos.supplier || ''} onChange={v => { const sup = suppliersList.find(s => s.name === v); handleAction(draft.id, 'updatePosDetail', { posId: pos.id, supplier: v, supplierId: sup?.id || '' }) }} placeholder="—" style={selSm} settings={settings} />
+                                    <UnifiedSelect value={pos.supplier || ''} onChange={v => { const sup = suppliersList.find(s => s.name === v); handleAction(draft.id, 'updatePosDetail', { posId: pos.id, supplier: v, supplierId: sup?.id || '' }) }} placeholder="—" style={selSm} settings={settings} roles={['supplier_client', 'client', 'branch']} includeSuppliers />
                                   </td>
                                 </tr>
                               ))}

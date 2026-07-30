@@ -135,10 +135,13 @@ export default function LogistPortal({ user, logistUser }: Props) {
   // Realtime канал 'orders' (+ polling-fallback). Загрузка при монтировании и по сигналу.
   useLiveData('orders', load, [], pausedRef)
 
-  // Список поставщиков для селекта при добавлении позиции (тот же источник, что на приёмке)
+  // Список поставщиков: пользователи-поставщики (клиент/заказчик/филиал) + внешние
+  // Supplier-сущности. Поставщик — не буквальный, это может быть и клиент.
   useEffect(() => {
     fetchSettings().then((s: any) => {
-      const names = (s?.suppliers || []).map((x: any) => x.name).filter(Boolean)
+      const ent = (s?.suppliers || []).map((x: any) => x.name)
+      const usr = (s?.supplierUsers || []) as string[]
+      const names = Array.from(new Set([...usr, ...ent].filter(Boolean)))
       setSuppliers(names)
     }).catch(() => {})
   }, [])
