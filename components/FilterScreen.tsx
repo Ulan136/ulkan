@@ -15,7 +15,7 @@ import { COLORS } from '@/lib/colors'
 
 // ─── Типы ────────────────────────────────────────────────────────────────────
 
-type FilterStatus = 'inwork' | 'delivered' | 'all'
+type FilterStatus = 'incoming' | 'inwork' | 'delivered' | 'all'
 
 type ColType = 'client' | 'supplier' | 'project' | 'specproject'
 
@@ -359,6 +359,7 @@ export default function FilterScreen({ orders, settings, onOpen }: Props) {
   // Фильтрация заказов
   const filteredOrders = useMemo(() => {
     let base = orders.filter(o => o.screen !== 'archive' && !o.isDraft && !o.isCancelled)
+    if (statusFilter === 'incoming') base = base.filter(o => o.screen === 'incoming' && !o.toacc)
     if (statusFilter === 'inwork') base = base.filter(o => o.screen === 'outgoing' || o.screen === 'reception')
     if (statusFilter === 'delivered') base = base.filter(o => o.status === 'Доставлено' || o.toacc)
     if (dateFrom) base = base.filter(o => new Date(o.createdAt) >= new Date(dateFrom))
@@ -544,7 +545,7 @@ export default function FilterScreen({ orders, settings, onOpen }: Props) {
           <div style={{ width: 1, height: 20, background: '#e6e2dc' }} />
 
           <span style={{ fontSize: 13, color: '#5f5952', fontWeight: 600 }}>Статус:</span>
-          {([['inwork', 'В работе'], ['delivered', 'Доставлено'], ['all', 'Все']] as const).map(([k, l]) => (
+          {([['incoming', '🆕 Новые входящие'], ['inwork', 'В работе'], ['delivered', 'Доставлено'], ['all', 'Все']] as const).map(([k, l]) => (
             <button key={k} onClick={() => setStatusFilter(k)} style={pilBtn(statusFilter === k)}>{l}</button>
           ))}
 
