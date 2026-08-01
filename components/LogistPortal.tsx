@@ -475,15 +475,41 @@ export default function LogistPortal({ user, logistUser }: Props) {
       {/* Контент */}
       <div style={{ maxWidth: 432, margin: '0 auto', padding: '16px 66px 40px 14px' }}>
 
-        {/* ── 📥 ВХОДЯЩИЕ ── */}
+        {/* ── 💰 ПРОДАЖА (канбан по заказчикам) ── */}
         {tab === 'in' && (
           <div>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>💰 Продажа · ко мне</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 10 }}>💰 Продажа · по заказчикам</div>
             <DateFilter period={period} day={day} onChange={(p, d) => { setPeriod(p); setDay(d) }} />
             {loading ? <div style={{ textAlign: 'center', padding: 40, color: '#5f5952' }}>Загрузка...</div>
               : posIn.length === 0
-              ? <div style={{ background: '#fff', borderRadius: 14, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 10 }}>✅</div><div style={{ color: '#5f5952' }}>Нет входящих позиций</div></div>
-              : posIn.map(({ pos, order }) => <PosCard key={pos.id} pos={pos} order={order} />)
+              ? <div style={{ background: '#fff', borderRadius: 14, padding: 36, textAlign: 'center' }}><div style={{ fontSize: 32, marginBottom: 10 }}>✅</div><div style={{ color: '#5f5952' }}>Нет позиций к доставке</div></div>
+              : (() => {
+                  // Колонки строятся АВТОМАТОМ по заказчику (получатель, иначе создатель заявки).
+                  const groups: Record<string, typeof posIn> = {}
+                  for (const it of posIn) {
+                    const key = ((it.order.to || it.order.from || '—').trim()) || '—'
+                    ;(groups[key] = groups[key] || []).push(it)
+                  }
+                  const cols = Object.entries(groups).sort((a, b) => b[1].length - a[1].length)
+                  return (
+                    <div style={{ display: 'flex', gap: 12, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 8, marginTop: 10, alignItems: 'flex-start' }}>
+                      {cols.map(([client, items]) => (
+                        <div key={client} style={{ flexShrink: 0, width: 274, display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 230px)' }}>
+                          <div style={{ padding: '9px 12px', background: DARK, borderRadius: '12px 12px 0 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 10, color: 'rgba(255,255,255,.5)', fontWeight: 700, letterSpacing: '.05em' }}>ЗАКАЗЧИК</div>
+                              <div style={{ fontWeight: 700, fontSize: 14, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client}</div>
+                            </div>
+                            <span style={{ background: PRIMARY, color: '#fff', fontSize: 12, padding: '1px 8px', borderRadius: 20, fontWeight: 700, flexShrink: 0 }}>{items.length}</span>
+                          </div>
+                          <div style={{ flex: 1, overflowY: 'auto', background: '#f4f2ef', borderRadius: '0 0 12px 12px', padding: '10px 8px 4px' }}>
+                            {items.map(({ pos, order }) => <PosCard key={pos.id} pos={pos} order={order} />)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()
             }
           </div>
         )}
