@@ -1065,12 +1065,9 @@ export default function AdminApp({ user }: Props) {
                 </button>
               ))}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {incTabMap[incTab].length === 0
-                ? <div style={{ textAlign: 'center', padding: 40, color: '#5f5952', fontSize: 14 }}>
-                    {search ? 'Ничего не найдено' : 'Нет карточек'}
-                  </div>
-                : filterOrders(incTabMap[incTab]).map(o => {
+            {(() => {
+              const list = filterOrders(incTabMap[incTab])
+              const renderCard = (o: Order) => {
                     const pct = cardProgress(o)
                     const purchase = isPurchase(o)
                     return (
@@ -1173,9 +1170,34 @@ export default function AdminApp({ user }: Props) {
                         </div>
                       </div>
                     )
-                  })
               }
-            </div>
+              if (list.length === 0) return <div style={{ textAlign: 'center', padding: 40, color: '#5f5952', fontSize: 14 }}>{search ? 'Ничего не найдено' : 'Нет карточек'}</div>
+              // Вкладка «Новые» — авто-канбан по заказчикам (как у логиста).
+              if (incTab === 'new') {
+                const groups: Record<string, Order[]> = {}
+                for (const o of list) { const key = ((o.to || o.from || '—').trim()) || '—'; (groups[key] = groups[key] || []).push(o) }
+                const cols = Object.entries(groups).sort((a, b) => b[1].length - a[1].length)
+                return (
+                  <div style={{ display: 'flex', gap: 12, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 8, alignItems: 'flex-start' }}>
+                    {cols.map(([client, items]) => (
+                      <div key={client} style={{ flexShrink: 0, width: 350, display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 240px)' }}>
+                        <div style={{ padding: '9px 12px', background: COLORS.sidebar.bg, borderRadius: '12px 12px 0 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,.5)', fontWeight: 700, letterSpacing: '.05em' }}>ЗАКАЗЧИК</div>
+                            <div style={{ fontWeight: 700, fontSize: 14, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client}</div>
+                          </div>
+                          <span style={{ background: COLORS.primary, color: '#fff', fontSize: 12, padding: '1px 8px', borderRadius: 20, fontWeight: 700, flexShrink: 0 }}>{items.length}</span>
+                        </div>
+                        <div style={{ flex: 1, overflowY: 'auto', background: '#f4f2ef', borderRadius: '0 0 12px 12px', padding: '10px 8px' }}>
+                          {items.map(renderCard)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              }
+              return <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{list.map(renderCard)}</div>
+            })()}
           </div>
         )
       }
