@@ -340,7 +340,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
   const lbl: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#5f5952', marginBottom: 4, display: 'block', letterSpacing: '.04em' }
 
   // ── 3 кнопки статуса ──
-  function StatusBtns({ cardId, posId, posStatus, posName, fromWho, toWho, qty }: { cardId: string; posId: string; posStatus: string; posName: string; fromWho: string; toWho: string; qty: number }) {
+  function StatusBtns({ cardId, posId, posStatus, posName, fromWho, toWho, qty, compact }: { cardId: string; posId: string; posStatus: string; posName: string; fromWho: string; toWho: string; qty: number; compact?: boolean }) {
     const btns = [
       { label: 'ПРИНЯЛ',      status: 'В работе'   },
       { label: 'В РАБОТЕ',    status: 'В пути'      },
@@ -348,11 +348,11 @@ export default function LogistPortal({ user, logistUser }: Props) {
     ]
     const activeIdx = posStatus === 'В работе' ? 0 : posStatus === 'В пути' ? 1 : posStatus === 'Доставлено' ? 2 : -1
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: compact ? 4 : 6, marginTop: compact ? 8 : 12 }}>
         {btns.map((b, i) => (
           <button key={b.label} onClick={() => handleStatus(cardId, posId, b.status, posName, fromWho, toWho, qty)}
             disabled={updating === posId || posStatus === 'Доставлено'}
-            style={{ padding: '10px 4px', borderRadius: 8, border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', background: i <= activeIdx ? PRIMARY : '#f1efec', color: i <= activeIdx ? '#fff' : '#5f5952', opacity: updating === posId ? .6 : 1 }}>
+            style={{ padding: compact ? '6px 2px' : '10px 4px', borderRadius: compact ? 6 : 8, border: 'none', fontWeight: 700, fontSize: compact ? 10.5 : 12, cursor: 'pointer', fontFamily: 'inherit', background: i <= activeIdx ? PRIMARY : '#f1efec', color: i <= activeIdx ? '#fff' : '#5f5952', opacity: updating === posId ? .6 : 1 }}>
             {b.label}
           </button>
         ))}
@@ -360,12 +360,12 @@ export default function LogistPortal({ user, logistUser }: Props) {
     )
   }
 
-  // ── Карточка позиции ──
-  function PosCard({ pos, order }: { pos: any; order: Order }) {
+  // ── Карточка позиции ── (compact — для узких канбан-колонок)
+  function PosCard({ pos, order, compact }: { pos: any; order: Order; compact?: boolean }) {
     // Редактировать/добавлять можно только СВОИ позиции (resp==я), ещё не доставленные
     const editable = eqName(pos.resp, myName) && pos.status !== 'Доставлено'
     return (
-      <div style={{ background: isPurchase(order) ? '#faf7fd' : '#fff', borderRadius: 14, padding: 16, marginBottom: 12, borderLeft: `4px solid ${isPurchase(order) ? '#7a3aaa' : '#2e8a5e'}`, boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+      <div style={{ background: isPurchase(order) ? '#faf7fd' : '#fff', borderRadius: compact ? 12 : 14, padding: compact ? 11 : 16, marginBottom: compact ? 9 : 12, borderLeft: `4px solid ${isPurchase(order) ? '#7a3aaa' : '#2e8a5e'}`, boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
         {editPosId === pos.id ? (
           <PositionEditor pos={pos} orderId={order.id}
             onEditing={e => { editingRef.current = e }}
@@ -374,10 +374,10 @@ export default function LogistPortal({ user, logistUser }: Props) {
         ) : (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-              <div style={{ fontWeight: 700, fontSize: 16, flex: 1, display: 'flex', alignItems: 'center', gap: 7 }}><RalDot code={extractRal(pos.name1c || pos.oral)} />{pos.name1c || pos.oral}</div>
-              <span style={{ fontWeight: 700, fontSize: 18, color: PRIMARY, marginLeft: 10 }}>{pos.qty} {pos.unit}</span>
+              <div style={{ fontWeight: 700, fontSize: compact ? 14 : 16, flex: 1, display: 'flex', alignItems: 'center', gap: 7 }}><RalDot code={extractRal(pos.name1c || pos.oral)} />{pos.name1c || pos.oral}</div>
+              <span style={{ fontWeight: 700, fontSize: compact ? 15 : 18, color: PRIMARY, marginLeft: 8 }}>{pos.qty} {pos.unit}</span>
             </div>
-            <div style={{ fontSize: 14, color: '#5f5952', marginBottom: 4 }}>{order.from} → {order.to || '—'}</div>
+            <div style={{ fontSize: compact ? 12.5 : 14, color: '#5f5952', marginBottom: 4 }}>{order.from} → {order.to || '—'}</div>
             {/* Поставщик — редактируемый (может меняться в процессе) */}
             {editable && (supEditPos === pos.id ? (
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
@@ -402,13 +402,13 @@ export default function LogistPortal({ user, logistUser }: Props) {
               <span style={{ fontSize: 12, background: pos.status === 'Доставлено' ? '#e8f5ee' : '#fff0ea', color: pos.status === 'Доставлено' ? '#2e8a5e' : '#c0532a', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{pos.status}</span>
               {editable && <button onClick={() => { editingRef.current = true; setEditPosId(pos.id) }} style={{ ...editBtn(false), marginLeft: 'auto' }}>Изменить</button>}
             </div>
-            <StatusBtns cardId={order.id} posId={pos.id} posStatus={pos.status} posName={pos.name1c || pos.oral} fromWho={pos.supplier || order.from} toWho={order.to || ''} qty={pos.qty} />
+            <StatusBtns cardId={order.id} posId={pos.id} posStatus={pos.status} posName={pos.name1c || pos.oral} fromWho={pos.supplier || order.from} toWho={order.to || ''} qty={pos.qty} compact={compact} />
             {/* Чат по заказу */}
             <button onClick={() => {
               const opening = chatOpenPos !== pos.id
               setChatOpenPos(opening ? pos.id : null)
               if (opening) fetch(`/api/orders/${order.id}/messages`).then(r => r.ok ? r.json() : []).then((d: any) => { const n = Array.isArray(d) ? d.length : 0; setMsgCount(prev => prev[order.id] === n ? prev : { ...prev, [order.id]: n }) }).catch(() => {})
-            }} style={{ marginTop: 10, width: '100%', padding: '8px', border: 'none', borderRadius: 8, background: chatOpenPos === pos.id ? PRIMARY : '#f1efec', color: chatOpenPos === pos.id ? '#fff' : '#5f5952', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit', fontWeight: 600 }}>
+            }} style={{ marginTop: compact ? 7 : 10, width: '100%', padding: compact ? '6px' : '8px', border: 'none', borderRadius: 8, background: chatOpenPos === pos.id ? PRIMARY : '#f1efec', color: chatOpenPos === pos.id ? '#fff' : '#5f5952', cursor: 'pointer', fontSize: compact ? 12.5 : 14, fontFamily: 'inherit', fontWeight: 600 }}>
               💬 Чат{msgCount[order.id] ? ` (${msgCount[order.id]})` : ''}
             </button>
             {chatOpenPos === pos.id && (
@@ -494,7 +494,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
                   return (
                     <div style={{ display: 'flex', gap: 12, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 8, marginTop: 10, alignItems: 'flex-start' }}>
                       {cols.map(([client, items]) => (
-                        <div key={client} style={{ flexShrink: 0, width: 274, display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 230px)' }}>
+                        <div key={client} style={{ flexShrink: 0, width: 312, display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 230px)' }}>
                           <div style={{ padding: '9px 12px', background: DARK, borderRadius: '12px 12px 0 0', display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 10, color: 'rgba(255,255,255,.5)', fontWeight: 700, letterSpacing: '.05em' }}>ЗАКАЗЧИК</div>
@@ -503,7 +503,7 @@ export default function LogistPortal({ user, logistUser }: Props) {
                             <span style={{ background: PRIMARY, color: '#fff', fontSize: 12, padding: '1px 8px', borderRadius: 20, fontWeight: 700, flexShrink: 0 }}>{items.length}</span>
                           </div>
                           <div style={{ flex: 1, overflowY: 'auto', background: '#f4f2ef', borderRadius: '0 0 12px 12px', padding: '10px 8px 4px' }}>
-                            {items.map(({ pos, order }) => <PosCard key={pos.id} pos={pos} order={order} />)}
+                            {items.map(({ pos, order }) => <PosCard key={pos.id} pos={pos} order={order} compact />)}
                           </div>
                         </div>
                       ))}
