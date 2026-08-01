@@ -1172,8 +1172,8 @@ export default function AdminApp({ user }: Props) {
                     )
               }
               if (list.length === 0) return <div style={{ textAlign: 'center', padding: 40, color: '#5f5952', fontSize: 14 }}>{search ? 'Ничего не найдено' : 'Нет карточек'}</div>
-              // Вкладка «Новые» — авто-канбан по заказчикам (как у логиста).
-              if (incTab === 'new') {
+              // Вкладки «Новые» и «К учёту» — авто-канбан по заказчикам (как у логиста).
+              if (incTab === 'new' || incTab === 'toacc') {
                 const groups: Record<string, Order[]> = {}
                 for (const o of list) { const key = ((o.to || o.from || '—').trim()) || '—'; (groups[key] = groups[key] || []).push(o) }
                 const cols = Object.entries(groups).sort((a, b) => b[1].length - a[1].length)
